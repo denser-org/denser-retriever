@@ -2,7 +2,7 @@ import openai
 import streamlit as st
 from elasticsearch import Elasticsearch
 from container.denser.config import es_host, es_user, es_passwd, default_openai_model, openai_api_key, topk_passages, \
-    use_vector_search, vector_search_engine, es_weight, vector_weight, topk_passages_rerank, rerank_bs, emb_dims, \
+    use_vector_search, vector_search_engine, keyword_weight, vector_weight, topk_passages_rerank, rerank_bs, emb_dims, \
     emb_model, milvus_host, milvus_port, milvus_user, milvus_passwd
 from container.denser.prompt_lib import prompt_default, prompt_legal
 import time
@@ -142,7 +142,7 @@ def merge_score(uid_to_scores_1, uid_to_scores_2):
     all_uids = set().union(*[uid_to_scores_1, uid_to_scores_2])
     for uid in all_uids:
         # Negative distance score as a measure of relevance
-        uid_to_score[uid] = es_weight * uid_to_scores_1.get(uid, 0) - vector_weight * uid_to_scores_2.get(uid, 0)
+        uid_to_score[uid] = keyword_weight * uid_to_scores_1.get(uid, 0) - vector_weight * uid_to_scores_2.get(uid, 0)
     return uid_to_score
 
 

@@ -1,32 +1,24 @@
-import random
-from abc import ABC, abstractmethod
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
 import json
 import uuid
 
-import numpy as np
-import torch
 from .Retriever import Retriever
-from .config import es_host, es_user, es_passwd
-
-from .utils import get_logger, aggregate_passages
+from .utils import get_logger
 logger = get_logger(__name__)
 
 
 class RetrieverElasticSearch(Retriever):
     """
-    Base class for all evaluators
-    Extend this class and implement __call__ for custom evaluators.
+    Elasticsearch Retriever
     """
 
-    def __init__(self, index_name):
+    def __init__(self, index_name, config):
         self.retrieve_type = "elasticsearch"
         self.index_name = index_name
-        # import pdb; pdb.set_trace()
         self.es = Elasticsearch(
-            hosts=[es_host],
-            basic_auth=(es_user, es_passwd),
+            hosts=[config['keyword']['es_host']],
+            basic_auth=(config['keyword']['es_user'], config['keyword']['es_passwd']),
             request_timeout=600
         )
 

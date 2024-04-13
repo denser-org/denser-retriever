@@ -1,23 +1,24 @@
-from .config import es_weight, vector_weight, rerank_weight, rerank_bs, es_ingest_passage_bs, \
-    vector_ingest_passage_bs, merge, topk_passages
 from .Retriever import Retriever
 from .RetrieverElasticSearch import RetrieverElasticSearch
 from .RetrieverMilvus import RetrieverMilvus
 from .Reranker import Reranker
 import time
-from .utils import get_logger, passages_to_dict, dump_passages, aggregate_passages
+from .utils import get_logger, dump_passages, aggregate_passages
+import yaml
 
 logger = get_logger(__name__)
 
 class RetrieverGeneral(Retriever):
 
-    def __init__(self, index_name):
+    def __init__(self, index_name, config_file):
+        config = yaml.safe_load(open(config_file))
+        self.config = config
         self.retrieve_type = "general"
-        self.index_name = index_name
-        # import pdb; pdb.set_trace()
-        self.retrieverElasticSearch = RetrieverElasticSearch(index_name) if es_weight > 0 else None
-        self.retrieverMilvus = RetrieverMilvus(index_name) if vector_weight > 0 else None
-        self.reranker = Reranker() if rerank_weight > 0 else None
+        config['index_name'] = index_name
+        self.retrieverElasticSearch = RetrieverElasticSearch(index_name, config) \
+            if config['keyword_weight'] > 0 else None
+        self.retrieverMilvus = RetrieverMilvus(index_name, config) if config['vector_weight'] > 0 else None
+        self.reranker = Reranker(config['rerank']['rerank_model']) if config['rerank_weight'] > 0 else None
 
     def build_dicts(self, passages):
         uid_to_passages, uid_to_scores, uid_to_ranks = {}, {}, {}
@@ -59,7 +60,7 @@ class RetrieverGeneral(Retriever):
         uid_to_passages_2, uid_to_scores_2, uid_to_ranks_2 = self.build_dicts(passages_2)
         # import pdb; pdb.set_trace()
         uid_to_passages_1.update(uid_to_passages_2)
-        if merge == "linear":
+        if self.config['merge'] == "linear":
             uid_to_scores = self.merge_score_linear(uid_to_scores_1, uid_to_scores_2, weight_2)
         else: # rank
             uid_to_scores = self.merge_score_rank(uid_to_ranks_1, uid_to_ranks_2)
@@ -79,45 +80,45 @@ class RetrieverGeneral(Retriever):
 
     def ingest(self, doc_or_passage_file):
         # import pdb; pdb.set_trace()
-        if es_weight > 0:
-            self.retrieverElasticSearch.ingest(doc_or_passage_file, es_ingest_passage_bs)
+        if self.config['keyword_weight'] > 0:
+            self.retrieverElasticSearch.ingest(doc_or_passage_file, self.config['keyword']['es_ingest_passage_bs'])
             logger.info(f"Done building ES index")
-        if vector_weight > 0:
-            self.retrieverMilvus.ingest(doc_or_passage_file, vector_ingest_passage_bs)
+        if self.config['vector_weight'] > 0:
+            self.retrieverMilvus.ingest(doc_or_passage_file, self.config['vector']['vector_ingest_passage_bs'])
             logger.info(f"Done building Vector DB index")
 
 
     def retrieve(self, query, topk):
         passages = []
         # import pdb; pdb.set_trace()
-        if es_weight > 0:
+        if self.config['keyword_weight'] > 0:
             start_time = time.time()
             passages_es = self.retrieverElasticSearch.retrieve(query, topk)
             logger.info(f"Keyword Search before merging Passages 1: {len(passages)} Passages 2: {len(passages_es)}")
-            passages = self.merge_results(passages, passages_es, es_weight)
+            passages = self.merge_results(passages, passages_es, self.config['keyword_weight'])
             logger.info(f"After merging Passages: {len(passages)}")
             retrieve_time_sec = time.time() - start_time
             logger.info(f"ElasticSearch Retrieve time: {retrieve_time_sec:.3f} sec.")
             dump_passages(passages, "retriever_keyword.jsonl")
-        if vector_weight > 0:
+        if self.config['vector_weight'] > 0:
             start_time = time.time()
             passages_vector = self.retrieverMilvus.retrieve(query, topk)
             dump_passages(passages_vector, "retriever_vector.jsonl")
             # import pdb;
             # pdb.set_trace()
             logger.info(f"Vector Search before merging Passages 1: {len(passages)} Passages 2: {len(passages_vector)}")
-            passages = self.merge_results(passages, passages_vector, vector_weight)
+            passages = self.merge_results(passages, passages_vector, self.config['vector_weight'])
             logger.info(f"After merging Passages: {len(passages)}")
             # import pdb; pdb.set_trace()
             retrieve_time_sec = time.time() - start_time
             logger.info(f"Vector Retrieve time: {retrieve_time_sec:.3f} sec.")
             dump_passages(passages, "retriever_vector_merged.jsonl")
-        if rerank_weight > 0:
+        if self.config['rerank_weight'] > 0:
             start_time = time.time()
-            passages = passages[:topk_passages]
-            passages_rerank = self.reranker.rerank(query, passages, rerank_bs)
+            passages = passages[:self.config['rerank']['topk_passages']]
+            passages_rerank = self.reranker.rerank(query, passages, self.config['rerank']['rerank_bs'])
             dump_passages(passages_rerank, "retriever_rerank.jsonl")
-            passages = self.merge_results(passages, passages_rerank, rerank_weight)
+            passages = self.merge_results(passages, passages_rerank, self.config['rerank_weight'])
             rerank_time_sec = time.time() - start_time
             logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
             dump_passages(passages, "retriever_rerank_merged.jsonl")
@@ -125,7 +126,6 @@ class RetrieverGeneral(Retriever):
         if len(passages) > topk:
             passages = passages[:topk]
 
-        # import pdb; pdb.set_trace()
         docs = aggregate_passages(passages)
         return passages, docs
 

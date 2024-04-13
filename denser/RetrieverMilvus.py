@@ -1,11 +1,6 @@
-from transformers import AutoTokenizer, AutoModel
-import torch
-import torch.nn.functional as F
 import json
-
-from .config import milvus_host, milvus_port, milvus_user, milvus_passwd, emb_model, emb_dims
 from .Retriever import Retriever
-from .utils import get_logger, aggregate_passages
+from .utils import get_logger
 
 logger = get_logger(__name__)
 import numpy as np
@@ -19,7 +14,8 @@ from sentence_transformers import SentenceTransformer
 
 
 class RetrieverMilvus(Retriever):
-    def __init__(self, index_name):
+    def __init__(self, index_name, config):
+        self.config = config
         self.retrieve_type = "milvus"
         self.index_name = index_name
         self.index = None
@@ -28,8 +24,10 @@ class RetrieverMilvus(Retriever):
         self.text_max_length = 8000
 
     def create_index(self):
-        connections.connect("default", host=milvus_host, port=milvus_port, user=milvus_user,
-                            password=milvus_passwd)
+        connections.connect("default", host=self.config['vector']['milvus_host'],
+                            port=self.config['vector']['milvus_port'],
+                            user=self.config['vector']['milvus_user'],
+                            password=self.config['vector']['milvus_passwd'])
         logger.info(f"All Milvus collections: {utility.list_collections()}")
         if utility.has_collection(self.index_name):
             logger.info(f"Remove existing Milvus index {self.index_name}")
@@ -40,14 +38,16 @@ class RetrieverMilvus(Retriever):
             FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=self.title_max_length),
             FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=self.text_max_length),
             FieldSchema(name="pid", dtype=DataType.INT64),
-            FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=emb_dims)
+            FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.config['vector']['emb_dims'])
         ]
         schema = CollectionSchema(fields, "Milvus schema")
         self.index = Collection(self.index_name, schema, consistency_level="Strong")
 
     def connect_index(self):
-        connections.connect("default", host=milvus_host, port=milvus_port, user=milvus_user,
-                            password=milvus_passwd)
+        connections.connect("default", host=self.config['vector']['milvus_host'],
+                            port=self.config['vector']['milvus_port'],
+                            user=self.config['vector']['milvus_user'],
+                            password=self.config['vector']['milvus_passwd'])
         has = utility.has_collection(self.index_name)
         assert has == True
         fields = [
@@ -56,7 +56,7 @@ class RetrieverMilvus(Retriever):
             FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=self.title_max_length),
             FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=self.text_max_length),
             FieldSchema(name="pid", dtype=DataType.INT64),
-            FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=emb_dims)
+            FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.config['vector']['emb_dims'])
         ]
         schema = CollectionSchema(fields, "Milvus schema")
         self.index = Collection(self.index_name, schema, consistency_level="Strong")
@@ -64,13 +64,12 @@ class RetrieverMilvus(Retriever):
         self.index.load()
 
     def generate_embedding(self, passages):
-        model = SentenceTransformer(emb_model)
+        model = SentenceTransformer(self.config['vector']['emb_model'])
         embeddings = model.encode(passages)
         return embeddings
 
     def ingest(self, doc_or_passage_file, batch_size):
         self.create_index()
-        # import pdb; pdb.set_trace()
         batch = []
         uids, sources, titles, texts, pids = [], [], [], [], []
         record_id = 0
@@ -88,8 +87,6 @@ class RetrieverMilvus(Retriever):
                 pids.append(data.get("pid", -1))
                 record_id += 1
                 if len(batch) == batch_size:
-                    # import pdb;
-                    # pdb.set_trace()
                     success = False
                     for attempt in range(max_retries):
                         try:
@@ -145,7 +142,6 @@ class RetrieverMilvus(Retriever):
         self.index.load()
 
     def retrieve(self, query_text, topk):
-        # import pdb; pdb.set_trace()
         if not self.index:
             self.connect_index()
         embeddings = self.generate_embedding([query_text])
@@ -161,7 +157,6 @@ class RetrieverMilvus(Retriever):
         for id in range(topk_used):
             assert len(result) == 1
             hit = result[0][id]
-            # import pdb; pdb.set_trace()
             passage = {
                 'source': hit.entity.source,
                 'text': hit.entity.text,

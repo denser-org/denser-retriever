@@ -1,11 +1,8 @@
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
-from .config import rerank_model, es_weight, rerank_weight
 from sentence_transformers import CrossEncoder
 
 class Reranker:
 
-    def __init__(self):
+    def __init__(self, rerank_model):
         self.model = CrossEncoder(rerank_model, max_length=512)
 
     def rerank(self, query, passages, batch_size):

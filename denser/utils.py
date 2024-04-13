@@ -1,11 +1,9 @@
-import logging
 from typing import List, Dict, Union, Tuple
-
 import torch
 import json
 import logging
 import sys
-from .config import max_doc_size
+
 
 def cos_sim(a, b):
     """
@@ -198,7 +196,7 @@ def get_logger_file(name):
     logging.getLogger().addHandler(console)
     return logging
 
-def save_denser_corpus(corpus, output_file: str):
+def save_denser_corpus(corpus, output_file: str, max_doc_size):
     out = open(output_file, "w")
     for i, d in enumerate(corpus):
         if max_doc_size > 0 and i >= max_doc_size:

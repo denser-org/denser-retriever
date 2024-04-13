@@ -1,11 +1,12 @@
 from denser.utils_data import HFDataLoader
-from denser.utils import save_denser_corpus, save_denser_queries, save_denser_qrels, passages_to_dict, aggregate_passages
-from denser.config import topk_passages, output_prefix, max_query_size
+from denser.utils import save_denser_corpus, save_denser_queries, save_denser_qrels, passages_to_dict
 from denser.RetrieverGeneral import RetrieverGeneral
 from typing import Dict, List, Tuple
 import pytrec_eval
 import logging
 import os
+import yaml
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 def evaluate(qrels: Dict[str, Dict[str, int]],
              results: Dict[str, Dict[str, float]],
+             metric_file: str,
              k_values: List[int] = [1, 3, 5, 10, 100, 1000],
              ignore_identical_ids: bool = True) -> Tuple[
     Dict[str, float], Dict[str, float], Dict[str, float], Dict[str, float]]:
@@ -57,10 +59,11 @@ def evaluate(qrels: Dict[str, Dict[str, int]],
         recall[f"Recall@{k}"] = round(recall[f"Recall@{k}"] / len(scores), 5)
         precision[f"P@{k}"] = round(precision[f"P@{k}"] / len(scores), 5)
 
+    out = open(metric_file, "w")
     for eval in [ndcg, _map, recall, precision]:
-        logger.info("\n")
-        for k in eval.keys():
-            logger.info("{}: {:.4f}".format(k, eval[k]))
+        json.dump(eval, out, indent = 4,
+               ensure_ascii = False)
+        out.write("\n")
 
     return ndcg, _map, recall, precision
 
@@ -75,43 +78,50 @@ def run_benchmark(dataset_name):
     ).load(split=split)
 
     data_dir_name = os.path.basename(dataset_name)
+    index_name = data_dir_name.replace("-", "_")
+    retriever = RetrieverGeneral(index_name, "denser/config.yaml")
+
+    output_prefix = retriever.config['output_prefix']
     exp_dir = os.path.join(output_prefix, f"exp_{data_dir_name}")
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
     passage_file = os.path.join(exp_dir, "passages.jsonl")
-    save_denser_corpus(corpus, passage_file)
+    save_denser_corpus(corpus, passage_file, retriever.config['max_doc_size'])
     query_file = os.path.join(exp_dir, "queries.jsonl")
     save_denser_queries(queries, query_file)
     qrels_file = os.path.join(exp_dir, "qrels.jsonl")
     save_denser_qrels(qrels, qrels_file)
 
-    index_name = data_dir_name.replace("-", "_")
-    retriever = RetrieverGeneral(index_name)
     retriever.ingest(passage_file)
 
     res = {}
     res_doc = {}
     for i, q in enumerate(queries):
-        if max_query_size > 0 and i >= max_query_size:
+        if retriever.config['max_query_size'] > 0 and i >= retriever.config['max_query_size']:
             break
         logger.info(f"Processing query {i}")
         # import pdb; pdb.set_trace()
-        passages, docs = retriever.retrieve(q['text'], topk_passages)
+        passages, docs = retriever.retrieve(q['text'], retriever.config['rerank']['topk_passages'])
         passage_to_score = passages_to_dict(passages, False)
         res[q['id']] = passage_to_score
         # doc results
         doc_to_score = passages_to_dict(docs, True)
         res_doc[q['id']] = doc_to_score
 
+    config_file = os.path.join(exp_dir, "config.yaml")
+    with open(config_file, 'w') as file:
+        yaml.dump(retriever.config, file, sort_keys=False)
     res_file = os.path.join(exp_dir, "results.jsonl")
     save_denser_qrels(res, res_file)
     res_doc_file = os.path.join(exp_dir, "results_doc.jsonl")
     save_denser_qrels(res_doc, res_doc_file)
     logger.info("Evaluate passage results")
-    ndcg, _map, recall, precision = evaluate(qrels, res)
+    metric_file = os.path.join(exp_dir, "metric.json")
+    evaluate(qrels, res, metric_file)
 
     logger.info("Evaluate doc results")
-    ndcg, _map, recall, precision = evaluate(qrels, res_doc)
+    metric_doc_file = os.path.join(exp_dir, "metric_doc.json")
+    evaluate(qrels, res_doc, metric_doc_file)
 
 
 if __name__ == "__main__":

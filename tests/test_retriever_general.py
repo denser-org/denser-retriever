@@ -1,5 +1,3 @@
-import pytest
-
 from denser.RetrieverGeneral import RetrieverGeneral
 from denser.utils import passages_to_dict
 
@@ -12,7 +10,7 @@ class TestRetrieverGeneral:
         """
 
         index_name = "test_index_temp"
-        self.retriever = RetrieverGeneral(index_name)
+        self.retriever = RetrieverGeneral(index_name, "denser/config.yaml")
 
     def test_retriever_ingest(self):
         doc_or_passage_file = "tests/test_data/passages_000000.jsonl"

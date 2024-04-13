@@ -84,8 +84,6 @@ class HFDataLoader:
         self._load_qrels(split)
         # filter queries with no qrels
         qrels_dict = defaultdict(dict)
-        # import pdb;
-        # pdb.set_trace()
         def qrels_dict_init(row):
             qrels_dict[row["query-id"]][row["corpus-id"]] = int(row["score"])
 
@@ -110,7 +108,6 @@ class HFDataLoader:
         return self.corpus
 
     def _load_corpus(self):
-        # import pdb; pdb.set_trace()
         if self.hf_repo:
             corpus_ds = load_dataset(
                 self.hf_repo,
@@ -136,9 +133,6 @@ class HFDataLoader:
             ]
         )
         self.corpus = corpus_ds
-        # import pdb;
-        # pdb.set_trace()
-        # aa = 3
 
     def _load_queries(self):
         if self.hf_repo:
