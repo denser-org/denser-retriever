@@ -1,4 +1,4 @@
-# 🎙️ Introduction
+# <img src="images/logo.png" alt="denser logo" width="40"/> Denser Retriever
 
 The Denser Retriever project is set to establish a unified and extensive Retriever hub. This hub will not only incorporate the vector database, which is optimized for recall, but also integrate traditional keyword-based search methods, optimized for precision, along with alternatives like ML rerankers. Our goal is to deliver an Enterprise-grade AI retriever solution that seamlessly integrates to enhance your AI applications.
 
