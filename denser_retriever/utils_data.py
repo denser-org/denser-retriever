@@ -1,10 +1,12 @@
-from datasets import Features, Value, load_dataset
-import os
 import logging
-from typing import Dict, Tuple
+import os
 from collections import defaultdict
+from typing import Dict, Tuple
+
+from datasets import Features, Value, load_dataset
 
 logger = logging.getLogger(__name__)
+
 
 # Adapted from https://github.com/beir-cellar/beir/blob/f062f038c4bfd19a8ca942a9910b1e0d218759d4/beir/datasets/data_loader_hf.py#L10
 class HFDataLoader:
@@ -37,15 +39,9 @@ class HFDataLoader:
                 query_file = prefix + "-" + query_file
                 qrels_folder = prefix + "-" + qrels_folder
 
-            self.corpus_file = (
-                os.path.join(data_folder, corpus_file) if data_folder else corpus_file
-            )
-            self.query_file = (
-                os.path.join(data_folder, query_file) if data_folder else query_file
-            )
-            self.qrels_folder = (
-                os.path.join(data_folder, qrels_folder) if data_folder else None
-            )
+            self.corpus_file = os.path.join(data_folder, corpus_file) if data_folder else corpus_file
+            self.query_file = os.path.join(data_folder, query_file) if data_folder else query_file
+            self.qrels_folder = os.path.join(data_folder, qrels_folder) if data_folder else None
             self.qrels_file = qrels_file
         self.streaming = streaming
         self.keep_in_memory = keep_in_memory
@@ -53,18 +49,12 @@ class HFDataLoader:
     @staticmethod
     def check(fIn: str, ext: str):
         if not os.path.exists(fIn):
-            raise ValueError(
-                "File {} not present! Please provide accurate file.".format(fIn)
-            )
+            raise ValueError("File {} not present! Please provide accurate file.".format(fIn))
 
         if not fIn.endswith(ext):
-            raise ValueError(
-                "File {} must be present with extension {}".format(fIn, ext)
-            )
+            raise ValueError("File {} must be present with extension {}".format(fIn, ext))
 
-    def load(
-        self, split="test"
-    ) -> Tuple[Dict[str, Dict[str, str]], Dict[str, str], Dict[str, Dict[str, int]]]:
+    def load(self, split="test") -> Tuple[Dict[str, Dict[str, str]], Dict[str, str], Dict[str, Dict[str, int]]]:
         if not self.hf_repo:
             self.qrels_file = os.path.join(self.qrels_folder, split + ".tsv")
             self.check(fIn=self.corpus_file, ext="jsonl")
@@ -84,6 +74,7 @@ class HFDataLoader:
         self._load_qrels(split)
         # filter queries with no qrels
         qrels_dict = defaultdict(dict)
+
         def qrels_dict_init(row):
             qrels_dict[row["query-id"]][row["corpus-id"]] = int(row["score"])
 
@@ -126,11 +117,7 @@ class HFDataLoader:
         corpus_ds = corpus_ds.cast_column("_id", Value("string"))
         corpus_ds = corpus_ds.rename_column("_id", "id")
         corpus_ds = corpus_ds.remove_columns(
-            [
-                col
-                for col in corpus_ds.column_names
-                if col not in ["id", "text", "title"]
-            ]
+            [col for col in corpus_ds.column_names if col not in ["id", "text", "title"]]
         )
         self.corpus = corpus_ds
 
@@ -152,9 +139,7 @@ class HFDataLoader:
         queries_ds = next(iter(queries_ds.values()))  # get first split
         queries_ds = queries_ds.cast_column("_id", Value("string"))
         queries_ds = queries_ds.rename_column("_id", "id")
-        queries_ds = queries_ds.remove_columns(
-            [col for col in queries_ds.column_names if col not in ["id", "text"]]
-        )
+        queries_ds = queries_ds.remove_columns([col for col in queries_ds.column_names if col not in ["id", "text"]])
         self.queries = queries_ds
 
     def _load_qrels(self, split):

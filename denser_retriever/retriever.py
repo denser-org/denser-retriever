@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+
 class Retriever(ABC):
     """
     Base class for all Retriever

@@ -1,7 +1,7 @@
 from sentence_transformers import CrossEncoder
 
-class Reranker:
 
+class Reranker:
     def __init__(self, rerank_model):
         self.model = CrossEncoder(rerank_model, max_length=512)
 
@@ -11,11 +11,11 @@ class Reranker:
         reranked_passages = []
 
         for i in range(0, num_passages, batch_size):
-            batch = passage_texts[i:i + batch_size]
+            batch = passage_texts[i : i + batch_size]
             scores = self.model.predict(batch).tolist()
 
-            for j, passage in enumerate(passages[i:i + batch_size]):
-                score_rerank = scores[j] if type(scores) is list else scores
+            for j, passage in enumerate(passages[i : i + batch_size]):
+                score_rerank = scores[j] if isinstance(scores, list) else scores
                 passage["score"] = score_rerank
                 reranked_passages.append(passage)
 

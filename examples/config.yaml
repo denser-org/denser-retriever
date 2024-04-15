@@ -1,4 +1,4 @@
-version: '0.1'
+version: "0.1"
 
 keyword_weight: 0.5
 vector_weight: 0.5
@@ -29,7 +29,7 @@ rerank:
   rerank_bs: 100
   topk_passages: 100
 
-output_prefix: /home/ubuntu/efs/denser_output_retriever/
+output_prefix: ./output/efs/denser_output_retriever/
 
 ## temp parameters
 max_doc_size: 10
