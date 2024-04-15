@@ -1,26 +1,35 @@
-from denser.utils_data import HFDataLoader
-from denser.utils import save_denser_corpus, save_denser_queries, save_denser_qrels, passages_to_dict
-from denser.RetrieverGeneral import RetrieverGeneral
-from typing import Dict, List, Tuple
-import pytrec_eval
+import json
 import logging
 import os
+from typing import Dict, List, Tuple
+
+import pytrec_eval
 import yaml
-import json
+
+from denser_retriever.retriever_general import RetrieverGeneral
+from denser_retriever.utils import (
+    passages_to_dict,
+    save_denser_corpus,
+    save_denser_qrels,
+    save_denser_queries,
+)
+from denser_retriever.utils_data import HFDataLoader
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def evaluate(qrels: Dict[str, Dict[str, int]],
-             results: Dict[str, Dict[str, float]],
-             metric_file: str,
-             k_values: List[int] = [1, 3, 5, 10, 100, 1000],
-             ignore_identical_ids: bool = True) -> Tuple[
-    Dict[str, float], Dict[str, float], Dict[str, float], Dict[str, float]]:
+def evaluate(
+    qrels: Dict[str, Dict[str, int]],
+    results: Dict[str, Dict[str, float]],
+    metric_file: str,
+    k_values: List[int] = [1, 3, 5, 10, 100, 1000],
+    ignore_identical_ids: bool = True,
+) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float], Dict[str, float]]:
     if ignore_identical_ids:
         logger.info(
-            'For evaluation, we ignore identical query and document ids (default), please explicitly set ``ignore_identical_ids=False`` to ignore this.')
+            "For evaluation, we ignore identical query and document ids (default), please explicitly set ``ignore_identical_ids=False`` to ignore this."  # noqa: E501
+        )
         popped = []
         for qid, rels in results.items():
             for pid in list(rels):
@@ -61,8 +70,7 @@ def evaluate(qrels: Dict[str, Dict[str, int]],
 
     out = open(metric_file, "w")
     for eval in [ndcg, _map, recall, precision]:
-        json.dump(eval, out, indent = 4,
-               ensure_ascii = False)
+        json.dump(eval, out, indent=4, ensure_ascii=False)
         out.write("\n")
 
     return ndcg, _map, recall, precision
@@ -79,14 +87,14 @@ def run_benchmark(dataset_name):
 
     data_dir_name = os.path.basename(dataset_name)
     index_name = data_dir_name.replace("-", "_")
-    retriever = RetrieverGeneral(index_name, "denser/config.yaml")
+    retriever = RetrieverGeneral(index_name, "examples/config.yaml")
 
-    output_prefix = retriever.config['output_prefix']
+    output_prefix = retriever.config["output_prefix"]
     exp_dir = os.path.join(output_prefix, f"exp_{data_dir_name}")
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
     passage_file = os.path.join(exp_dir, "passages.jsonl")
-    save_denser_corpus(corpus, passage_file, retriever.config['max_doc_size'])
+    save_denser_corpus(corpus, passage_file, retriever.config["max_doc_size"])
     query_file = os.path.join(exp_dir, "queries.jsonl")
     save_denser_queries(queries, query_file)
     qrels_file = os.path.join(exp_dir, "qrels.jsonl")
@@ -97,19 +105,19 @@ def run_benchmark(dataset_name):
     res = {}
     res_doc = {}
     for i, q in enumerate(queries):
-        if retriever.config['max_query_size'] > 0 and i >= retriever.config['max_query_size']:
+        if retriever.config["max_query_size"] > 0 and i >= retriever.config["max_query_size"]:
             break
         logger.info(f"Processing query {i}")
         # import pdb; pdb.set_trace()
-        passages, docs = retriever.retrieve(q['text'], retriever.config['rerank']['topk_passages'])
+        passages, docs = retriever.retrieve(q["text"], retriever.config["rerank"]["topk_passages"])
         passage_to_score = passages_to_dict(passages, False)
-        res[q['id']] = passage_to_score
+        res[q["id"]] = passage_to_score
         # doc results
         doc_to_score = passages_to_dict(docs, True)
-        res_doc[q['id']] = doc_to_score
+        res_doc[q["id"]] = doc_to_score
 
     config_file = os.path.join(exp_dir, "config.yaml")
-    with open(config_file, 'w') as file:
+    with open(config_file, "w") as file:
         yaml.dump(retriever.config, file, sort_keys=False)
     res_file = os.path.join(exp_dir, "results.jsonl")
     save_denser_qrels(res, res_file)

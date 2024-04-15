@@ -1,16 +1,21 @@
 import json
-from .Retriever import Retriever
+
+import numpy as np
+from pymilvus import (
+    Collection,
+    CollectionSchema,
+    DataType,
+    FieldSchema,
+    connections,
+    utility,
+)
+from sentence_transformers import SentenceTransformer
+
+from denser_retriever.retriever import Retriever
+
 from .utils import get_logger
 
 logger = get_logger(__name__)
-import numpy as np
-from pymilvus import (
-    connections,
-    utility,
-    FieldSchema, CollectionSchema, DataType,
-    Collection,
-)
-from sentence_transformers import SentenceTransformer
 
 
 class RetrieverMilvus(Retriever):
@@ -24,10 +29,13 @@ class RetrieverMilvus(Retriever):
         self.text_max_length = 8000
 
     def create_index(self):
-        connections.connect("default", host=self.config['vector']['milvus_host'],
-                            port=self.config['vector']['milvus_port'],
-                            user=self.config['vector']['milvus_user'],
-                            password=self.config['vector']['milvus_passwd'])
+        connections.connect(
+            "default",
+            host=self.config["vector"]["milvus_host"],
+            port=self.config["vector"]["milvus_port"],
+            user=self.config["vector"]["milvus_user"],
+            password=self.config["vector"]["milvus_passwd"],
+        )
         logger.info(f"All Milvus collections: {utility.list_collections()}")
         if utility.has_collection(self.index_name):
             logger.info(f"Remove existing Milvus index {self.index_name}")
@@ -38,33 +46,36 @@ class RetrieverMilvus(Retriever):
             FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=self.title_max_length),
             FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=self.text_max_length),
             FieldSchema(name="pid", dtype=DataType.INT64),
-            FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.config['vector']['emb_dims'])
+            FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.config["vector"]["emb_dims"]),
         ]
         schema = CollectionSchema(fields, "Milvus schema")
         self.index = Collection(self.index_name, schema, consistency_level="Strong")
 
     def connect_index(self):
-        connections.connect("default", host=self.config['vector']['milvus_host'],
-                            port=self.config['vector']['milvus_port'],
-                            user=self.config['vector']['milvus_user'],
-                            password=self.config['vector']['milvus_passwd'])
+        connections.connect(
+            "default",
+            host=self.config["vector"]["milvus_host"],
+            port=self.config["vector"]["milvus_port"],
+            user=self.config["vector"]["milvus_user"],
+            password=self.config["vector"]["milvus_passwd"],
+        )
         has = utility.has_collection(self.index_name)
-        assert has == True
+        assert has is True
         fields = [
             FieldSchema(name="uid", dtype=DataType.INT64, is_primary=True, auto_id=False, max_length=100),
             FieldSchema(name="source", dtype=DataType.VARCHAR, max_length=self.source_max_length),
             FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=self.title_max_length),
             FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=self.text_max_length),
             FieldSchema(name="pid", dtype=DataType.INT64),
-            FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.config['vector']['emb_dims'])
+            FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.config["vector"]["emb_dims"]),
         ]
         schema = CollectionSchema(fields, "Milvus schema")
         self.index = Collection(self.index_name, schema, consistency_level="Strong")
-        logger.info(f"Loading milvus index")
+        logger.info("Loading milvus index")
         self.index.load()
 
     def generate_embedding(self, passages):
-        model = SentenceTransformer(self.config['vector']['emb_model'])
+        model = SentenceTransformer(self.config["vector"]["emb_model"])
         embeddings = model.encode(passages)
         return embeddings
 
@@ -76,14 +87,14 @@ class RetrieverMilvus(Retriever):
         max_retries = 3
         failed_batches = []  # To store information about failed batches
 
-        with open(doc_or_passage_file, 'r') as jsonl_file:
+        with open(doc_or_passage_file, "r") as jsonl_file:
             for line in jsonl_file:
                 data = json.loads(line)
                 batch.append(data["title"] + " " + data["text"])
                 uids.append(record_id)
-                sources.append(data.get("source", "")[:self.source_max_length])
-                titles.append(data.get("title", "")[:self.title_max_length])
-                texts.append(data.get("text", "")[:self.text_max_length])
+                sources.append(data.get("source", "")[: self.source_max_length])
+                titles.append(data.get("title", "")[: self.title_max_length])
+                texts.append(data.get("text", "")[: self.text_max_length])
                 pids.append(data.get("pid", -1))
                 record_id += 1
                 if len(batch) == batch_size:
@@ -91,7 +102,7 @@ class RetrieverMilvus(Retriever):
                     for attempt in range(max_retries):
                         try:
                             embeddings = self.generate_embedding(batch)
-                            insert_result = self.index.insert([uids, sources, titles, texts, pids, np.array(embeddings)])
+                            self.index.insert([uids, sources, titles, texts, pids, np.array(embeddings)])
                             self.index.flush()
                             logger.info(f"Milvus vector DB ingesting {doc_or_passage_file} record {record_id}")
                             success = True
@@ -100,7 +111,7 @@ class RetrieverMilvus(Retriever):
                             logger.error(f"Attempt {attempt + 1}: Failed to create embeddings - {e}")
 
                     if not success:
-                        failed_batches.append({'sources': sources, 'pids': pids, 'batch': batch})
+                        failed_batches.append({"sources": sources, "pids": pids, "batch": batch})
 
                     batch = []
                     uids, sources, titles, texts, pids = [], [], [], [], []
@@ -111,7 +122,7 @@ class RetrieverMilvus(Retriever):
                 for attempt in range(max_retries):
                     try:
                         embeddings = self.generate_embedding(batch)
-                        insert_result = self.index.insert([uids, sources, titles, texts, pids, np.array(embeddings)])
+                        self.index.insert([uids, sources, titles, texts, pids, np.array(embeddings)])
                         self.index.flush()
                         logger.info(f"Milvus vector DB ingesting {doc_or_passage_file} record {record_id}")
                         success = True
@@ -120,16 +131,16 @@ class RetrieverMilvus(Retriever):
                         logger.error(f"Attempt {attempt + 1}: Failed to create embeddings for remaining batch - {e}")
 
                 if not success:
-                    failed_batches.append({'sources': sources, 'pids': pids, 'batch': batch})
+                    failed_batches.append({"sources": sources, "pids": pids, "batch": batch})
 
         # Save failed batches to a JSONL file
         assert ".jsonl" in doc_or_passage_file
         failure_output_file = doc_or_passage_file.replace(".jsonl", ".failed")
-        with open(failure_output_file, 'w') as fout:
+        with open(failure_output_file, "w") as fout:
             for failed_batch in failed_batches:
-                for source, pid, record in zip(failed_batch['sources'], failed_batch['pids'], failed_batch['batch']):
-                    json.dump({'source': source, 'pid': pid, 'data': record}, fout)
-                    fout.write('\n')
+                for source, pid, record in zip(failed_batch["sources"], failed_batch["pids"], failed_batch["batch"]):
+                    json.dump({"source": source, "pid": pid, "data": record}, fout)
+                    fout.write("\n")
 
         index = {
             "index_type": "IVF_FLAT",
@@ -150,7 +161,9 @@ class RetrieverMilvus(Retriever):
             "metric_type": "L2",
             "params": {"nprobe": 10},
         }
-        result = self.index.search(query_embedding, "embeddings", search_params, limit=topk, output_fields=["source", "title", "text", "pid"])
+        result = self.index.search(
+            query_embedding, "embeddings", search_params, limit=topk, output_fields=["source", "title", "text", "pid"]
+        )
 
         topk_used = min(len(result[0]), topk)
         passages = []
@@ -158,13 +171,12 @@ class RetrieverMilvus(Retriever):
             assert len(result) == 1
             hit = result[0][id]
             passage = {
-                'source': hit.entity.source,
-                'text': hit.entity.text,
-                'title': hit.entity.title,
-                'pid': hit.entity.pid,
-                'score': - hit.entity.distance
+                "source": hit.entity.source,
+                "text": hit.entity.text,
+                "title": hit.entity.title,
+                "pid": hit.entity.pid,
+                "score": -hit.entity.distance,
             }
             passages.append(passage)
 
         return passages
-
