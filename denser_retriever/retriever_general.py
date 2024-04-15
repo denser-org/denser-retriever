@@ -6,8 +6,7 @@ from denser_retriever.reranker import Reranker
 from denser_retriever.retriever import Retriever
 from denser_retriever.retriever_elastic_search import RetrieverElasticSearch
 from denser_retriever.retriever_milvus import RetrieverMilvus
-
-from .utils import aggregate_passages, dump_passages, get_logger
+from denser_retriever.utils import aggregate_passages, dump_passages, get_logger
 
 logger = get_logger(__name__)
 

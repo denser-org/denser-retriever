@@ -12,8 +12,7 @@ from pymilvus import (
 from sentence_transformers import SentenceTransformer
 
 from denser_retriever.retriever import Retriever
-
-from .utils import get_logger
+from denser_retriever.utils import get_logger
 
 logger = get_logger(__name__)
 
