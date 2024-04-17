@@ -76,7 +76,7 @@ class RetrieverMilvus(Retriever):
         max_retries = 3
         failed_batches = []  # To store information about failed batches
 
-        with open(doc_or_passage_file, 'r') as jsonl_file:
+        with open(doc_or_passage_file, 'r', encoding='utf-8') as jsonl_file:
             for line in jsonl_file:
                 data = json.loads(line)
                 batch.append(data["title"] + " " + data["text"])
