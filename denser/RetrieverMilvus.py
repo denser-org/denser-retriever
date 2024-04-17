@@ -13,6 +13,12 @@ from pymilvus import (
 from sentence_transformers import SentenceTransformer
 
 
+def slice_text(text, max_length):
+    # if text is multiple bytes characters (Chinese). [:max_length] returns number of characters, not bytes.
+    # and milvus FieldSchema only accepts bytes length of text.
+    return text.encode()[:max_length].decode(errors='ignore')
+
+
 class RetrieverMilvus(Retriever):
     def __init__(self, index_name, config):
         self.config = config
@@ -81,9 +87,9 @@ class RetrieverMilvus(Retriever):
                 data = json.loads(line)
                 batch.append(data["title"] + " " + data["text"])
                 uids.append(record_id)
-                sources.append(data.get("source", "")[:self.source_max_length])
-                titles.append(data.get("title", "")[:self.title_max_length])
-                texts.append(data.get("text", "")[:self.text_max_length])
+                sources.append(slice_text(data.get("source", ""), self.source_max_length))
+                titles.append(slice_text(data.get("title", ""), self.title_max_length))
+                texts.append(slice_text(data.get("text", ""), self.text_max_length))
                 pids.append(data.get("pid", -1))
                 record_id += 1
                 if len(batch) == batch_size:
