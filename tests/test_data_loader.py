@@ -1,4 +1,5 @@
-from denser.utils_data import HFDataLoader
+from denser_retriever.utils_data import HFDataLoader
+
 
 class TestDataLoader:
     def test_data_loader(self):

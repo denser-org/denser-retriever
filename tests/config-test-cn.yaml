@@ -1,0 +1,46 @@
+version: "0.1"
+
+keyword_weight: 0.5
+vector_weight: 0.5
+rerank_weight: 0.5
+# linear or rank
+merge: linear
+
+keyword:
+  es_user: elastic
+  es_passwd: WzAkbzjZj9AfNXxzmOmp
+  es_host: http://54.68.68.29:9200
+  es_ingest_passage_bs: 5000
+
+vector:
+  milvus_host: 54.68.68.29
+  milvus_port: 19530
+  milvus_user: root
+  milvus_passwd: Milvus
+  emb_model: sentence-transformers/all-MiniLM-L6-v2
+  emb_dims: 384
+  vector_ingest_passage_bs: 1000
+
+rerank:
+  # https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-12-v2
+  # cross-encoder/ms-marco-MiniLM-L-2-v2, cross-encoder/ms-marco-MiniLM-L-4-v2, or cross-encoder/ms-marco-MiniLM-L-6-v2
+  # rerank_model: cross-encoder/ms-marco-TinyBERT-L-2-v2
+  rerank_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  rerank_bs: 100
+  topk_passages: 100
+
+filter_fields:
+  - 案号:keyword
+  - 法院:keyword
+  - 所属地区:keyword
+  - 案件类型:keyword
+  - 审理程序:keyword
+  - 裁判日期:date
+  - 公开日期:date
+  - 案由:keyword
+  - 法律依据:keyword
+output_prefix: ./output/efs/denser_output_retriever/
+
+## temp parameters
+max_doc_size: 10
+max_query_size: 2
