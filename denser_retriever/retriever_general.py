@@ -1,6 +1,6 @@
 import time
-
 import yaml
+
 
 from denser_retriever.reranker import Reranker
 from denser_retriever.retriever import Retriever
@@ -12,6 +12,7 @@ logger = get_logger(__name__)
 
 
 class RetrieverGeneral(Retriever):
+
     def __init__(self, index_name, config_file):
         config = yaml.safe_load(open(config_file))
         self.config = config
@@ -91,12 +92,12 @@ class RetrieverGeneral(Retriever):
             self.retrieverMilvus.ingest(doc_or_passage_file, self.config["vector"]["vector_ingest_passage_bs"])
             logger.info("Done building Vector DB index")
 
-    def retrieve(self, query, topk):
+    def retrieve(self, query, meta_data, topk):
         passages = []
         # import pdb; pdb.set_trace()
         if self.config["keyword_weight"] > 0:
             start_time = time.time()
-            passages_es = self.retrieverElasticSearch.retrieve(query, topk)
+            passages_es = self.retrieverElasticSearch.retrieve(query, meta_data, topk)
             logger.info(f"Keyword Search before merging Passages 1: {len(passages)} Passages 2: {len(passages_es)}")
             passages = self.merge_results(passages, passages_es, self.config["keyword_weight"])
             logger.info(f"After merging Passages: {len(passages)}")
@@ -131,3 +132,7 @@ class RetrieverGeneral(Retriever):
 
         docs = aggregate_passages(passages)
         return passages, docs
+
+
+    def get_field_categories(self, field, topk):
+        return self.retrieverElasticSearch.get_categories(field, topk)

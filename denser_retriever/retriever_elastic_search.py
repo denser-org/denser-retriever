@@ -16,6 +16,8 @@ class RetrieverElasticSearch(Retriever):
     """
 
     def __init__(self, index_name, config):
+        super().__init__(index_name, config)
+        self.config = config
         self.retrieve_type = "elasticsearch"
         self.index_name = index_name
         self.es = Elasticsearch(
@@ -45,8 +47,18 @@ class RetrieverElasticSearch(Retriever):
                 "title": {
                     "type": "text",
                 },
+                "source": {
+                    "type": "text",
+                },
+                "pid": {
+                    "type": "text",
+                },
             }
         }
+
+        for key in self.filter_types:
+            mappings["properties"][key] = self.filter_types[key]
+
         # Create the index with the specified settings and mappings
         if self.es.indices.exists(index=index_name):
             self.es.indices.delete(index=index_name)
@@ -68,8 +80,13 @@ class RetrieverElasticSearch(Retriever):
                     "content": data.pop("text"),
                     "title": data.get("title"),  # Index the title
                     "_id": _id,
-                    "_meta": data,
+                    "source": data.pop("source"),
+                    "pid": data.pop("pid"),
                 }
+                for filter in self.filter_types.keys():
+                    v = data.get(filter).strip()
+                    if v:
+                        request[filter] = v
                 ids.append(_id)
                 requests.append(request)
 
@@ -92,7 +109,7 @@ class RetrieverElasticSearch(Retriever):
 
         return ids
 
-    def retrieve(self, query_text, topk):
+    def retrieve(self, query_text, meta_data, topk):
         assert self.es.indices.exists(index=self.index_name)
 
         query_dict = {
@@ -107,23 +124,89 @@ class RetrieverElasticSearch(Retriever):
                                 }
                             }
                         },
-                        {"match": {"content": query_text}},
+                        {
+                            "match": {
+                                "content": query_text
+                            }
+                        }
+                    ],
+                    "must": [
                     ]
                 }
             },
             "_source": True,
         }
+
+        for field in meta_data:
+            category = meta_data.get(field)
+            if category:
+                if isinstance(category, tuple):
+                    query_dict["query"]["bool"]["must"].append({
+                        "range": {
+                            field: {
+                                "gte": category[0],
+                                "lte": category[1] if len(category) > 1 else category[0]
+                            }
+                        }
+                    })
+                else:
+                    query_dict["query"]["bool"]["must"].append({"term": {field: category}})
+
         res = self.es.search(index=self.index_name, body=query_dict, size=topk)
         topk_used = min(len(res["hits"]["hits"]), topk)
         passages = []
         for id in range(topk_used):
             _source = res["hits"]["hits"][id]["_source"]
             passage = {
-                "source": _source["_meta"]["source"],
+                "source": _source["source"],
                 "text": _source["content"],
-                "title": _source["_meta"]["title"],
-                "pid": _source["_meta"]["pid"],
+                "title": _source["title"],
+                "pid": _source["pid"],
                 "score": res["hits"]["hits"][id]["_score"],
             }
+            for field in meta_data:
+                if _source.get(field):
+                    passage[field] = _source.get(field)
             passages.append(passage)
         return passages
+
+    def get_index_mappings(self):
+        mapping = self.es.indices.get_mapping(index=self.index_name)
+
+        # The mapping response structure can be quite nested, focusing on the 'properties' section
+        properties = mapping[self.index_name]['mappings']['properties']
+
+        # Function to recursively extract fields and types
+        def extract_fields(fields_dict, parent_name=''):
+            fields = {}
+            for field_name, details in fields_dict.items():
+                full_field_name = f"{parent_name}.{field_name}" if parent_name else field_name
+                if 'properties' in details:
+                    fields.update(extract_fields(details['properties'], full_field_name))
+                else:
+                    fields[full_field_name] = details.get('type', 'notype')  # Default 'notype' if no type is found
+            return fields
+
+        # Extract fields and types
+        all_fields = extract_fields(properties)
+        return all_fields
+
+    def get_categories(self, field, topk):
+        query = {
+            "size": 0,  # No actual documents are needed, just the aggregation results
+            "aggs": {
+                "all_categories": {
+                    "terms": {
+                        "field": field,
+                        "size": 1000  # Adjust this value based on the expected number of unique categories
+                    }
+                }
+            }
+        }
+        response = self.es.search(index=self.index_name, body=query)
+        # Extract the aggregation results
+        categories = response['aggregations']['all_categories']['buckets']
+        if topk > 0:
+            categories = categories[:topk]
+        res = [category['key'] for category in categories]
+        return res

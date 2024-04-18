@@ -7,21 +7,22 @@ class TestRetrieverGeneral:
         """setup any state tied to the execution of the given method in a
         class.  setup_method is invoked for every tests method of a class.
         """
-
-        index_name = "test_index_temp"
-        self.retriever = RetrieverGeneral(index_name, "tests/config-test.yaml")
+        self.retriever = RetrieverGeneral("unit_test_index", "tests/config-test.yaml")
+        self.retriever_cn = RetrieverGeneral("unit_test_cn_index", "tests/config-test-cn.yaml")
 
     def test_retriever_ingest(self):
-        doc_or_passage_file = "tests/test_data/passages_000000.jsonl"
-        self.retriever.ingest(doc_or_passage_file)
+        self.retriever.ingest("tests/test_data/denser_website_passages_top10.jsonl")
+        self.retriever_cn.ingest("tests/test_data/cpws_passages_top10.jsonl")
 
     def test_retriever_retrieve(self):
-        query = "what is artify4kids"
         topk = 5
-        passages, docs = self.retriever.retrieve(query, topk)
-        print(passages)
-        assert len(passages) == topk
-        assert len(docs) > 0
-        passage_to_score = passages_to_dict(passages, False)
-        print(passage_to_score)
-        assert len(passage_to_score) == topk
+        retrievers = [self.retriever, self.retriever_cn]
+        queries = ["what is denser ai?", "买卖合同纠纷"]
+        for retriever, query in zip(retrievers, queries):
+            passages, docs = retriever.retrieve(query, {}, topk)
+            print(passages)
+            assert len(passages) == topk
+            assert len(docs) > 0
+            passage_to_score = passages_to_dict(passages, False)
+            print(passage_to_score)
+            assert len(passage_to_score) == topk

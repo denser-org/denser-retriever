@@ -22,10 +22,6 @@ Enterprise-grade AI retriever solution that seamlessly integrates to enhance you
 
 The Denser Retriever project is set to establish a unified and extensive Retriever hub. This hub will not only incorporate the vector database, which is optimized for recall, but also integrate traditional keyword-based search methods, optimized for precision, along with alternatives like ML rerankers. Our goal is to deliver an Enterprise-grade AI retriever solution that seamlessly integrates to enhance your AI applications.
 
-## 📃 Documentation
-
-The official documentation is hosted on [retriever.denser.ai](https://retriever.denser.ai).
-
 ## 🚀 Features
 
 The initial release of Denser Retriever provides the following features.
@@ -42,6 +38,30 @@ You can install the latest version of Denser Retriever from PyPI with the follow
 
 ```bash
 pip install denser-retriever
+```
+
+## 📃 Documentation
+
+The official documentation is hosted on [retriever.denser.ai](https://retriever.denser.ai).
+
+To get started, run the unit tests below under directory `denser-retriever`.
+
+```shell
+python -m pytest tests/test_data_loader.py
+python -m pytest tests/test_retriever_general.py
+```
+
+After that, you can launch a simple end-to-end [streamlit](https://streamlit.io/) app with the retriever indices built from the above unit tests.
+
+```shell
+streamlit run scripts/denser_chat.py
+streamlit run scripts/denser_search.py
+```
+
+To evaluate retrievers' accuracy on [mteb](https://github.com/embeddings-benchmark/mteb) benchmark datasets, you can run the following command:
+
+```shell
+python examples/run_benchmark.py
 ```
 
 ## 👨🏼‍💻 Development

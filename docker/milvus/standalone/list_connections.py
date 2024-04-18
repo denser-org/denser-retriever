@@ -5,7 +5,7 @@ from pymilvus import connections
 from pymilvus import Collection
 from pymilvus import utility
 connections.connect("default", host="35.93.131.127", port="19530", user='root',
-    password='!RedComputer7961',)
+    password='Milvus',)
 print(f"All Milvus collections: {utility.list_collections()}")
 
 index = "test_index_temp"
