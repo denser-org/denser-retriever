@@ -54,8 +54,8 @@ python -m pytest tests/test_retriever_general.py
 After that, you can launch a simple end-to-end [streamlit](https://streamlit.io/) app with the retriever indices built from the above unit tests.
 
 ```shell
-streamlit run scripts/denser_chat.py
-streamlit run scripts/denser_search.py
+streamlit run examples/denser_chat.py
+streamlit run examples/denser_search.py
 ```
 
 To evaluate retrievers' accuracy on [mteb](https://github.com/embeddings-benchmark/mteb) benchmark datasets, you can run the following command:
