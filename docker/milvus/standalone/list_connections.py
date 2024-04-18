@@ -4,7 +4,7 @@
 from pymilvus import connections
 from pymilvus import Collection
 from pymilvus import utility
-connections.connect("default", host="35.93.131.127", port="19530", user='root',
+connections.connect("default", host="54.68.68.29", port="19530", user='root',
     password='Milvus',)
 print(f"All Milvus collections: {utility.list_collections()}")
 

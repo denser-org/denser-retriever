@@ -9,11 +9,11 @@ merge: linear
 keyword:
   es_user: elastic
   es_passwd: WzAkbzjZj9AfNXxzmOmp
-  es_host: http://35.93.131.127:9200
+  es_host: http://54.68.68.29:9200
   es_ingest_passage_bs: 5000
 
 vector:
-  milvus_host: 35.93.131.127
+  milvus_host: 54.68.68.29
   milvus_port: 19530
   milvus_user: root
   milvus_passwd: Milvus
