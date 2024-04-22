@@ -15,14 +15,13 @@ class RetrieverElasticSearch(Retriever):
     Elasticsearch Retriever
     """
 
-    def __init__(self, index_name, config):
-        super().__init__(index_name, config)
-        self.config = config
+    def __init__(self, index_name, config_file):
+        super().__init__(index_name, config_file)
         self.retrieve_type = "elasticsearch"
         self.index_name = index_name
         self.es = Elasticsearch(
-            hosts=[config["keyword"]["es_host"]],
-            basic_auth=(config["keyword"]["es_user"], config["keyword"]["es_passwd"]),
+            hosts=[self.config["keyword"]["es_host"]],
+            basic_auth=(self.config["keyword"]["es_user"], self.config["keyword"]["es_passwd"]),
             request_timeout=600,
         )
 
@@ -56,8 +55,8 @@ class RetrieverElasticSearch(Retriever):
             }
         }
 
-        for key in self.filter_types:
-            mappings["properties"][key] = self.filter_types[key]
+        for key in self.field_types:
+            mappings["properties"][key] = self.field_types[key]
 
         # Create the index with the specified settings and mappings
         if self.es.indices.exists(index=index_name):
@@ -83,7 +82,7 @@ class RetrieverElasticSearch(Retriever):
                     "source": data.pop("source"),
                     "pid": data.pop("pid"),
                 }
-                for filter in self.filter_types.keys():
+                for filter in self.field_types.keys():
                     v = data.get(filter).strip()
                     if v:
                         request[filter] = v
@@ -138,19 +137,19 @@ class RetrieverElasticSearch(Retriever):
         }
 
         for field in meta_data:
-            category = meta_data.get(field)
-            if category:
-                if isinstance(category, tuple):
+            category_or_date = meta_data.get(field)
+            if category_or_date:
+                if isinstance(category_or_date, tuple):
                     query_dict["query"]["bool"]["must"].append({
                         "range": {
                             field: {
-                                "gte": category[0],
-                                "lte": category[1] if len(category) > 1 else category[0]
+                                "gte": category_or_date[0],
+                                "lte": category_or_date[1] if len(category_or_date) > 1 else category_or_date[0]
                             }
                         }
                     })
                 else:
-                    query_dict["query"]["bool"]["must"].append({"term": {field: category}})
+                    query_dict["query"]["bool"]["must"].append({"term": {field: category_or_date}})
 
         res = self.es.search(index=self.index_name, body=query_dict, size=topk)
         topk_used = min(len(res["hits"]["hits"]), topk)

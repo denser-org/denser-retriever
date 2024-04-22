@@ -29,7 +29,7 @@ rerank:
   rerank_bs: 100
   topk_passages: 100
 
-filter_fields:
+fields:
   - 案号:keyword
   - 法院:keyword
   - 所属地区:keyword

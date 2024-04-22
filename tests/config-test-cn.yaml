@@ -29,17 +29,18 @@ rerank:
   rerank_bs: 100
   topk_passages: 100
 
-filter_fields:
-  - 案号:keyword
-  - 法院:keyword
-  - 所属地区:keyword
-  - 案件类型:keyword
-  - 审理程序:keyword
-  - 裁判日期:date
-  - 公开日期:date
-  - 案由:keyword
-  - 法律依据:keyword
-output_prefix: ./output/efs/denser_output_retriever/
+fields:
+  - 案号:case_id:keyword
+  - 法院:court:keyword
+  - 所属地区:location:keyword
+  - 案件类型:case_type:keyword
+  - 审理程序:trial_procedure:keyword
+  - 裁判日期:trial_date:date
+  - 公开日期:publication_date:date
+  - 案由:cause:keyword
+  - 法律依据:legal_basis:keyword
+
+output_prefix: /home/ubuntu/efs/denser_output_retriever/
 
 ## temp parameters
 max_doc_size: 10
