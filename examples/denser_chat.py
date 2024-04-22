@@ -10,13 +10,13 @@ from denser_retriever.retriever_general import RetrieverGeneral
 
 logger = logging.getLogger(__name__)
 
-index_name = "test_index_temp"
-retriever = RetrieverGeneral(index_name, "examples/config.yaml")
+index_name = "unit_test_index"
+retriever = RetrieverGeneral(index_name, "tests/config-test.yaml")
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 default_openai_model = "gpt-3.5-turbo-0125"
-starting_url = "https://artify4kids.wixsite.com/my-site"
-optional_str = 'Try questions such as "what does artify4kids do?" '
+starting_url = "https://denser.ai"
+optional_str = 'Try questions such as "what is denser ai?" '
 
 
 def denser_chat():
@@ -39,10 +39,9 @@ def denser_chat():
         with st.chat_message("user"):
             st.markdown(query)
 
-        ## modify prompt to include retrieval results
         start_time = time.time()
         topk = 5
-        passages, docs = retriever.retrieve(query, topk)
+        passages, docs = retriever.retrieve(query, {}, topk)
         retrieve_time_sec = time.time() - start_time
         st.write(f"Retrieve time: {retrieve_time_sec:.3f} sec.")
 
@@ -81,10 +80,10 @@ def denser_chat():
 
         st.session_state.messages.append({"role": "assistant", "content": full_response})
         st.session_state.messages = []
+        st.caption("Sources")
         for i, passage in enumerate(passages):
-            score_rerank = passage["score_rerank"] if "score_rerank" in passage else 0
             st.write(
-                f"[{(i + 1)}]  [{passage['title']}]({passage['source']})  \n{passage['source']}  \n**Score**: {passage['score']} **Score_rerank**: {score_rerank}  \n{passage['text']}"  # noqa: E501
+                f"[{(i + 1)}]  [{passage['title']}]({passage['source']})  \n{passage['source']}  \n**Score**: {passage['score']}"  # noqa: E501
             )
 
 

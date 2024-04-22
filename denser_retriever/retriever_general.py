@@ -4,7 +4,7 @@ import yaml
 
 from denser_retriever.reranker import Reranker
 from denser_retriever.retriever import Retriever
-from denser_retriever.retriever_elastic_search import RetrieverElasticSearch
+from denser_retriever.retriever_elasticsearch import RetrieverElasticSearch
 from denser_retriever.retriever_milvus import RetrieverMilvus
 from denser_retriever.utils import aggregate_passages, dump_passages, get_logger
 
@@ -14,15 +14,14 @@ logger = get_logger(__name__)
 class RetrieverGeneral(Retriever):
 
     def __init__(self, index_name, config_file):
-        config = yaml.safe_load(open(config_file))
-        self.config = config
+        super().__init__(index_name, config_file)
         self.retrieve_type = "general"
-        config["index_name"] = index_name
+        self.config["index_name"] = index_name
         self.retrieverElasticSearch = (
-            RetrieverElasticSearch(index_name, config) if config["keyword_weight"] > 0 else None
+            RetrieverElasticSearch(index_name, config_file) if self.config["keyword_weight"] > 0 else None
         )
-        self.retrieverMilvus = RetrieverMilvus(index_name, config) if config["vector_weight"] > 0 else None
-        self.reranker = Reranker(config["rerank"]["rerank_model"]) if config["rerank_weight"] > 0 else None
+        self.retrieverMilvus = RetrieverMilvus(index_name, config_file) if self.config["vector_weight"] > 0 else None
+        self.reranker = Reranker(self.config["rerank"]["rerank_model"]) if self.config["rerank_weight"] > 0 else None
 
     def build_dicts(self, passages):
         uid_to_passages, uid_to_scores, uid_to_ranks = {}, {}, {}
@@ -72,14 +71,8 @@ class RetrieverGeneral(Retriever):
         sorted_uids = sorted(uid_to_scores.items(), key=lambda x: x[1], reverse=True)
         passages = []
         for uid, _ in sorted_uids:
-            _passage = uid_to_passages_1[uid]
-            passage = {
-                "source": _passage["source"],
-                "text": _passage["text"],
-                "title": _passage["title"],
-                "pid": _passage["pid"],
-                "score": uid_to_scores[uid],
-            }
+            passage = uid_to_passages_1[uid]
+            passage["score"] = uid_to_scores[uid]
             passages.append(passage)
         return passages
 
@@ -106,7 +99,7 @@ class RetrieverGeneral(Retriever):
             dump_passages(passages, "retriever_keyword.jsonl")
         if self.config["vector_weight"] > 0:
             start_time = time.time()
-            passages_vector = self.retrieverMilvus.retrieve(query, topk)
+            passages_vector = self.retrieverMilvus.retrieve(query, meta_data, topk)
             dump_passages(passages_vector, "retriever_vector.jsonl")
             # import pdb;
             # pdb.set_trace()

@@ -44,11 +44,10 @@ pip install denser-retriever
 
 The official documentation is hosted on [retriever.denser.ai](https://retriever.denser.ai).
 
-To get started, run the unit tests below under directory `denser-retriever`.
+To get started, run the unit tests below under directory `denser-retriever/tests`.
 
 ```shell
-python -m pytest tests/test_data_loader.py
-python -m pytest tests/test_retriever_general.py
+python -m pytest tests
 ```
 
 After that, you can launch a simple end-to-end [streamlit](https://streamlit.io/) app with the retriever indices built from the above unit tests.

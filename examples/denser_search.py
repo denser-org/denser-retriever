@@ -2,7 +2,7 @@ import streamlit as st
 import time
 import logging
 from denser_retriever.retriever_general import RetrieverGeneral
-import datetime
+from datetime import date
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +28,9 @@ def denser_search():
         if type == "date":
             option = st.sidebar.date_input(
                 field,
-                (datetime.date(1985, 1, 1), datetime.date(2021, 12, 31)),
-                datetime.date(1985, 1, 1),
-                datetime.date(2021, 12, 31),
+                (date(1985, 1, 1), date(2021, 12, 31)),
+                date(1985, 1, 1),
+                date(2021, 12, 31),
                 format="MM.DD.YYYY",
             )
         else:
@@ -48,7 +48,7 @@ def denser_search():
         st.write(f"Metadata: {meta_data}")
 
         start_time = time.time()
-        topk = 5
+        topk = 10
         passages, docs = retriever.retrieve(query, meta_data, topk)
         retrieve_time_sec = time.time() - start_time
         st.write(f"Retrieve time: {retrieve_time_sec:.3f} sec.")
