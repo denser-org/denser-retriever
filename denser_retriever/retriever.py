@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import yaml
+import os
 
 class Retriever(ABC):
     """
@@ -9,6 +10,8 @@ class Retriever(ABC):
     def __init__(self, index_name, config_file):
         config = yaml.safe_load(open(config_file))
         self.config = config
+        self.config["index_name"] = index_name
+        self.index_name = index_name
         self.retrieve_type = None
         self.field_types = {}
         self.field_internal_names = {}
@@ -24,6 +27,11 @@ class Retriever(ABC):
                     self.field_internal_names[comps[0]] = comps[1]
                 self.field_cat_to_id[comps[0]] = {}
                 self.field_id_to_cat[comps[0]] = []
+        output_prefix = config["output_prefix"]
+        self.exp_dir = os.path.join(output_prefix, f"exp_{index_name}")
+        if not os.path.exists(self.exp_dir):
+            os.makedirs(self.exp_dir)
+
 
     @abstractmethod
     def ingest(self, data):

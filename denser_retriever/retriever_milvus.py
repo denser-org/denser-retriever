@@ -29,6 +29,7 @@ class RetrieverMilvus(Retriever):
         self.title_max_length = 300
         self.text_max_length = 8000
         self.field_max_length = 300
+        self.model = SentenceTransformer(self.config["vector"]["emb_model"], trust_remote_code=True)
 
     def create_index(self):
         connections.connect(
@@ -98,8 +99,7 @@ class RetrieverMilvus(Retriever):
             self.field_cat_to_id, self.field_id_to_cat = json.load(file)
 
     def generate_embedding(self, passages):
-        model = SentenceTransformer(self.config["vector"]["emb_model"])
-        embeddings = model.encode(passages)
+        embeddings = self.model.encode(passages)
         return embeddings
 
     def ingest(self, doc_or_passage_file, batch_size):
@@ -108,7 +108,6 @@ class RetrieverMilvus(Retriever):
         uids, sources, titles, texts, pids = [], [], [], [], []
         fieldss = [[] for _ in self.field_types.keys()]
         record_id = 0
-        max_retries = 3
         failed_batches = []  # To store information about failed batches
 
         with open(doc_or_passage_file, "r") as jsonl_file:
@@ -138,44 +137,24 @@ class RetrieverMilvus(Retriever):
                         fieldss[i].append(-1)
                 record_id += 1
                 if len(batch) == batch_size:
-                    success = False
-                    for attempt in range(max_retries):
-                        try:
-                            embeddings = self.generate_embedding(batch)
-                            record = [uids, sources, titles, texts, pids, np.array(embeddings)]
-                            record += fieldss
-                            self.index.insert(record)
-                            self.index.flush()
-                            logger.info(f"Milvus vector DB ingesting {doc_or_passage_file} record {record_id}")
-                            success = True
-                            break  # Exit the retry loop on success
-                        except Exception as e:
-                            logger.error(f"Attempt {attempt + 1}: Failed to create embeddings - {e}")
-
-                    if not success:
-                        failed_batches.append({"sources": sources, "pids": pids, "batch": batch})
+                    embeddings = self.generate_embedding(batch)
+                    record = [uids, sources, titles, texts, pids, np.array(embeddings)]
+                    record += fieldss
+                    self.index.insert(record)
+                    self.index.flush()
+                    logger.info(f"Milvus vector DB ingesting {doc_or_passage_file} record {record_id}")
 
                     batch = []
                     uids, sources, titles, texts, pids = [], [], [], [], []
                     fieldss = [[] for _ in self.field_types.keys()]
 
             if len(batch) > 0:
-                success = False
-                for attempt in range(max_retries):
-                    try:
-                        embeddings = self.generate_embedding(batch)
-                        record = [uids, sources, titles, texts, pids, np.array(embeddings)]
-                        record += fieldss
-                        self.index.insert(record)
-                        self.index.flush()
-                        logger.info(f"Milvus vector DB ingesting {doc_or_passage_file} record {record_id}")
-                        success = True
-                        break  # Exit the retry loop on success
-                    except Exception as e:
-                        logger.error(f"Attempt {attempt + 1}: Failed to create embeddings for remaining batch - {e}")
-
-                if not success:
-                    failed_batches.append({"sources": sources, "pids": pids, "batch": batch})
+                embeddings = self.generate_embedding(batch)
+                record = [uids, sources, titles, texts, pids, np.array(embeddings)]
+                record += fieldss
+                self.index.insert(record)
+                self.index.flush()
+                logger.info(f"Milvus vector DB ingesting {doc_or_passage_file} record {record_id}")
 
         # Save failed batches to a JSONL file
         assert ".jsonl" in doc_or_passage_file
@@ -203,7 +182,7 @@ class RetrieverMilvus(Retriever):
         with open(fields_file, 'w') as file:
             json.dump([self.field_cat_to_id, self.field_id_to_cat], file, ensure_ascii=False, indent=4)  # 'indent' for pretty printing
 
-    def retrieve(self, query_text, meta_data, topk):
+    def retrieve(self, query_text, meta_data, query_id=None):
         if not self.index:
             self.connect_index()
         embeddings = self.generate_embedding([query_text])
@@ -233,11 +212,11 @@ class RetrieverMilvus(Retriever):
             "params": {"nprobe": 10},
         }
         result = self.index.search(
-            query_embedding, "embeddings", search_params, limit=topk, expr=expr_str,
+            query_embedding, "embeddings", search_params, limit=self.config["vector"]["topk"], expr=expr_str,
             output_fields=["source", "title", "text", "pid"] + list(self.field_internal_names.values())
         )
 
-        topk_used = min(len(result[0]), topk)
+        topk_used = min(len(result[0]), self.config["vector"]["topk"])
         passages = []
         for id in range(topk_used):
             assert len(result) == 1

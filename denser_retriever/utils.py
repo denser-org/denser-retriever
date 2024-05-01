@@ -2,8 +2,9 @@ import json
 import logging
 import sys
 from typing import Dict, List, Tuple, Union
-
+import pytrec_eval
 import torch
+import copy
 
 
 def cos_sim(a, b):
@@ -198,6 +199,61 @@ def get_logger_file(name):
     logging.getLogger().addHandler(console)
     return logging
 
+def evaluate(
+    qrels: Dict[str, Dict[str, int]],
+    results: Dict[str, Dict[str, float]],
+    metric_file: str,
+    k_values: List[int] = [1, 3, 5, 10, 100, 1000],
+    ignore_identical_ids: bool = True,
+) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float], Dict[str, float]]:
+    if ignore_identical_ids:
+        print(
+            "For evaluation, we ignore identical query and document ids (default), please explicitly set ``ignore_identical_ids=False`` to ignore this."  # noqa: E501
+        )
+        popped = []
+        for qid, rels in results.items():
+            for pid in list(rels):
+                if qid == pid:
+                    results[qid].pop(pid)
+                    popped.append(pid)
+
+    ndcg = {}
+    _map = {}
+    recall = {}
+    precision = {}
+
+    for k in k_values:
+        ndcg[f"NDCG@{k}"] = 0.0
+        _map[f"MAP@{k}"] = 0.0
+        recall[f"Recall@{k}"] = 0.0
+        precision[f"P@{k}"] = 0.0
+
+    map_string = "map_cut." + ",".join([str(k) for k in k_values])
+    ndcg_string = "ndcg_cut." + ",".join([str(k) for k in k_values])
+    recall_string = "recall." + ",".join([str(k) for k in k_values])
+    precision_string = "P." + ",".join([str(k) for k in k_values])
+    evaluator = pytrec_eval.RelevanceEvaluator(qrels, {map_string, ndcg_string, recall_string, precision_string})
+    scores = evaluator.evaluate(results)
+
+    for query_id in scores.keys():
+        for k in k_values:
+            ndcg[f"NDCG@{k}"] += scores[query_id]["ndcg_cut_" + str(k)]
+            _map[f"MAP@{k}"] += scores[query_id]["map_cut_" + str(k)]
+            recall[f"Recall@{k}"] += scores[query_id]["recall_" + str(k)]
+            precision[f"P@{k}"] += scores[query_id]["P_" + str(k)]
+
+    for k in k_values:
+        ndcg[f"NDCG@{k}"] = round(ndcg[f"NDCG@{k}"] / len(scores), 5)
+        _map[f"MAP@{k}"] = round(_map[f"MAP@{k}"] / len(scores), 5)
+        recall[f"Recall@{k}"] = round(recall[f"Recall@{k}"] / len(scores), 5)
+        precision[f"P@{k}"] = round(precision[f"P@{k}"] / len(scores), 5)
+
+    out = open(metric_file, "w")
+    for eval in [ndcg, _map, recall, precision]:
+        json.dump(eval, out, indent=4, ensure_ascii=False)
+        out.write("\n")
+
+    return ndcg, _map, recall, precision
 
 def save_denser_corpus(corpus, output_file: str, max_doc_size):
     out = open(output_file, "w")
@@ -224,6 +280,14 @@ def save_denser_qrels(qrels, output_file: str):
         json.dump(data, out, ensure_ascii=False)
         out.write("\n")
 
+def load_denser_qrels(in_file: str):
+    res = {}
+    for line in open(in_file, "r"):
+        obj = json.loads(line)
+        assert len(list(obj.keys())) == 1
+        query = list(obj.keys())[0]
+        res[query] = obj[query]
+    return res
 
 def dump_passages(passages: List[Dict[str, str]], output_file: str):
     out = open(output_file, "w")
@@ -263,3 +327,59 @@ def aggregate_passages(passages: List[Dict[str, str]]):
     docs = list(uid_to_passages.values())
     docs.sort(key=lambda x: x["score"], reverse=True)
     return docs
+
+
+def build_dicts(passages):
+    uid_to_passages, uid_to_scores, uid_to_ranks = {}, {}, {}
+    for i, passage in enumerate(passages):
+        source, id = passage["source"], passage.get("pid", -1)
+        if id == -1:
+            uid_str = source
+        else:
+            uid_str = f"{source}-{id}"
+        assert uid_str not in uid_to_passages
+        assert uid_str not in uid_to_scores
+        assert uid_str not in uid_to_ranks
+        uid_to_passages[uid_str] = passage
+        uid_to_scores[uid_str] = passage["score"]
+        uid_to_ranks[uid_str] = i + 1
+    return uid_to_passages, uid_to_scores, uid_to_ranks
+
+def merge_score_linear(uid_to_scores_1, uid_to_scores_2, weight_1, weight_2):
+    uid_to_score = {}
+    all_uids = set().union(*[uid_to_scores_1, uid_to_scores_2])
+    for uid in all_uids:
+        uid_to_score[uid] = weight_1 * uid_to_scores_1.get(uid, 0) + weight_2 * uid_to_scores_2.get(uid, 0)
+    return uid_to_score
+
+def merge_score_rank(uid_to_ranks_1, uid_to_ranks_2):
+    uid_to_score = {}
+    k = 60
+    all_uids = set().union(*[uid_to_ranks_1, uid_to_ranks_2])
+    for uid in all_uids:
+        uid_to_score[uid] = 1 / (k + uid_to_ranks_1.get(uid, 1000)) + 1 / (k + uid_to_ranks_2.get(uid, 1000))
+    return uid_to_score
+
+def merge_results(passages_1, passages_2, weight_1, weight_2, merge):
+    uid_to_passages_1, uid_to_scores_1, uid_to_ranks_1 = build_dicts(copy.deepcopy(passages_1))
+    uid_to_passages_2, uid_to_scores_2, uid_to_ranks_2 = build_dicts(copy.deepcopy(passages_2))
+    # import pdb; pdb.set_trace()
+    uid_to_passages_1.update(uid_to_passages_2)
+    if merge == "linear":
+        uid_to_scores = merge_score_linear(uid_to_scores_1, uid_to_scores_2, weight_1, weight_2)
+    else:  # rank
+        uid_to_scores = merge_score_rank(uid_to_ranks_1, uid_to_ranks_2)
+    assert len(uid_to_passages_1) == len(uid_to_scores)
+    sorted_uids = sorted(uid_to_scores.items(), key=lambda x: x[1], reverse=True)
+    passages = []
+    for uid, _ in sorted_uids:
+        passage = uid_to_passages_1[uid]
+        passage["score"] = uid_to_scores[uid]
+        passages.append(passage)
+    return passages
+
+def scale_results(passages, weight):
+    res = copy.deepcopy(passages)
+    for passage in res:
+        passage["score"] *= weight
+    return res

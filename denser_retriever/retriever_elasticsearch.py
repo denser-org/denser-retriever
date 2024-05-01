@@ -18,7 +18,6 @@ class RetrieverElasticSearch(Retriever):
     def __init__(self, index_name, config_file):
         super().__init__(index_name, config_file)
         self.retrieve_type = "elasticsearch"
-        self.index_name = index_name
         self.es = Elasticsearch(
             hosts=[self.config["keyword"]["es_host"]],
             basic_auth=(self.config["keyword"]["es_user"], self.config["keyword"]["es_passwd"]),
@@ -108,7 +107,7 @@ class RetrieverElasticSearch(Retriever):
 
         return ids
 
-    def retrieve(self, query_text, meta_data, topk):
+    def retrieve(self, query_text, meta_data, query_id=None):
         assert self.es.indices.exists(index=self.index_name)
 
         query_dict = {
@@ -151,8 +150,8 @@ class RetrieverElasticSearch(Retriever):
                 else:
                     query_dict["query"]["bool"]["must"].append({"term": {field: category_or_date}})
 
-        res = self.es.search(index=self.index_name, body=query_dict, size=topk)
-        topk_used = min(len(res["hits"]["hits"]), topk)
+        res = self.es.search(index=self.index_name, body=query_dict, size=self.config["keyword"]["topk"])
+        topk_used = min(len(res["hits"]["hits"]), self.config["keyword"]["topk"])
         passages = []
         for id in range(topk_used):
             _source = res["hits"]["hits"][id]["_source"]
