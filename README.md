@@ -57,10 +57,10 @@ streamlit run examples/denser_chat.py
 streamlit run examples/denser_search.py
 ```
 
-To evaluate retrievers' accuracy on [mteb](https://github.com/embeddings-benchmark/mteb) benchmark datasets, you can run the following command:
+To evaluate retrievers' accuracy on [mteb](https://github.com/embeddings-benchmark/mteb) benchmark datasets, you can run the following command. This command evaluates the baselines of elasticsearch, vector and reranker approaches and reports the NDCG@10 scores on the test data. In addition, it uses the mteb training data to train a xgboost classifier to effectively combine the scores of elasticsearch, vector and reranker. Finally, the classifier is used to generate ranked results and the NDCG@10 score of the ranked results is also reported.
 
 ```shell
-python examples/run_benchmark.py
+python examples/run_experiement.py
 ```
 
 ## 👨🏼‍💻 Development
