@@ -2,17 +2,10 @@
 
 ## Quick start
 
-Conda package manager is recommended. Create a conda environment.
+Global Install poetry with pipx or another:
 
 ```bash
-conda create -n denser-retriever python==3.10
-```
-
-Activate conda environment and install poetry
-
-```bash
-conda activate denser-retriever
-pip install poetry
+pipx install poetry
 ```
 
 Then you can run the client using the following command:

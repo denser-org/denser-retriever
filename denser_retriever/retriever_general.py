@@ -1,6 +1,5 @@
 import time
 
-
 from denser_retriever.reranker import Reranker
 from denser_retriever.retriever import Retriever
 from denser_retriever.retriever_elasticsearch import RetrieverElasticSearch
@@ -11,7 +10,6 @@ logger = get_logger(__name__)
 
 
 class RetrieverGeneral(Retriever):
-
     def __init__(self, index_name, config_file):
         super().__init__(index_name, config_file)
         self.retrieve_type = "general"
@@ -19,7 +17,11 @@ class RetrieverGeneral(Retriever):
             RetrieverElasticSearch(index_name, config_file) if self.config["keyword_weight"] > 0 else None
         )
         self.retrieverMilvus = RetrieverMilvus(index_name, config_file) if self.config["vector_weight"] > 0 else None
-        self.reranker = Reranker(self.config["rerank"]["rerank_model"], self.out_reranker) if self.config["rerank_weight"] > 0 else None
+        self.reranker = (
+            Reranker(self.config["rerank"]["rerank_model"], self.out_reranker)
+            if self.config["rerank_weight"] > 0
+            else None
+        )
 
     def ingest(self, doc_or_passage_file):
         # import pdb; pdb.set_trace()
@@ -55,11 +57,10 @@ class RetrieverGeneral(Retriever):
             logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
 
         if len(passages) > self.config["rerank"]["topk"]:
-            passages = passages[:self.config["rerank"]["topk"]]
+            passages = passages[: self.config["rerank"]["topk"]]
 
         docs = aggregate_passages(passages)
         return passages, docs
-
 
     def get_field_categories(self, field, topk):
         return self.retrieverElasticSearch.get_categories(field, topk)

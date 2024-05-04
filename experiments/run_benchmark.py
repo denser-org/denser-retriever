@@ -5,11 +5,11 @@ import yaml
 
 from denser_retriever.retriever_general import RetrieverGeneral
 from denser_retriever.utils import (
+    evaluate,
     passages_to_dict,
     save_denser_corpus,
     save_denser_qrels,
     save_denser_queries,
-    evaluate,
 )
 from denser_retriever.utils_data import HFDataLoader
 
@@ -71,7 +71,6 @@ def run_benchmark(dataset_name):
     metric = evaluate(qrels, res, metric_file)
     ndcg_passage = metric[0]["NDCG@10"]
     logger.info(f"NDCG@10: {ndcg_passage}")
-
 
 
 if __name__ == "__main__":

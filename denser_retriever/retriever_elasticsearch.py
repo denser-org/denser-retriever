@@ -122,14 +122,9 @@ class RetrieverElasticSearch(Retriever):
                                 }
                             }
                         },
-                        {
-                            "match": {
-                                "content": query_text
-                            }
-                        }
+                        {"match": {"content": query_text}},
                     ],
-                    "must": [
-                    ]
+                    "must": [],
                 }
             },
             "_source": True,
@@ -139,14 +134,16 @@ class RetrieverElasticSearch(Retriever):
             category_or_date = meta_data.get(field)
             if category_or_date:
                 if isinstance(category_or_date, tuple):
-                    query_dict["query"]["bool"]["must"].append({
-                        "range": {
-                            field: {
-                                "gte": category_or_date[0],
-                                "lte": category_or_date[1] if len(category_or_date) > 1 else category_or_date[0]
+                    query_dict["query"]["bool"]["must"].append(
+                        {
+                            "range": {
+                                field: {
+                                    "gte": category_or_date[0],
+                                    "lte": category_or_date[1] if len(category_or_date) > 1 else category_or_date[0],
+                                }
                             }
                         }
-                    })
+                    )
                 else:
                     query_dict["query"]["bool"]["must"].append({"term": {field: category_or_date}})
 
@@ -172,17 +169,17 @@ class RetrieverElasticSearch(Retriever):
         mapping = self.es.indices.get_mapping(index=self.index_name)
 
         # The mapping response structure can be quite nested, focusing on the 'properties' section
-        properties = mapping[self.index_name]['mappings']['properties']
+        properties = mapping[self.index_name]["mappings"]["properties"]
 
         # Function to recursively extract fields and types
-        def extract_fields(fields_dict, parent_name=''):
+        def extract_fields(fields_dict, parent_name=""):
             fields = {}
             for field_name, details in fields_dict.items():
                 full_field_name = f"{parent_name}.{field_name}" if parent_name else field_name
-                if 'properties' in details:
-                    fields.update(extract_fields(details['properties'], full_field_name))
+                if "properties" in details:
+                    fields.update(extract_fields(details["properties"], full_field_name))
                 else:
-                    fields[full_field_name] = details.get('type', 'notype')  # Default 'notype' if no type is found
+                    fields[full_field_name] = details.get("type", "notype")  # Default 'notype' if no type is found
             return fields
 
         # Extract fields and types
@@ -196,15 +193,15 @@ class RetrieverElasticSearch(Retriever):
                 "all_categories": {
                     "terms": {
                         "field": field,
-                        "size": 1000  # Adjust this value based on the expected number of unique categories
+                        "size": 1000,  # Adjust this value based on the expected number of unique categories
                     }
                 }
-            }
+            },
         }
         response = self.es.search(index=self.index_name, body=query)
         # Extract the aggregation results
-        categories = response['aggregations']['all_categories']['buckets']
+        categories = response["aggregations"]["all_categories"]["buckets"]
         if topk > 0:
             categories = categories[:topk]
-        res = [category['key'] for category in categories]
+        res = [category["key"] for category in categories]
         return res

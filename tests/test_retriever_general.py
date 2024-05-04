@@ -1,6 +1,7 @@
+from datetime import date
+
 from denser_retriever.retriever_general import RetrieverGeneral
 from denser_retriever.utils import passages_to_dict
-from datetime import date
 
 
 class TestRetrieverGeneral:

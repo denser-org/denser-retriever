@@ -1,5 +1,6 @@
-import numpy as np
 import os
+
+import numpy as np
 
 
 def standardize_normalize(data):
@@ -14,7 +15,7 @@ def standardize_normalize(data):
     if std_dev != 0:
         standardized_arr = (arr - mean) / std_dev
     else:
-        standardized_arr = (arr - mean)
+        standardized_arr = arr - mean
         print("Warning: std_dev is zero")
 
     # Convert back to list if necessary
@@ -50,7 +51,7 @@ def save_data(group_data, output_feature, output_group, features, features_to_no
         features_raw = {f: [] for f in features_to_normalize}
         for data in group_data:
             for p in data[2:]:
-                f_name, f_value = p.split(':')
+                f_name, f_value = p.split(":")
                 if f_name in features_to_normalize:
                     features_raw[f_name].append(float(f_value))
 
@@ -66,7 +67,7 @@ def save_data(group_data, output_feature, output_group, features, features_to_no
         feats = []
 
         for p in data[2:]:
-            f_name, f_value = p.split(':')
+            f_name, f_value = p.split(":")
             if features and f_name not in features:
                 continue
             if float(f_value) != 0.0:
@@ -100,7 +101,7 @@ def prepare_xgbdata(exp_dir, out_file, out_group_file, features_to_use, features
         if not line:
             break
         if "#" in line:
-            line = line[:line.index("#")]
+            line = line[: line.index("#")]
         splits = line.strip().split(" ")
         if splits[1] != group:
             # print(f"Processing group {group}")

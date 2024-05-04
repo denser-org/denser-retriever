@@ -10,10 +10,12 @@ import time
 
 import numpy as np
 from pymilvus import (
+    Collection,
+    CollectionSchema,
+    DataType,
+    FieldSchema,
     connections,
     utility,
-    FieldSchema, CollectionSchema, DataType,
-    Collection,
 )
 
 fmt = "\n=== {:30} ===\n"
@@ -29,8 +31,13 @@ num_entities, dim = 3000, 8
 #
 # Note: the `using` parameter of the following methods is default to "default".
 print(fmt.format("start connecting to Milvus"))
-connections.connect("default", host="54.68.68.29", port="19530", user='root',
-    password='Milvus',)
+connections.connect(
+    "default",
+    host="54.68.68.29",
+    port="19530",
+    user="root",
+    password="Milvus",
+)
 
 has = utility.has_collection("hello_milvus")
 print(f"Does collection hello_milvus exist in Milvus: {has}")
@@ -51,7 +58,7 @@ print(f"Does collection hello_milvus exist in Milvus: {has}")
 fields = [
     FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
     FieldSchema(name="random", dtype=DataType.DOUBLE),
-    FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=dim)
+    FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=dim),
 ]
 
 schema = CollectionSchema(fields, "hello_milvus is the simplest demo to introduce the APIs")
@@ -74,7 +81,7 @@ entities = [
     # provide the pk field because `auto_id` is set to False
     [str(i) for i in range(num_entities)],
     rng.random(num_entities).tolist(),  # field random, only supports list
-    rng.random((num_entities, dim)),    # field embeddings, supports numpy.ndarray and list
+    rng.random((num_entities, dim)),  # field embeddings, supports numpy.ndarray and list
 ]
 
 insert_result = hello_milvus.insert(entities)
@@ -149,7 +156,9 @@ print(f"query pagination(offset=1, limit=3):\n\t{r2}")
 print(fmt.format("Start hybrid searching with `random > 0.5`"))
 
 start_time = time.time()
-result = hello_milvus.search(vectors_to_search, "embeddings", search_params, limit=3, expr="random > 0.5", output_fields=["random"])
+result = hello_milvus.search(
+    vectors_to_search, "embeddings", search_params, limit=3, expr="random > 0.5", output_fields=["random"]
+)
 end_time = time.time()
 
 for hits in result:

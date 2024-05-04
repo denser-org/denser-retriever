@@ -1,5 +1,6 @@
-from sentence_transformers import CrossEncoder
 import copy
+
+from sentence_transformers import CrossEncoder
 
 
 class Reranker:

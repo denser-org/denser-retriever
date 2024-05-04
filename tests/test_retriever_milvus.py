@@ -1,5 +1,6 @@
-from denser_retriever.retriever_milvus import RetrieverMilvus
 from datetime import date
+
+from denser_retriever.retriever_milvus import RetrieverMilvus
 
 
 class TestRetrieverMilvus:
