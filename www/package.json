@@ -1,5 +1,5 @@
 {
-  "name": "retriever-docs",
+  "name": "@denser-retriever/www",
   "version": "0.0.1",
   "description": "Documentation for Denser Retriever",
   "scripts": {
@@ -41,6 +41,5 @@
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.4.5"
-  },
-  "packageManager": "pnpm@8.15.5"
+  }
 }
