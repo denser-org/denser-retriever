@@ -1,6 +1,6 @@
+from datetime import date, datetime
+
 from denser_retriever.retriever_elasticsearch import RetrieverElasticSearch
-from datetime import date
-from datetime import datetime
 
 
 class TestRetrieverElasticSearch:
@@ -23,7 +23,7 @@ class TestRetrieverElasticSearch:
         passages = self.retriever_denser.retrieve(query, {})
         topk = self.retriever_denser.config["keyword"]["topk"]
         assert len(passages) == topk
-        assert passages[0]["title"] == 'AI Website Search and Conversational Chatbot | Denser.ai'
+        assert passages[0]["title"] == "AI Website Search and Conversational Chatbot | Denser.ai"
         assert abs(passages[0]["score"] - 6.171114) < 0.01
 
     def test_retrieve_titanic(self):
@@ -40,7 +40,7 @@ class TestRetrieverElasticSearch:
         meta_data = {"Birthday": (date(1873, 1, 1), date(1874, 12, 30))}
         passages = self.retriever_titanic.retrieve(query, meta_data)
         for passage in passages:
-            d = datetime.strptime(passage["Birthday"], '%Y-%m-%d').date()
+            d = datetime.strptime(passage["Birthday"], "%Y-%m-%d").date()
             assert d > date(1873, 1, 1) and d < date(1874, 12, 30)
 
         meta_data = {"Sex": "male"}

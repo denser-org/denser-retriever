@@ -1,26 +1,29 @@
-from generate_retriever_data import generate_data
-from denser_retriever.utils import load_denser_qrels
-from utils_data import prepare_xgbdata
-import yaml
-from sklearn.datasets import load_svmlight_file
-import xgboost as xgb
-from xgboost import DMatrix
-import os
 import logging
+import os
+
+import xgboost as xgb
+import yaml
+from generate_retriever_data import generate_data
+from sklearn.datasets import load_svmlight_file
+from utils_data import prepare_xgbdata
+from xgboost import DMatrix
+
 from denser_retriever.utils import (
     evaluate,
+    load_denser_qrels,
 )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-config_to_features = {"base": ["1,2,3,4,5,6,7,8,9", None],
-                      "vector": ["4,5,6", None],
-                      "normalized": ["1,2,3,4,5,6,7,8,9", "2,5,8"]}
+config_to_features = {
+    "base": ["1,2,3,4,5,6,7,8,9", None],
+    "vector": ["4,5,6", None],
+    "normalized": ["1,2,3,4,5,6,7,8,9", "2,5,8"],
+}
 
 
-class Experiment():
-
+class Experiment:
     def __init__(self, dataset_name, retriever_config):
         self.dataset_name = dataset_name
         self.retriever_config = retriever_config
@@ -53,7 +56,7 @@ class Experiment():
         for line in open(feature_file, "r"):
             pos = line.index("#")
             assert pos != -1
-            pid = line[pos + 1:].strip()
+            pid = line[pos + 1 :].strip()
             line = line[:pos]
             comps = line.strip().split(" ")
             qid = comps[1].split(":")[1].strip()
@@ -95,11 +98,16 @@ class Experiment():
         train_dmatrix.set_group(group_train)
         valid_dmatrix.set_group(group_valid)
 
-        params = {'objective': 'rank:ndcg', 'eta': 0.1, 'gamma': 1.0,
-                  'min_child_weight': 0.1, 'max_depth': 6, 'eval_metric': 'ndcg@5'}
-        xgb_model = xgb.train(params, train_dmatrix, num_boost_round=200,
-                              evals=[(valid_dmatrix, 'validation')])
-        print(xgb_model.get_score(importance_type='gain'))
+        params = {
+            "objective": "rank:ndcg",
+            "eta": 0.1,
+            "gamma": 1.0,
+            "min_child_weight": 0.1,
+            "max_depth": 6,
+            "eval_metric": "ndcg@5",
+        }
+        xgb_model = xgb.train(params, train_dmatrix, num_boost_round=200, evals=[(valid_dmatrix, "validation")])
+        print(xgb_model.get_score(importance_type="gain"))
         pred = xgb_model.predict(test_dmatrix)
 
         test_svmlight_file = os.path.join(test_dir, "features.svmlight")
@@ -108,7 +116,7 @@ class Experiment():
         for line in open(test_svmlight_file, "r"):
             pos = line.index("#")
             assert pos != -1
-            pid = line[pos + 1:].strip()
+            pid = line[pos + 1 :].strip()
             line = line[:pos]
             comps = line.strip().split(" ")
             qid = comps[1].split(":")[1].strip()
@@ -132,14 +140,21 @@ class Experiment():
         features_to_use, features_to_normalize = config_to_features[retriever_config]
 
         for split in splits:
-            prepare_xgbdata(os.path.join(self.output_prefix, split), retriever_config, retriever_config + ".group",
-                            features_to_use,
-                            features_to_normalize)
+            prepare_xgbdata(
+                os.path.join(self.output_prefix, split),
+                retriever_config,
+                retriever_config + ".group",
+                features_to_use,
+                features_to_normalize,
+            )
 
         # run xgboost training and prediction, print each retriever's ndcg@5 and the combined ndcg@5
-        self.train_and_test(os.path.join(self.output_prefix, "train"), os.path.join(self.output_prefix, "dev"),
-                            os.path.join(self.output_prefix, "test"),
-                            retriever_config)
+        self.train_and_test(
+            os.path.join(self.output_prefix, "train"),
+            os.path.join(self.output_prefix, "dev"),
+            os.path.join(self.output_prefix, "test"),
+            retriever_config,
+        )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+{
+  "installation": "Installation",
+  "install-keyword-search": "Install Keyword Search",
+  "install-vector-db": "Install Vector Database",
+  "run-tests": "Run Tests",
+  "retriever-experiments": "Retriever Experiments"
+}

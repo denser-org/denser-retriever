@@ -1,8 +1,10 @@
-import streamlit as st
-import time
 import logging
-from denser_retriever.retriever_general import RetrieverGeneral
+import time
 from datetime import date
+
+import streamlit as st
+
+from denser_retriever.retriever_general import RetrieverGeneral
 
 logger = logging.getLogger(__name__)
 

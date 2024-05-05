@@ -1,0 +1,18 @@
+import { Callout } from 'nextra/components';
+
+# Run Tests
+
+<Callout>
+Once you have installed the dependencies, you can run the unit tests to verify that the installation was successful.
+</Callout>
+
+The unit tests are implemented in files starting with `test_` under `tests` directory. You can run the following command to run a single unit test, for example, `test_retriever_general.py`
+
+```python
+python -m pytest tests/test_retriever_general.py
+```
+Alternatively, you can all unit tests with the following command:
+
+```python
+python -m pytest tests
+```

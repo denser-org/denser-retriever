@@ -2,14 +2,14 @@ import logging
 import os
 from enum import Enum
 
+from denser_retriever.reranker import Reranker
 from denser_retriever.retriever_elasticsearch import RetrieverElasticSearch
 from denser_retriever.retriever_milvus import RetrieverMilvus
-from denser_retriever.reranker import Reranker
 from denser_retriever.utils import (
+    build_dicts,
     save_denser_corpus,
     save_denser_qrels,
     save_denser_queries,
-    build_dicts,
 )
 from denser_retriever.utils_data import HFDataLoader
 
@@ -73,16 +73,17 @@ def generate_data(dataset_name, split, ingest=False):
 
         # Combine both passages
         for passage in passages_keyword + passages_vector:
-            if passage['source'] not in seen_ids:
+            if passage["source"] not in seen_ids:
                 combined_passages.append(passage)
-                seen_ids.add(passage['source'])
+                seen_ids.add(passage["source"])
 
         uid_to_passages_1, uid_to_scores_1, uid_to_ranks_1 = build_dicts(passages_keyword)
         uid_to_passages_2, uid_to_scores_2, uid_to_ranks_2 = build_dicts(passages_vector)
 
         labels = qrels[qid]
-        passages_reranked = reranker.rerank(q["text"], combined_passages,
-                                            retriever_keyword.config["rerank"]["rerank_bs"])
+        passages_reranked = reranker.rerank(
+            q["text"], combined_passages, retriever_keyword.config["rerank"]["rerank_bs"]
+        )
         uid_to_passages_reranked, uid_to_scores_reranked, uid_to_ranks_reranked = build_dicts(passages_reranked)
         feature_str = ""
         for pid in uid_to_passages_reranked.keys():
@@ -102,6 +103,6 @@ def generate_data(dataset_name, split, ingest=False):
             assert pid in uid_to_ranks_reranked
             feature_str += f" 7:{uid_to_ranks_reranked[pid]}"
             feature_str += f" 8:{uid_to_scores_reranked[pid]}"
-            feature_str += f" 9:0"
+            feature_str += " 9:0"
             feature_str += f" # {pid}\n"
         feature_out.write(feature_str)

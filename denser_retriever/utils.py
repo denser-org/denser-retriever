@@ -1,10 +1,11 @@
+import copy
 import json
 import logging
 import sys
 from typing import Dict, List, Tuple, Union
+
 import pytrec_eval
 import torch
-import copy
 
 
 def cos_sim(a, b):
@@ -199,6 +200,7 @@ def get_logger_file(name):
     logging.getLogger().addHandler(console)
     return logging
 
+
 def evaluate(
     qrels: Dict[str, Dict[str, int]],
     results: Dict[str, Dict[str, float]],
@@ -255,6 +257,7 @@ def evaluate(
 
     return ndcg, _map, recall, precision
 
+
 def save_denser_corpus(corpus, output_file: str, max_doc_size):
     out = open(output_file, "w")
     for i, d in enumerate(corpus):
@@ -280,6 +283,7 @@ def save_denser_qrels(qrels, output_file: str):
         json.dump(data, out, ensure_ascii=False)
         out.write("\n")
 
+
 def load_denser_qrels(in_file: str):
     res = {}
     for line in open(in_file, "r"):
@@ -288,6 +292,7 @@ def load_denser_qrels(in_file: str):
         query = list(obj.keys())[0]
         res[query] = obj[query]
     return res
+
 
 def dump_passages(passages: List[Dict[str, str]], output_file: str):
     out = open(output_file, "w")
@@ -345,12 +350,14 @@ def build_dicts(passages):
         uid_to_ranks[uid_str] = i + 1
     return uid_to_passages, uid_to_scores, uid_to_ranks
 
+
 def merge_score_linear(uid_to_scores_1, uid_to_scores_2, weight_1, weight_2):
     uid_to_score = {}
     all_uids = set().union(*[uid_to_scores_1, uid_to_scores_2])
     for uid in all_uids:
         uid_to_score[uid] = weight_1 * uid_to_scores_1.get(uid, 0) + weight_2 * uid_to_scores_2.get(uid, 0)
     return uid_to_score
+
 
 def merge_score_rank(uid_to_ranks_1, uid_to_ranks_2):
     uid_to_score = {}
@@ -359,6 +366,7 @@ def merge_score_rank(uid_to_ranks_1, uid_to_ranks_2):
     for uid in all_uids:
         uid_to_score[uid] = 1 / (k + uid_to_ranks_1.get(uid, 1000)) + 1 / (k + uid_to_ranks_2.get(uid, 1000))
     return uid_to_score
+
 
 def merge_results(passages_1, passages_2, weight_1, weight_2, merge):
     uid_to_passages_1, uid_to_scores_1, uid_to_ranks_1 = build_dicts(copy.deepcopy(passages_1))
@@ -377,6 +385,7 @@ def merge_results(passages_1, passages_2, weight_1, weight_2, merge):
         passage["score"] = uid_to_scores[uid]
         passages.append(passage)
     return passages
+
 
 def scale_results(passages, weight):
     res = copy.deepcopy(passages)

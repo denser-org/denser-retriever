@@ -1,6 +1,8 @@
-from abc import ABC, abstractmethod
-import yaml
 import os
+from abc import ABC, abstractmethod
+
+import yaml
+
 
 class Retriever(ABC):
     """
@@ -31,7 +33,6 @@ class Retriever(ABC):
         self.exp_dir = os.path.join(output_prefix, f"exp_{index_name}")
         if not os.path.exists(self.exp_dir):
             os.makedirs(self.exp_dir)
-
 
     @abstractmethod
     def ingest(self, data):

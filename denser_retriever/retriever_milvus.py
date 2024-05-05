@@ -55,13 +55,14 @@ class RetrieverMilvus(Retriever):
         for key in self.field_types:
             internal_key = self.field_internal_names[key]
             # both category and date type (unix timestamp) use INT64 type
-            fields.append(FieldSchema(name=internal_key, dtype=DataType.INT64, max_length=self.field_max_length),)
+            fields.append(
+                FieldSchema(name=internal_key, dtype=DataType.INT64, max_length=self.field_max_length),
+            )
             self.field_cat_to_id[key] = {}
             self.field_id_to_cat[key] = []
 
         schema = CollectionSchema(fields, "Milvus schema")
         self.index = Collection(self.index_name, schema, consistency_level="Strong")
-
 
     def connect_index(self):
         connections.connect(
@@ -85,7 +86,9 @@ class RetrieverMilvus(Retriever):
         for key in self.field_types:
             internal_key = self.field_internal_names[key]
             # both category and date type (unix timestamp) use INT64 type
-            fields.append(FieldSchema(name=internal_key, dtype=DataType.INT64, max_length=self.field_max_length), )
+            fields.append(
+                FieldSchema(name=internal_key, dtype=DataType.INT64, max_length=self.field_max_length),
+            )
 
         schema = CollectionSchema(fields, "Milvus schema")
         self.index = Collection(self.index_name, schema, consistency_level="Strong")
@@ -95,7 +98,7 @@ class RetrieverMilvus(Retriever):
         output_prefix = self.config["output_prefix"]
         exp_dir = os.path.join(output_prefix, f"exp_{self.index_name}")
         fields_file = os.path.join(exp_dir, "milvus_fields.json")
-        with open(fields_file, 'r') as file:
+        with open(fields_file, "r") as file:
             self.field_cat_to_id, self.field_id_to_cat = json.load(file)
 
     def generate_embedding(self, passages):
@@ -125,15 +128,15 @@ class RetrieverMilvus(Retriever):
                     if category_or_date_str:
                         type = self.field_types[field]["type"]
                         if type == "date":
-                            date_obj = datetime.strptime(category_or_date_str, '%Y-%m-%d')
+                            date_obj = datetime.strptime(category_or_date_str, "%Y-%m-%d")
                             unix_time = int(date_obj.timestamp())
                             fieldss[i].append(unix_time)
-                        else: # categorical
+                        else:  # categorical
                             if category_or_date_str not in self.field_cat_to_id[field]:
                                 self.field_cat_to_id[field][category_or_date_str] = len(self.field_cat_to_id[field])
                                 self.field_id_to_cat[field].append(category_or_date_str)
                             fieldss[i].append(self.field_cat_to_id[field][category_or_date_str])
-                    else: # missing category value
+                    else:  # missing category value
                         fieldss[i].append(-1)
                 record_id += 1
                 if len(batch) == batch_size:
@@ -179,8 +182,10 @@ class RetrieverMilvus(Retriever):
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
         fields_file = os.path.join(exp_dir, "milvus_fields.json")
-        with open(fields_file, 'w') as file:
-            json.dump([self.field_cat_to_id, self.field_id_to_cat], file, ensure_ascii=False, indent=4)  # 'indent' for pretty printing
+        with open(fields_file, "w") as file:
+            json.dump(
+                [self.field_cat_to_id, self.field_id_to_cat], file, ensure_ascii=False, indent=4
+            )  # 'indent' for pretty printing
 
     def retrieve(self, query_text, meta_data, query_id=None):
         if not self.index:
@@ -212,8 +217,12 @@ class RetrieverMilvus(Retriever):
             "params": {"nprobe": 10},
         }
         result = self.index.search(
-            query_embedding, "embeddings", search_params, limit=self.config["vector"]["topk"], expr=expr_str,
-            output_fields=["source", "title", "text", "pid"] + list(self.field_internal_names.values())
+            query_embedding,
+            "embeddings",
+            search_params,
+            limit=self.config["vector"]["topk"],
+            expr=expr_str,
+            output_fields=["source", "title", "text", "pid"] + list(self.field_internal_names.values()),
         )
 
         topk_used = min(len(result[0]), self.config["vector"]["topk"])
@@ -230,10 +239,10 @@ class RetrieverMilvus(Retriever):
             }
             for field in self.field_types.keys():
                 internal_field = self.field_internal_names[field]
-                cat_id_or_unix_time = hit.entity.__dict__['fields'].get(internal_field)
+                cat_id_or_unix_time = hit.entity.__dict__["fields"].get(internal_field)
                 type = self.field_types[field]["type"]
                 if type == "date":
-                    date = datetime.utcfromtimestamp(cat_id_or_unix_time).strftime('%Y-%m-%d')
+                    date = datetime.utcfromtimestamp(cat_id_or_unix_time).strftime("%Y-%m-%d")
                     passage[field] = date
                 else:
                     passage[field] = self.field_id_to_cat[field][cat_id_or_unix_time]

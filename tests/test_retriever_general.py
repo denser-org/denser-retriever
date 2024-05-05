@@ -1,5 +1,6 @@
-from denser_retriever.retriever_general import RetrieverGeneral
 from datetime import date
+
+from denser_retriever.retriever_general import RetrieverGeneral
 
 
 class TestRetrieverGeneral:
@@ -21,7 +22,7 @@ class TestRetrieverGeneral:
         query = "what is denser ai?"
         passages, docs = self.retriever_denser.retrieve(query, {})
         assert len(passages) == topk
-        assert passages[0]["title"] == 'AI Website Search and Conversational Chatbot | Denser.ai'
+        assert passages[0]["title"] == "AI Website Search and Conversational Chatbot | Denser.ai"
         assert abs(passages[0]["score"] - 4.1690) < 0.01
 
     def test_retrieve_titanic(self):
@@ -30,7 +31,6 @@ class TestRetrieverGeneral:
         passages, docs = self.retriever_titanic.retrieve(query, meta_data)
         assert passages[0]["source"] == "2"
         assert abs(passages[0]["score"] - 3.6725) < 0.01
-
 
     def test_retrieve_cpws(self):
         query = "买卖合同纠纷"

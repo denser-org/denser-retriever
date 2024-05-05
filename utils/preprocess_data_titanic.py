@@ -1,7 +1,7 @@
 import csv
+import datetime
 import json
 import logging
-import datetime
 import random
 
 logger = logging.getLogger(__name__)
@@ -18,10 +18,10 @@ def csv_to_jsonl(csv_filepath, jsonl_filepath, key_update):
     jsonl_filepath (str): The path to the output JSONL file.
     """
 
-    with open(csv_filepath, mode='r', newline='', encoding='utf-8-sig') as csv_file:
+    with open(csv_filepath, mode="r", newline="", encoding="utf-8-sig") as csv_file:
         csv_reader = csv.DictReader(csv_file)
 
-        with open(jsonl_filepath, mode='w', newline='', encoding='utf-8') as jsonl_file:
+        with open(jsonl_filepath, mode="w", newline="", encoding="utf-8") as jsonl_file:
             # Convert each row to JSON and write it to the JSONL file
             for item in csv_reader:
                 for key in key_update.keys():
@@ -34,8 +34,8 @@ def csv_to_jsonl(csv_filepath, jsonl_filepath, key_update):
                 age_str = item["Age"]
                 age = int(float(age_str)) if len(age_str) > 0 else 0
                 item["Birthday"] = generate_birthday(age)
-                if item['source']:
-                    jsonl_file.write(json.dumps(item, ensure_ascii=False) + '\n')
+                if item["source"]:
+                    jsonl_file.write(json.dumps(item, ensure_ascii=False) + "\n")
                 else:
                     logger.info(f"Skip {item}")
 

@@ -1,5 +1,6 @@
-from denser_retriever.retriever_milvus import RetrieverMilvus
 from datetime import date
+
+from denser_retriever.retriever_milvus import RetrieverMilvus
 
 
 class TestRetrieverMilvus:
@@ -22,7 +23,7 @@ class TestRetrieverMilvus:
         passages = self.retriever_milvus_denser.retrieve(query, {})
         # import pdb; pdb.set_trace()
         assert len(passages) == topk
-        assert passages[0]["title"] == 'Blog | Denser.ai'
+        assert passages[0]["title"] == "Blog | Denser.ai"
         assert abs(passages[0]["score"] + 1.126) < 0.01
 
     def test_retrieve_titanic(self):
