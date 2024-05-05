@@ -11,6 +11,7 @@ keyword:
   es_passwd: WzAkbzjZj9AfNXxzmOmp
   es_host: http://54.68.68.29:9200
   es_ingest_passage_bs: 5000
+  topk: 5
 
 vector:
   milvus_host: 54.68.68.29
@@ -20,6 +21,7 @@ vector:
   emb_model: sentence-transformers/all-MiniLM-L6-v2
   emb_dims: 384
   vector_ingest_passage_bs: 1000
+  topk: 5
 
 rerank:
   # https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-12-v2
@@ -27,10 +29,21 @@ rerank:
   # rerank_model: cross-encoder/ms-marco-TinyBERT-L-2-v2
   rerank_model: cross-encoder/ms-marco-MiniLM-L-6-v2
   rerank_bs: 100
-  topk: 100
+  topk: 5
 
-output_prefix: /home/ubuntu/efs/denser_output_retriever/
+fields:
+  - 案号:case_id:keyword
+  - 法院:court:keyword
+  - 所属地区:location:keyword
+  - 案件类型:case_type:keyword
+  - 审理程序:trial_procedure:keyword
+  - 裁判日期:trial_date:date
+  - 公开日期:publication_date:date
+  - 案由:cause:keyword
+  - 法律依据:legal_basis:keyword
+
+output_prefix: denser_output_retriever/
 
 ## temp parameters
-max_doc_size: 10
-max_query_size: 2
+max_doc_size: 0
+max_query_size: 0

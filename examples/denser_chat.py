@@ -10,8 +10,8 @@ from denser_retriever.retriever_general import RetrieverGeneral
 
 logger = logging.getLogger(__name__)
 
-index_name = "unit_test_index"
-retriever = RetrieverGeneral(index_name, "tests/config-test.yaml")
+index_name = "unit_test_denser"
+retriever = RetrieverGeneral(index_name, "tests/config-denser.yaml")
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 default_openai_model = "gpt-3.5-turbo-0125"
@@ -40,8 +40,7 @@ def denser_chat():
             st.markdown(query)
 
         start_time = time.time()
-        topk = 5
-        passages, docs = retriever.retrieve(query, {}, topk)
+        passages, docs = retriever.retrieve(query, {})
         retrieve_time_sec = time.time() - start_time
         st.write(f"Retrieve time: {retrieve_time_sec:.3f} sec.")
 
