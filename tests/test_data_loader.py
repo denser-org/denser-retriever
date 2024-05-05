@@ -10,6 +10,5 @@ class TestDataLoader:
             streaming=False,
             keep_in_memory=False,
         ).load(split=split)
-        # print(f"Corpus size: {len(corpus)}")
         assert len(corpus) == 3633
         assert len(queries) == 323

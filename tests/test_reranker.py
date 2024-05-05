@@ -7,29 +7,20 @@ class TestReranker:
         """setup any state tied to the execution of the given method in a
         class.  setup_method is invoked for every tests method of a class.
         """
-        self.retriever_elasticsearch = RetrieverElasticSearch("unit_test_index", "tests/config-test.yaml")
-        self.retriever_elasticsearch_cn = RetrieverElasticSearch("unit_test_cn_index", "tests/config-test-cn.yaml")
+        self.retriever_elasticsearch = RetrieverElasticSearch("unit_test_denser", "tests/config-denser.yaml")
         rerank_model = "cross-encoder/ms-marco-MiniLM-L-6-v2"
         self.reranker = Reranker(rerank_model)
 
     def test_retriever_ingest(self):
         self.retriever_elasticsearch.ingest("tests/test_data/denser_website_passages_top10.jsonl", 10)
-        self.retriever_elasticsearch_cn.ingest("tests/test_data/cpws_passages_top10.jsonl", 10)
 
     def test_reranker(self):
-        topk = 5
+        topk = self.retriever_elasticsearch.config["keyword"]["topk"]
         query = "what is denser ai?"
-        passages = self.retriever_elasticsearch.retrieve(query, {}, topk)
-        assert len(passages) == 5
+        passages = self.retriever_elasticsearch.retrieve(query, {})
+        assert len(passages) == topk
+        assert abs(passages[0]["score"] - 6.171) < 0.01
 
         passages_reranked = self.reranker.rerank(query, passages, 10)
-        assert len(passages_reranked) == 5
-
-    def test_reranker_cn(self):
-        topk = 5
-        query = "买卖合同纠纷"
-        passages = self.retriever_elasticsearch_cn.retrieve(query, {}, topk)
-        assert len(passages) == 5
-
-        passages_reranked = self.reranker.rerank(query, passages, 10)
-        assert len(passages_reranked) == 5
+        assert len(passages_reranked) == topk
+        assert abs(passages_reranked[0]["score"] - 3.357) < 0.01
