@@ -3,3 +3,6 @@ sentence_transformers
 elasticsearch
 pytrec_eval
 pymilvus
+streamlit
+openai==0.28
+tiktoken

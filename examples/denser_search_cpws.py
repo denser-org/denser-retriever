@@ -6,10 +6,10 @@ from datetime import date
 
 logger = logging.getLogger(__name__)
 
-index_name = "unit_test_titanic"
-retriever = RetrieverGeneral(index_name, "tests/config-titanic.yaml")
-starting_url = "https://github.com/datasciencedojo/datasets/blob/master/titanic.csv"
-optional_str = 'Try questions such as "cumings"'
+index_name = "unit_test_cpws"
+retriever = RetrieverGeneral(index_name, "tests/config-cpws.yaml")
+starting_url = "https://wenshu.court.gov.cn/"
+optional_str = 'Try questions such as "买卖合同纠纷"'
 
 
 def denser_search():
@@ -28,9 +28,9 @@ def denser_search():
         if type == "date":
             option = st.sidebar.date_input(
                 field,
-                (date(1858, 1, 1), date(1910, 12, 31)),
-                date(1858, 1, 1),
-                date(1910, 12, 31),
+                (date(1985, 1, 1), date(2021, 12, 31)),
+                date(1985, 1, 1),
+                date(2021, 12, 31),
                 format="MM.DD.YYYY",
             )
         else:
