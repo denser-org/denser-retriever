@@ -1,0 +1,78 @@
+# Install Keyword Search
+
+We use Elasticsearch under the hood as keyword search implementation due to its high performance and robustness. We follow the [Elasticsearch install guide](https://www.elastic.co/guide/en/elasticsearch/reference/current/targz.html) to install Elasticsearch version 8.13 on an AWS EC2 instance (`t2.medium` with 2 vCPU and 4 GiB Memory). Users may refer to the official elasticsearch doc for greater details. To be self-contained, we list the installation commands required in this doc.
+
+## Download and install archive for Linuxedit
+
+First we download and install archive for linux. The Linux archive for Elasticsearch v8.13.2 can be downloaded and installed as follows:
+
+```bash
+wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.13.2-linux-x86_64.tar.gz
+tar -xzf elasticsearch-8.13.2-linux-x86_64.tar.gz
+cd elasticsearch-8.13.2/
+```
+## Run Elasticsearch from the command line
+
+We run the following command to start Elasticsearch:
+
+```bash
+./bin/elasticsearch
+```
+
+When starting Elasticsearch for the first time, security features are enabled and configured by default. Specifically,
+
+- Authentication and authorization are enabled, and a password is generated for the elastic built-in superuser.
+- Certificates and keys for TLS are generated for the transport and HTTP layer, and TLS is enabled and configured with these keys and certificates.
+
+The password for the `elastic` user is output to your terminal. Take a note of the this password `es_passwd` which will be used to connect elasticsearch server.
+
+The default setting requires both elastic password and TLS to access elasticsearch service. To make it simple, you can disable TLS by changing the `enabled: true` to `enabled: false` at `config/elasticsearch.yml`. After the change, the ssl config block looks like the following:
+
+```bash
+xpack.security.http.ssl:
+  enabled: false
+  keystore.path: certs/http.p12
+```
+
+## Check that Elasticsearch is running
+
+You can test that your Elasticsearch node is running by sending an HTTPS request to port 9200 on `localhost`:
+
+```bash
+curl -u elastic:your_es_passwd http://localhost:9200/
+```
+
+The call returns a response like this:
+
+```bash
+{
+  "name" : "Cp8oag6",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "AT69_T_DTp-1qgIJlatQqA",
+  "version" : {
+    "number" : "8.13.2",
+    "build_type" : "tar",
+    "build_hash" : "f27399d",
+    "build_flavor" : "default",
+    "build_date" : "2016-03-30T09:51:41.449Z",
+    "build_snapshot" : false,
+    "lucene_version" : "9.10.0",
+    "minimum_wire_compatibility_version" : "1.2.3",
+    "minimum_index_compatibility_version" : "1.2.3"
+  },
+  "tagline" : "You Know, for Search"
+}
+```
+
+## Run as a daemon
+
+To run Elasticsearch as a daemon, specify `-d` on the command line, and record the process ID in a file using the `-p` option:
+
+```bash
+./bin/elasticsearch -d -p pid
+```
+
+To shut down Elasticsearch, kill the process ID recorded in the pid file:
+```bash
+pkill -F pid
+```

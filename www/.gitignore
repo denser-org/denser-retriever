@@ -1,0 +1,8 @@
+.next
+node_modules
+
+# sst
+.sst
+
+# open-next
+.open-next

@@ -1,0 +1,8 @@
+{
+  "-- Switcher": {
+    "type": "separator",
+    "title": "Switcher"
+  },
+  "index": "Overview",
+  "e2e-chat-app": "E2E Chat App"
+}

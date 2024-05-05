@@ -1,0 +1,29 @@
+{
+  "index": {
+    "type": "page",
+    "title": "Denser Retriever",
+    "display": "hidden",
+    "theme": {
+      "layout": "raw"
+    }
+  },
+  "docs": {
+    "title": "Docs",
+    "type": "page"
+  },
+  "examples": {
+    "type": "page",
+    "title": "Examples",
+    "display": "hidden"
+  },
+  "about": {
+    "title": "About",
+    "type": "page"
+  },
+  "contact": {
+    "title": "Contact ↗",
+    "type": "page",
+    "href": "https://denser.ai",
+    "newWindow": true
+  }
+}
