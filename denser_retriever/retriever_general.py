@@ -17,11 +17,7 @@ class RetrieverGeneral(Retriever):
             RetrieverElasticSearch(index_name, config_file) if self.config["keyword_weight"] > 0 else None
         )
         self.retrieverMilvus = RetrieverMilvus(index_name, config_file) if self.config["vector_weight"] > 0 else None
-        self.reranker = (
-            Reranker(self.config["rerank"]["rerank_model"], self.out_reranker)
-            if self.config["rerank_weight"] > 0
-            else None
-        )
+        self.reranker = Reranker(self.config["rerank"]["rerank_model"]) if self.config["rerank_weight"] > 0 else None
 
     def ingest(self, doc_or_passage_file):
         # import pdb; pdb.set_trace()
