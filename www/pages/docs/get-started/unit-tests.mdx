@@ -1,0 +1,19 @@
+import { Callout } from 'nextra/components';
+
+# Run Tests
+
+<Callout>
+Once you have installed the dependencies, you can run the unit tests to verify that the installation was successful.
+</Callout>
+
+The unit tests are implemented in files starting with `test_` under [tests]() directory. We have various unit tests to test data loader, elasticsearch, vector search, reranker, and the generalized retriever. The following command runs a generalized test which combines elasticsearch, vector search and rerank.
+
+```python
+python -m pytest tests/test_retriever_general.py
+```
+
+Alternatively, you can all unit tests with the following command. You will expect to have all unit tests passed.
+
+```python
+python -m pytest tests
+```

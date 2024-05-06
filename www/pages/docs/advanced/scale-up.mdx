@@ -1,0 +1,42 @@
+# Large Scale Experiments
+
+## MSMARCO Dataset
+
+The nfcorpus dataset is relatively small. To experiment on a large dataset, for example MSMARCO with the stats listed on the following table
+| #Corpus | #Train Query | #Dev Query | #Test Query|
+|---|---|---|---|
+|8841823 | 532761| - | 6980|
+
+we simply run:
+
+```shell
+python examples/run_experiement.py mteb/msmarco
+```
+
+Similar to the above experiments on nfcorpus, the baseline retrievers as well as the proposed xgboost models are evaluated and their ndcg@10 scores are reported. The vector search leads higher ndcg@10 score (40.86) compared to elasticsearch (21.84). The reranker boosts the ndcg@10 score to 46.83, which is higher than the highest ndcg@10 (43.41) reported at [Huggingface mteb leaderboard](https://huggingface.co/spaces/mteb/leaderboard).
+
+| | NDCG@10 |
+|---|---|
+|Elasticsearch | 21.84|
+|Vector Search | 40.86 |
+|Reranker | 46.83 |
+|Base | 46.07|
+|Normalized | 45.88 |
+
+## Retriever Cost on large datasets
+Msmarco dataset has 8.8M passages. Assume the embedding size for a passage is 768, it takes 8.8M * 768 * 4 = 27G RAM. Users can refer to [Milvus sizing tool](https://milvus.io/tools/sizing/) for the RAM computation. The most cost effective AWS instance is m5a.4xlarge (64G Ram), which cost $0.688 per hour ($495 per month). For elasticsearch, we need to configure at least 8G ram in `elasticsearch-8.13.2/config/jvm.options` file with the following setting.
+
+```bash
+-Xms8g
+-Xmx8g
+```
+Based on the MSMARCO accuracy and cost estimate, we can achieve the highest NDCG@10 if we use normalized xgboost model. If we consider cost as a factor, the elasticsearch plus reranker provides a good trade-off between accuracy and cost.
+
+## How to configure an optimal retriever
+
+We consider six retriever configurations for the combination of elasticsearch, vector search and reranker.
+
+| ID | elasticsearch | vector search | reranker |
+|---|---|---|---|
+|ES | Yes | No | No |
+|VS | No  |Yes | No |

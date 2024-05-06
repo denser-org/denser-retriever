@@ -3,6 +3,6 @@
     "type": "separator",
     "title": "Switcher"
   },
-  "index": "Overview",
-  "e2e-chat-app": "E2E Chat App"
+  "e2e-chat": "E2E Chat App",
+  "e2e-search": "E2E Search App"
 }

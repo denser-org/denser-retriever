@@ -1,0 +1,57 @@
+# Denser Retriever Experiments
+
+## Get Started
+
+To evaluate retrievers' accuracy on [mteb](https://github.com/embeddings-benchmark/mteb) benchmark datasets, we run the following to kick off the retriever experiment on `mteb/nfcorpus` dataset.
+
+```shell
+python examples/run_experiement.py mteb/nfcorpus
+```
+
+## Nfcorpus Dataset
+
+We uses the [mteb](https://github.com/embeddings-benchmark/mteb) `nfcorpus` dataset to illustrate the experiments. Here is the stats of the dataset.
+
+| #Corpus | #Train Query | #Dev Query | #Test Query|
+|---|---|---|---|
+|3633 | 2590| 324 | 323|
+
+ We first download the specified mteb dataset, build an elasticsearch index, a vector index and a reranker.
+ For each query in the training data, we query elasticsearch and vector database to retrieve two sets of top 100 passages respectively. We note that some passages appear in both set but others may appear in either.
+
+## Feature Generation
+
+ For each query and passage pair, we generate three features: `rank`, `score` and `missing` for elasticsearch (ES), vector search (VS) and Reranker (RR) respectively. `rank` is the passage rank position, which is ranged from 1 to 100, `score` is the relevance score measured by a retriever, and `miss` indicates if such passage is missing in the top 100 passages of a retriever. That is, this passage is retrieved by other retrievers.
+
+ We list a few query passage pair data points as follows. For example, the first datapoint represents the query of `PLAIN-2` and passage `MED-14`. The passage is annotated with label `2` (highly relevant) with respect to the query. The passage receives rank position of `2` and relevance score of `42.12` in elasticsearch retriever. It is among the top 100 passages from elasticsearch and thus is not missing (ES Missing value of `0`). Similarly the passage receives rank position of `4` and score `-295.96` from vector search. We note both elasticsearch and vector search top 100 passages are reranked by a reranker, so the reranker missing feature is always `0`.
+
+
+|QID |PID | Label | ES Rank | ES Score | ES Missing | VS Rank | VS Score | VS Missing| RR Rank | RR Score | RR Missing
+| ---- |--- | ------ | ----------- | ---- |  ---- | ----------- | ---- |  ---- | ----------- | ---- |---- |
+| PLAIN-2 |MED-14 |2 | 2 | 42.12| 0| 4| -295.96| 0| 1| 4.55| 0 |
+| PLAIN-2 |MED-2429 |2 | 1 | 42.91| 0| 1| -212.59| 0| 2| 4.09| 0 |
+| PLAIN-12 |MED-4711 |0 | 1 | 24.02| 0| 4| -463.51| 0| 1| -8.63| 0 |
+| PLAIN-12 |MED-4698 |0 | 4 | 14.25| 0| 22| -538.72| 0| 2| -8.94| 0 |
+
+## Elasticsearch, Vector Search, and Reranker Baselines
+
+We end up with generating 389500, 48500 and 48703 query-passage data from train, dev and test datasets respectively. First, we simply use the scores of elasticsearch, vector database, and reranker to establish the baselines. We note that Vector search leads to higher accuracy than ealsticsearch, which is expected as vector search can capture semantic similarity better compared to keyword search. We note that reranker can lead to higher accuracy (35.29 ndcg@10). The difference between vector search and reranker is that, the latter modeling the interaction between queries and passages. This cross-encoder modeling leads more relevant passages are reranked on the top.
+
+| | NDCG@10 |
+|---|---|
+|Elasticsearch | 31.40|
+|Vector Search | 33.04 |
+|Reranker | 35.29 |
+
+## Proposed Xgboost Models
+
+We now introduce a ML approach to combine elasticsearch, vector search and reranker. Specifically, we train a [xgboost](https://xgboost.readthedocs.io/en/stable/) model with ndcg as objective. In ranking scenario, data are grouped with the same query. Each group is used to optimized boosted decision trees to predict passage relevance labels (0, 1, or 2).
+
+We train two xgboost models: **base** and **normalized**. The base model uses all 9 features introduced. The normalized model uses additional normalized features. For a retriever score, we introduce 1) standardization: the mean and standard deviation of standard scores is 0 and 1 respectively. and 2) min-max normalizations. We therefore have 6 additional normalized features to elasticsearch, vector search and reranker. The ndcg@10 scores for base and normalized models are listed below. The experiments show that the combined retrievers (base and normalized) can boost the the baseline retrievers. For example, it boost the vector search model from ndcg@10 of 33.04 to the normalized xgboost model ndcg@10 score of 37.55.
+
+| | NDCG@10 |
+|---|---|
+|Base | 36.84|
+|Normalized | 37.55 |
+
+Xgboost model has a nice property to estimate the feature importance which is listed on the following table. As can be seen, the reranker features as well as their normalized features receive high weights in predicting final relevance score. The estimated weights are consistent with the baseline retrievers ndcg@10 results.
