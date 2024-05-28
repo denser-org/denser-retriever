@@ -12,9 +12,9 @@ export function JoinCTA() {
             </div>
           </div>
           <div className="flex flex-col items-stretch justify-center w-full col-span-2 gap-4">
-            <h4 className="mt-8 text-4xl font-semibold leading-none text-left lg:text-5xl dark:text-white text-neutral-600 font-display">
+            <h5 className="mt-8 text-4xl font-semibold leading-none text-left lg:text-5xl dark:text-white text-neutral-600 font-display">
               DenserRetriever v1 Beta coming!
-            </h4>
+            </h5>
             <p className="mt-3 text-base leading-relaxed text-left text-gray-500 dark:text-neutral-100">
               You can try out DenserRetriever in your self-hosted machine,
               with an extremely simple docker setup.

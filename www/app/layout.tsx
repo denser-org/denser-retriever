@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono"
 import { GeistSans } from "geist/font/sans"
 import { Londrina_Solid } from "next/font/google"
 
-import Script from "next/script"
+import { GoogleAnalytics } from "@next/third-parties/google"
 import { Footer } from "../components/footer"
 import "./global.css"
 
@@ -23,7 +23,7 @@ export const metadata = createMetadata({
     template: "DenserRetriever • %s",
     default: "DenserRetriever • Docs",
   },
-  description: "Bookmarks, Read-it-later, and RSS-Feeds",
+  description: "Cutting-edge AI Retriever for RAG",
   metadataBase: baseUrl,
 })
 
@@ -45,15 +45,13 @@ export default function Layout({ children }: { children: ReactNode }) {
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
-      {process.env.NODE_ENV === "production" && (
-        <Script data-api="/a/e" data-domain="docs.denser.ai" src="/p.js" />
-      )}
       <body className="overflow-x-hidden">
         <RootProvider>
           {children}
           <Footer />
         </RootProvider>
       </body>
+      <GoogleAnalytics gaId="G-LBFKFW4G31" />
     </html>
   )
 }

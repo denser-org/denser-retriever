@@ -11,6 +11,7 @@
     "generate:openapi": "node generate-openapi.mjs"
   },
   "dependencies": {
+    "@next/third-parties": "^14.2.3",
     "@phosphor-icons/react": "^2.1.4",
     "fumadocs-core": "10.1.2",
     "fumadocs-mdx": "8.2.7",
