@@ -1,0 +1,46 @@
+version: "0.1"
+
+# linear or rank
+combine: linear
+keyword_weight: 0.5
+vector_weight: 0.5
+rerank_weight: 0.5
+
+keyword:
+  es_user: elastic
+  es_passwd: YOUR_ES_PASSWORD
+  es_host: http://localhost:9200
+  es_ingest_passage_bs: 5000
+  topk: 5
+
+vector:
+  milvus_host: localhost
+  milvus_port: 19530
+  milvus_user: root
+  milvus_passwd: Milvus
+  emb_model: sentence-transformers/all-MiniLM-L6-v2
+  emb_dims: 384
+  one_model: true
+  vector_ingest_passage_bs: 1000
+  topk: 5
+
+rerank:
+  rerank_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  rerank_bs: 100
+  topk: 5
+
+fields:
+  - 案号:case_id:keyword
+  - 法院:court:keyword
+  - 所属地区:location:keyword
+  - 案件类型:case_type:keyword
+  - 审理程序:trial_procedure:keyword
+  - 裁判日期:trial_date:date
+  - 公开日期:publication_date:date
+  - 案由:cause:keyword
+  - 法律依据:legal_basis:keyword
+
+output_prefix: denser_output_retriever/
+
+max_doc_size: 0
+max_query_size: 0

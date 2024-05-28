@@ -1,0 +1,34 @@
+---
+title: End to end Chat application
+---
+
+<Callout type="info">
+  We can run this application either on a [localhost](../install/install-local) or a [server](../install/install-server).
+</Callout>
+
+
+We show the step-by-step guide to build an end-to-end chatbot. We first set the OpenAI api key
+
+```bash
+export OPENAI_API_KEY=<API-KEY>
+```
+
+Under the [repo](https://github.com/denser-org/denser-retriever/tree/main) directory, we can run the following command to launch a streamlit chatbot app. The source code can be found at [here](https://github.com/denser-org/denser-retriever/blob/main/examples/denser_chat.py).
+
+```bash
+poetry run streamlit run examples/denser_chat.py
+```
+
+This command first builds a mini retriever with the following code.
+
+```python
+index_name = "unit_test_denser"
+retriever = RetrieverGeneral(index_name, "tests/config-denser.yaml")
+retriever.ingest("tests/test_data/denser_website_passages_top10.jsonl")
+```
+
+It then launches a webpage with interactive UI so users can input queries. Once it is launched, we will see a chatbot interface similar to the following screenshot. We can ask any question to the chatbot and get the response. Below shows an example query of `what use cases does denser support?` The retriever first returns the relevant passages listed under the section of `Sources` at the bottom of the screenshot. These passages are fed to a LLM and the final summarization is displayed on the chat window.
+
+import DenserChat from "./denser_chat.png"
+
+<Screenshot src={DenserChat} alt="Denser Chat" className="shadow-xs" />

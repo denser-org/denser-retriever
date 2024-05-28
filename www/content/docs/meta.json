@@ -1,0 +1,23 @@
+{
+  "title": "Setup",
+  "root": true,
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "quick-start",
+    "---Setup---",
+    "install/installation",
+    "install/install-local",
+    "install/install-server",
+    "---Experiments---",
+    "experiments/index_and_query",
+    "experiments/training",
+    "experiments/mteb_retrieval",
+    "---Examples---",
+    "examples/e2e-chat",
+    "examples/e2e-search",
+    "---Miscellaneous---",
+    "misc/unit-tests",
+    "misc/filters"
+  ]
+}

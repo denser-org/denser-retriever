@@ -1,0 +1,37 @@
+version: "0.1"
+
+# linear, rank or model
+combine: model
+keyword_weight: 0.5
+vector_weight: 0.5
+rerank_weight: 0.5
+model: ./experiments/models/msmarco_xgb_es+vs+rr_n.json
+model_features: es+vs+rr_n
+
+keyword:
+  es_user: elastic
+  es_passwd: YOUR_ES_PASSWORD
+  es_host: http://00.00.00.00:9200
+  es_ingest_passage_bs: 5000
+  topk: 100
+
+vector:
+  milvus_host: 00.00.00.00
+  milvus_port: 19530
+  milvus_user: root
+  milvus_passwd: Milvus
+  emb_model: Snowflake/snowflake-arctic-embed-m
+  emb_dims: 768
+  one_model: false
+  vector_ingest_passage_bs: 2000 # 1000
+  topk: 100
+
+rerank:
+  rerank_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  rerank_bs: 100
+  topk: 100
+
+output_prefix: /home/ubuntu/denser_output_retriever/
+
+max_doc_size: 0
+max_query_size: 10000

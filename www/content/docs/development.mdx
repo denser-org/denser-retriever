@@ -1,0 +1,217 @@
+---
+title: Development
+---
+
+To begin local development, you'll need a copy of the code and a local database.
+
+## Code
+
+The code is setup as a monorepo and contains the following pieces.
+
+1. `apps/web` - The web app
+2. `apps/backend` - The backend workers and additional API
+
+<Steps>
+<Step>
+
+### Clone the repository
+
+```bash
+git clone https://github.com/denser-org/denser-retriever
+cd sveltekasten
+```
+
+</Step>
+<Step>
+
+### Setup Dependencies
+
+In the root of the repository, running this command will install the dependencies for the entier workspaces, i.e. both packages / applications.
+
+<Tabs items={["npm", "pnpm", "yarn"]}>
+  <Tab value="npm">
+
+```bash
+npm install
+```
+
+  </Tab>
+  <Tab value="pnpm">
+
+```bash
+pnpm install
+```
+
+  </Tab>
+  <Tab value="yarn">
+
+```bash
+yarn install
+```
+
+  </Tab>
+</Tabs>
+
+</Step>
+<Step>
+
+### Environment Variables
+
+Next, you'll want to setup the environment variables. Because this is a monorepo, there are 2 different environment variables files you'll need to make copies of.
+
+Run the following command for these files
+
+```bash
+cp .env.example .env
+vim .env
+```
+
+1. `apps/web/.env.example`
+2. `apps/backend/.env.example`
+
+Open your `.env` files in an editor and modify at least the following values. These are the required values.
+
+| Directory     | Variable       | Value                                                                   |
+| :------------ | :------------- | :---------------------------------------------------------------------- |
+| Web + Backend | `DATABASE_URL` | `postgres://username:password@localhost:5432/postgres`                  |
+| Web           | `AUTH_URL`     | Your current URL (i.e. `http://localhost:3000`)                         |
+| Web           | `AUTH_SECRET`  | Set to the output of `openssl rand -hex 33`                             |
+| Web           | `WORKER_URL`   | URL of the `backend` application, (i.e. `http://localhost:8000/api/v0`) |
+| Backend       | `JWT_SECRET`   | The same secret as you set in your web's `AUTH_SECRET`                  |
+
+Next, you'll want to setup at least 1 [Authentication Provider](https://authjs.dev) with Auth.js-related environment variables. We support OAuth providers like Github, Google, Azure, Keycloak and Authentik as well as the Email "Magic Link" provider out of the box. See the `apps/web/.env.example` for the various environment variables you can set.
+
+We like to use the [GitHub provider](https://authjs-nextra-docs.vercel.app/getting-started/providers/github) in development as well, as its easy to setup and safe to use. That requires the `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET` environment variables to be set.
+
+This is optional during development, but if you want the application to generate images and save them, you'll have to provide an S3-compatible object store. I've tested and used [Cloudflare R2](https://www.cloudflare.com/developer-platform/r2/), but also provided a [minio](https://min.io) container setup in the `docker-compose.yml` so you don't have to use a cloud provider. To set this up, you'll have to fill in the `BUCKET_*` environment variables in the backends `apps/backend/.env` file.
+
+</Step>
+</Steps>
+
+## Database
+
+The other critical piece to working on this application locally is a PostgreSQL database. You can use the `database` service in the `docker-compose.storage.yml` file to get started quickly.
+
+<Steps>
+<Step>
+
+Make sure you're in the root of the repository and execute the following command to spin up the PostgreSQL container.
+
+```bash
+docker-compose -f docker-compose.storage.yml up database
+```
+
+</Step>
+<Step>
+
+Next, we'll need to setup the database connection settings. This is done via the `DATABASE_URL` environment variable in both of the `.env` files. For example, `apps/backend/.env` and `apps/web/.env`. The default values for the container are as follows. Don't forget to update the hostname to your container&apos;s IP address or hostname or any other variables you may have changed in the compose file.
+
+```bash
+DATABASE_URL=postgres://postgres:postgres@database:5432/briefkasten
+```
+
+</Step>
+<Step>
+
+Once your database container is up and running, we'll use the `prisma` CLI to push our schema to the database.
+
+Finally, we can use the pre-existing npm script to push the schema to the running PostgreSQL instance. In the root of the repository, run this npm script.
+
+<Tabs items={["npm", "pnpm", "yarn"]}>
+  <Tab value="npm">
+
+```bash
+npm run db:push
+```
+
+  </Tab>
+  <Tab value="pnpm">
+
+```bash
+pnpm db:push
+```
+
+  </Tab>
+  <Tab value="yarn">
+
+```bash
+yarn run db:push
+```
+
+  </Tab>
+</Tabs>
+
+</Step>
+</Steps>
+
+## Launch
+
+After the dependencies are installed, environment variables are setup, and the database schema is applied, we're ready to go!
+
+You can start both the `web` and `backend` apps from one npm script in the root of the repository. This will also start both in "watch" mode, which means they will automatically reload whenever you make changes to any of the source files.
+
+<Tabs items={["npm", "pnpm", "yarn"]}>
+  <Tab value="npm">
+
+```bash
+npm run dev
+```
+
+  </Tab>
+  <Tab value="pnpm">
+
+```bash
+pnpm dev
+```
+
+  </Tab>
+  <Tab value="yarn">
+
+```bash
+yarn run dev
+```
+
+  </Tab>
+</Tabs>
+
+## Details
+
+### Object Storage
+
+The default object storage provider is Cloudflare R2 as it has a free plan with 10GB storage, no egress fees. But if you'd like to self-host this, I included a [minio](https://min.io)-based setup in the `docker-compose.storage.yml` file. You can start it with the following command. Make sure to update the `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` environment variables in the `docker-compose.storage.yml` file, this will be your bucket access key and secret key, respectively, as well as the login for the minio console (available in the container at port `9001`).
+
+```bash
+docker-compose -f docker-compose.storage.yml up mc minio
+```
+
+For more information, check out the [self-hosting object storage](/docs/self-hosting#object-storage) section.
+
+### Dev Server
+
+Once you've got the database prepared and all dependencies installed, you can start the dev servers by running the `dev` npm script in the root of the repository.
+
+<Tabs items={["npm", "pnpm", "yarn"]}>
+  <Tab value="npm">
+
+```bash
+npm run dev
+```
+
+  </Tab>
+  <Tab value="pnpm">
+
+```bash
+pnpm dev
+```
+
+  </Tab>
+  <Tab value="yarn">
+
+```bash
+yarn dev
+```
+
+  </Tab>
+</Tabs>
+
+This will execute both the web app as well as the backend development servers in parallel. The web app will be available at `http://localhost:3000` and the backend at `http://localhost:8000/api/v0`, unless you changed the default URLs.

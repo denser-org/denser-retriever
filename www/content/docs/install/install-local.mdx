@@ -1,0 +1,45 @@
+---
+title: Local (docker compose)
+description: Setup the Denser Retriever Requirements on a local host.
+---
+
+<Callout type="warn">
+This setup is not suitable for production use as the data is not persistent and environment variables are not kept secret.
+</Callout>
+
+Elasticsearch and Milvus are required to run the Denser Retriever. They support the keyword search and vector search respectively. We follow the following instructions to install Elasticsearch and Milvus on a local host (for example, your laptop).
+
+## Prerequisites
+
+Requirements: `docker` and `docker compose`, both are included in [Docker Desktop](https://docs.docker.com/get-docker/) for Mac or Windows users.
+
+## Download the YAML file
+
+Download `docker-compose.dev.yml` and save it as `docker-compose.yml` manually, or with the following command.
+
+```bash
+wget https://raw.githubusercontent.com/denser-org/denser-retriever/main/docker-compose.dev.yml -O docker-compose.yml
+```
+
+## Start the services
+
+Start the services with the following command.
+
+```bash
+docker compose up -d
+```
+
+<Callout>
+The Elasticsearch and Milvus services will be started in the background. You can check the status of the services with the following command.
+
+<code>docker compose ps</code>
+
+</Callout>
+
+## Test
+
+Optionally, we can run the following command to verify that the Milvus is correctly installed.
+
+```bash
+poetry run python -m pytest tests/test_retriever_milvus.py
+```

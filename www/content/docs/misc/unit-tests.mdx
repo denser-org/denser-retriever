@@ -1,0 +1,21 @@
+---
+title: Unit Tests
+---
+
+# Unit Tests
+
+<Callout>
+Once you have installed the dependencies, you can run the unit tests to verify that the installation was successful.
+</Callout>
+
+The unit tests are implemented in files starting with `test_` under [tests](https://github.com/denser-org/denser-retriever/tree/main/tests) directory. We have various unit tests to test data loader, elasticsearch, vector search, reranker, and the general retriever. For example, we run the general retriever unit test with the following command.
+
+```bash
+poetry run python -m pytest tests/test_retriever_general.py
+```
+
+Alternatively, we can run all unit tests with the following command.
+
+```bash
+poetry run python -m pytest tests
+```

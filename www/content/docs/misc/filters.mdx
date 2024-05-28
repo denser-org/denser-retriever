@@ -1,0 +1,143 @@
+---
+title: Use Filters
+---
+
+The index and query [example](../experiments/index_and_query) assumes the search items contain unstructured text only. This assumption may not hold in real world search applications. For example, the [Titanic](https://github.com/datasciencedojo/datasets/blob/master/titanic.csv) dataset, which offers a comprehensive glimpse into the passengers aboard the ill-fated RMS Titanic, contains categorical feature (for example Sex), numerical feature (e.g., Age), and text feature (e.g., Name). Now we want to consider the filters in search. For example, we want to search a passenger's name with a keyword, say `cumings`, but with a filter of `Sex` field being `female`.
+
+We now illustrate how we can build a retriever with filters. We made a few changes with this [script](https://github.com/denser-org/denser-retriever/blob/main/utils/preprocess_data_titanic.py) on the original Titanic csv data to fit our need:
+
+- We changed the original field names `PassengerId` and `Name` to `source`and `text` respectively, as the latter are required fields in building an index.
+- We added a randomly generated `Birthday` field to demonstrate the search of date field.
+
+We end up with the following jsonl passages:
+
+```python
+{"Survived": "0", "Pclass": "3", "Sex": "male", "Age": "22", "SibSp": "1", "Parch": "0", "Ticket": "A/5 21171", "Fare": "7.25", "Cabin": "", "Embarked": "S", "source": "1", "title": "", "text": "Braund, Mr. Owen Harris", "pid": -1, "Birthday": "1890-10-02"}
+{"Survived": "1", "Pclass": "1", "Sex": "female", "Age": "38", "SibSp": "1", "Parch": "0", "Ticket": "PC 17599", "Fare": "71.2833", "Cabin": "C85", "Embarked": "C", "source": "2", "title": "", "text": "Cumings, Mrs. John Bradley (Florence Briggs Thayer)", "pid": -1, "Birthday": "1874-07-16"}
+```
+
+In order to build and query an index with titanic data, we need the following steps.
+
+<Steps>
+<Step>
+
+### Prepare the config file
+
+The difference to the previous [config](../experiments/index_and_query) file is that we add a `fields` block to ingest the additional fields (besides the default of `text`) which includes `Survived`, `Birthday` etc. For each field, we add the following item in the filed blocks.
+
+```yaml
+field_name:field_name_internal:type
+```
+
+`Field_name` specifies the field name. `field_name_internal` is the field name used in the Milvus internally. The reason to introduce `field_name_internal` is for non-english language use case: The non-english `field_name` are not valid keys in Milvus, the `field_name_internal` can be set as the english translation of `field_name`. For english datasets, they can be identical. The `type` is either `keyword` or `date`, which represent categorical or date types respectively.
+
+
+```yaml
+version: "0.1"
+
+# linear or rank
+combine: linear
+keyword_weight: 0.5
+vector_weight: 0.5
+rerank_weight: 0.5
+
+keyword:
+  es_user: elastic
+  es_passwd: YOUR_ES_PASSWORD
+  es_host: http://localhost:9200
+  es_ingest_passage_bs: 5000
+  topk: 5
+
+vector:
+  milvus_host: localhost
+  milvus_port: 19530
+  milvus_user: root
+  milvus_passwd: Milvus
+  emb_model: sentence-transformers/all-MiniLM-L6-v2
+  emb_dims: 384
+  one_model: true
+  vector_ingest_passage_bs: 1000
+  topk: 5
+
+rerank:
+  rerank_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  rerank_bs: 100
+  topk: 5
+
+fields:
+  - Survived:Survived:keyword
+  - Pclass:Pclass:keyword
+  - Sex:Sex:keyword
+  - Age:Age:keyword
+  - SibSp:SibSp:keyword
+  - Parch:Parch:keyword
+  - Embarked:Embarked:keyword
+  - Birthday:Birthday:date
+
+output_prefix: denser_output_retriever/
+
+max_doc_size: 0
+max_query_size: 0
+```
+
+</Step>
+
+<Step>
+
+### Build and query a Denser retriever
+
+Once we have the config file, we run the following python code to build a retriever index and then query.
+```python
+from denser_retriever.retriever_general import RetrieverGeneral
+
+# Build denser index
+retriever = RetrieverGeneral("simple_demo_index_titanic", "tests/config-titanic.yaml")
+retriever.ingest("tests/test_data/titanic_top10.jsonl")
+
+# Query
+query = "cumings"
+meta_data = {"Sex": "female"}
+passages, _ = retriever.retrieve(query, meta_data)
+print(passages)
+```
+`simple_demo_index_titanic` is the index name we use, we can change to any other names. [tests/config-titanic.yaml](https://github.com/denser-org/denser-retriever/blob/main/tests/config-titanic.yaml) is the retriever yaml config file. [tests/test_data/titanic_top10.jsonl](https://github.com/denser-org/denser-retriever/blob/main/tests/test_data/titanic_top10.jsonl) contains 10 jsonl data points as follows.
+
+```python
+{"Survived": "0", "Pclass": "3", "Sex": "male", "Age": "22", "SibSp": "1", "Parch": "0", "Ticket": "A/5 21171", "Fare": "7.25", "Cabin": "", "Embarked": "S", "source": "1", "title": "", "text": "Braund, Mr. Owen Harris", "pid": -1, "Birthday": "1890-10-02"}
+{"Survived": "1", "Pclass": "1", "Sex": "female", "Age": "38", "SibSp": "1", "Parch": "0", "Ticket": "PC 17599", "Fare": "71.2833", "Cabin": "C85", "Embarked": "C", "source": "2", "title": "", "text": "Cumings, Mrs. John Bradley (Florence Briggs Thayer)", "pid": -1, "Birthday": "1874-07-16"}
+```
+
+Each data point has the default `source`, `title`, `text` and `pid` fields. It additionally has fields such as `Sex` which can be used to activate the filters in search. The query searches the keyword `cumings` with a filter of `Sex` being female. We will get the results similar to the following.
+
+```python
+[
+{'source': '2', 'text': 'Cumings, Mrs. John Bradley (Florence Briggs Thayer)', 'title': '', 'pid': -1, 'score': 3.6725314448539734, 'Survived': '1', 'Pclass': '1', 'Sex': 'female', 'Age': '38', 'SibSp': '1', 'Parch': '0', 'Embarked': 'C', 'Birthday': '1874-07-16'},
+{'source': '9', 'text': 'Johnson, Mrs. Oscar W (Elisabeth Vilhelmina Berg)', 'title': '', 'pid': -1, 'score': -6.092582982287597, 'Survived': '1', 'Pclass': '3', 'Sex': 'female', 'Age': '27', 'SibSp': '0', 'Parch': '2', 'Embarked': 'S', 'Birthday': '1885-06-03'}
+...
+]
+```
+
+</Step>
+
+<Step>
+
+### Put everything together
+We put all code together as follows.
+```python
+from denser_retriever.retriever_general import RetrieverGeneral
+
+# Build denser index
+retriever = RetrieverGeneral("simple_demo_index_titanic", "tests/config-titanic.yaml")
+retriever.ingest("tests/test_data/titanic_top10.jsonl")
+
+# Query
+query = "cumings"
+meta_data = {"Sex": "female"}
+passages, _ = retriever.retrieve(query, meta_data)
+print(passages)
+
+```
+
+</Step>
+
+</Steps>

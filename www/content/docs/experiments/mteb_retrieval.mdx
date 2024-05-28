@@ -1,0 +1,130 @@
+---
+title: MTEB Retrieval Experiments
+---
+
+<Callout type="info">
+  We run this experiment on a **server**, which requires ES and Milvus
+  installations specified [here](/docs/install/install-server).
+</Callout>
+
+## MTEB datasets
+
+MTEB [retrieval datasets](https://github.com/embeddings-benchmark/mteb) consists of 15 datasets. The datasets stats including name, corpus size, train, dev and test query sizes are listed in the following table.
+
+| Name           | #Corpus   | #Train Query | #Dev Query | #Test Query |
+| -------------- | --------- | ------------ | ---------- | ----------- |
+| ArguAna        | 8,674     | 0            | 0          | 1,406       |
+| ClimateFEVER   | 5,416,593 | 0            | 0          | 1,535       |
+| CQADupstack    | 457,199   | 0            | 0          | 9,963       |
+| DBPedia        | 4,635,922 | 0            | 67         | 400         |
+| FEVER          | 5,416,568 | 109,810      | 6,666      | 6,666       |
+| FiQA2018       | 57,638    | 5,500        | 500        | 648         |
+| HotpotQA       | 5,233,329 | 85,000       | 5,447      | 7,405       |
+| MSMARCO        | 8,841,823 | 502,939      | 6,980      | 43          |
+| NFCorpus       | 3,633     | 2,590        | 324        | 323         |
+| NQ             | 2,681,468 | 0            | 0          | 3,452       |
+| QuoraRetrieval | 522,931   | 0            | 5,000      | 10,000      |
+| SCIDOCS        | 25,657    | 0            | 0          | 1,000       |
+| SciFact        | 5,183     | 809          | 0          | 300         |
+| Touche2020     | 382,545   | 0            | 0          | 49          |
+| TRECCOVID      | 171,332   | 0            | 0          | 50          |
+
+## Train and test xgboost models
+
+For each dataset in [MTEB](https://github.com/embeddings-benchmark/mteb), we trained an xgboost models on the training dataset and tested on the test dataset. To speed up the experiments, we used up to 10k queries per dataset in training (`max_query_size: 10000` in `config_server.yaml`). For datasets which do not have training data, we used the development data to train. If neither training nor development data exists, we applied the 3-fold cross-validation. That is, we randomly split the test data into three folds, we used two folds to train a xgboost model and tested on the third fold. We applied this process three times so the whole test dataset can be evaluated.
+
+We fixed the xgboost model training with the following settings. Specifically, we used the ndcg metric as model update objective, a moderate learning rate (`eta`) of 0.1, regularization parameter (`gamma`) of 1.0, `min_child_weight` of 0.1, maximum depth of tree up to 6, and evaluation metric of ndcg@10. We used a fixed number (100) of boosting iterations (`num_boost_round`), thus no attempting to optimize the training per dataset.
+
+```python
+params = {
+                "objective": "rank:ndcg",
+                "eta": 0.1,
+                "gamma": 1.0,
+                "min_child_weight": 0.1,
+                "max_depth": 6,
+                "eval_metric": "ndcg@10",
+            }
+```
+
+The source code for the experiment can be found at [train_and_test.py](https://github.com/denser-org/denser-retriever/blob/main/experiments/train_and_test.py). We ran the following command to train 8 xgboost models (ES+VS, ES+RR, VS+RR, ES+VS+RR, ES+VS_n, ES+RR_n, VS+RR_n, and ES+VS+RR_n) using MSMARCO training data. The definitions of these 8 models can be found at [training](./training). The parameters are dataset_name, config file, train split, and test split respectively. We need to configure hosts, users and passwords for Elasticsearch and Milvus in the config file experiments/[config_server.yaml](https://github.com/denser-org/denser-retriever/blob/main/experiments/config_server.yaml).
+
+```shell
+poetry run python experiments/train_and_test.py experiments/config_server.yaml mteb/msmarco train test
+```
+
+After the training, we can find the models at `/home/ubuntu/denser_output_retriever/exp_msmarco/models/xgb_*`. We note that the prefix `/home/ubuntu/denser_output_retriever/` is defined in the [config_server.yaml](https://github.com/denser-org/denser-retriever/blob/main/experiments/config_server.yaml) file
+
+```yaml
+output_prefix: /home/ubuntu/denser_output_retriever/
+```
+
+In addition to training, this experiment also evaluated the 8 trained models on the msmarco test data and reported the ndcg@10 accuracy. We expect to get the ndcg@10 of 47.23 for ES+VS+RR_n model.
+
+## Test xgboost models
+
+To evaluate a trained model on 26 MTEB datasets, we need to specify the model in [config_server.yaml](https://github.com/denser-org/denser-retriever/blob/main/experiments/config_server.yaml) file.
+
+```yaml
+model: PATH_TO_YOUR_TRAINED_MODEL
+```
+
+We can then evaluate the MTEB dataset (MSMARCO as an example) by running:
+
+```shell
+poetry run python experiments/test.py
+```
+
+We will get the ndcg@10 score after the evaluation.
+
+## Experiment results
+
+We list the ndcg@10 scores of different models in the following table. Ref is the reference ndcg@10 of `snowflake-arctic-embed-m` from Huggingface [leaderboard](https://huggingface.co/spaces/mteb/leaderboard), which is consistent with our reported VS accuracy. The bold numbers are the highest accuracy per dataset in our experiments. We use VS instead of Ref as the vector search baseline. Delta and % are the ndcg@10 absolute and relative gains of ES+VS+RR_n model compared to VS baseline.
+
+| Name           | ES    | VS        | ES+VS/ES+VS_n | ES+RR/ES+RR_n | VS+RR/VS+RR_n   | ES+VS+RR/ES+VS+RR_n | Ref   | Delta/%      |
+| -------------- | ----- | --------- | ------------- | ------------- | --------------- | ------------------- | ----- | ------------ |
+| ArguAna        | 42.93 | 56.49     | 56.68/57.27   | 47.45/48.21   | 56.32/56.44     | 56.81/**57.28**     | 56.44 | 0.79/1.39%   |
+| ClimateFEVER   | 18.10 | 39.12     | 39.21/39.01   | 28.20/28.34   | 39.06/38.71     | 39.11/**39.25**     | 39.37 | 0.13/0.33%   |
+| CQADupstack    | 25.13 | 42.23     | 42.40/42.51   | 37.68/37.54   | 43.92/44.25     | 43.85/**44.32**     | 43.81 | 2.09/4.94%   |
+| DBPedia        | 27.42 | 44.66     | 45.26/44.26   | 47.94/48.26   | 48.62/49.08     | 48.79/**49.13**     | 44.73 | 4.47/10.00%  |
+| FEVER          | 72.80 | 88.90     | 89.29/90.05   | 84.38/84.94   | 89.84/90.30     | 90.21/**91.00**     | 89.02 | 2.10/2.36%   |
+| FiQA2018       | 23.89 | 42.29     | 42.57/42.79   | 36.62/36.31   | 43.04/43.09     | 43.19/**43.22**     | 42.4  | 0.93/2.19%   |
+| HotpotQA       | 54.94 | 73.65     | 74.74/75.01   | 74.93/75.39   | 77.64/78.07     | 77.95/**78.37**     | 73.65 | 4.72/6.40%   |
+| MSMARCO        | 21.84 | 41.77     | 41.65/41.72   | 46.93/47.15   | 47.11/**47.24** | 47.09/47.23         | 41.77 | 5.46/13.07%  |
+| NFCorpus       | 31.40 | 36.74     | 37.37/37.63   | 34.51/35.36   | 37.32/37.31     | **37.70**/37.15     | 36.77 | 0.41/1.11%   |
+| NQ             | 27.21 | 61.33     | 60.51/61.20   | 55.60/55.47   | 61.50/62.24     | 62.27/**62.35**     | 62.43 | 1.02/1.66%   |
+| QuoraRetrieval | 74.23 | 80.73     | 86.64/86.91   | 84.14/84.40   | 87.76/88.10     | 88.39/**88.54**     | 87.42 | 7.81/9.67%   |
+| SCIDOCS        | 14.68 | 21.03     | 20.49/20.06   | 16.48/16.48   | **20.51**/20.19 | 20.34/20.03         | 21.10 | -1.00/-4.75% |
+| SciFact        | 58.42 | 73.16     | 73.28/75.08   | 69.08/69.69   | 72.73/73.62     | 73.08/**75.33**     | 73.55 | 2.17/2.96%   |
+| Touche2020     | 29.92 | **32.65** | 31.86/34.26   | 29.76/29.93   | 30.47/29.30     | 31.51/30.98         | 31.47 | -1.67/-5.11% |
+| TRECCOVID      | 52.02 | 78.92     | 77.78/79.12   | 75.59/76.95   | 80.34/81.19     | 81.97/**83.01**     | 79.65 | 4.09/5.18%   |
+| Average        | 38.32 | 54.24     | 54.64/55.12   | 51.28/51.62   | 55.74/55.94     | 56.15/**56.47**     | 54.91 | 2.23/4.11%   |
+
+import MtedResult from "./mted_result.json"
+import MtebChart from "@/components/mteb-chart"
+
+<div className="border rounded-md px-1 py-6 mt-10">
+<MtebChart data={MtedResult.slice(0, -1).map(item => ({
+  name: item.Name,
+  es: item.ES.replaceAll("*", ""),
+  vs: item.VS.replaceAll("*", ""),
+  "ES+VS+RR_n": item["ES+VS+RR/ES+VS+RR_n"].split("/")[1].replaceAll("*", ""),
+}))} />
+</div>
+
+The MTEB experiment results are summarized as follows.
+
+Vector search by [snowflake-arctic-embed-m](https://github.com/Snowflake-Labs/arctic-embed?tab=readme-ov-file) model can significantly boost the Elasticsearch NDCG@10 baseline from 38.32 to 54.24. The combination of Elasticsearch, vector search and a reranker via xgboost models can further improve the vector search baseline. For instance, the ES+VS+RR_n model achieves the highest NDCG@10 score of 56.47, surpassing the vector search baseline (NDCG@10 of 54.24) by an absolute increase of 2.23 and a relative improvement of 4.11%.
+
+For datasets which have training data (FEVER, FiQA2018, HotpotQA, NFCorpus, and SciFact), the combinations of Elasticsearch, vector search and reranker via xgboost models are more beneficial, which can be witnessed by the following table.
+
+| Name     | VS    | ES+VS+RR_n | Delta | Delta% |
+| -------- | ----- | ---------- | ----- | ------ |
+| FEVER    | 88.9  | 91.00      | 2.10  | 2.36   |
+| FiQA2018 | 42.29 | 43.22      | 0.93  | 2.19   |
+| HotpotQA | 73.65 | 78.37      | 4.72  | 6.4    |
+| MSMARCO  | 41.77 | 47.23      | 5.46  | 13.07  |
+| NFCorpus | 36.74 | 37.15      | 0.41  | 1.11   |
+| SciFact  | 73.16 | 75.33      | 2.17  | 2.96   |
+| Average  | 59.41 | 62.05      | 2.63  | 4.68   |
+
+The ES+VS+RR_n model (NDCG@10 of 62.05) improves the vector search NDCG@10 baseline (NDCG@10 of 59.41) by 2.63 absolute and 4.68% relative gains on these five datasets. It is worth noting that, on the widely used benchmark dataset MSMARCO, the ES+VS+RR_n leads significant relative NDCG@10 gian of 13.07% when compared to vector search baseline.
