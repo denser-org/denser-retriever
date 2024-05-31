@@ -43,13 +43,15 @@ The initial release of Denser Retriever provides the following features.
 
 ## 📦 Installation
 
-We highly recommend using poetry to install Denser Retriever. If you don't have poetry installed, you can install it with the following command.
+To install Denser Retriever, you can run:
+
+### Pip
 
 ```bash
-pip install poetry
+pip install git+https://github.com/denser-org/denser-retriever.git#main
 ```
 
-Then, you can install Denser Retriever with the following command.
+### Poetry
 
 ```bash
 poetry add git+https://github.com/denser-org/denser-retriever.git#main
