@@ -31,7 +31,7 @@ MTEB [retrieval datasets](https://github.com/embeddings-benchmark/mteb) consists
 
 ## Train and test xgboost models
 
-For each dataset in [MTEB](https://github.com/embeddings-benchmark/mteb), we trained an xgboost models on the training dataset and tested on the test dataset. To speed up the experiments, we used up to 10k queries per dataset in training (`max_query_size: 10000` in `config_server.yaml`). For datasets which do not have training data, we used the development data to train. If neither training nor development data exists, we applied the 3-fold cross-validation. That is, we randomly split the test data into three folds, we used two folds to train a xgboost model and tested on the third fold. We applied this process three times so the whole test dataset can be evaluated.
+For each dataset in [MTEB](https://github.com/embeddings-benchmark/mteb), we trained an xgboost model on the training dataset and tested on the test dataset. To speed up the experiments, we used up to 10k queries per dataset in training (`max_query_size: 10000` in `config_server.yaml`). For datasets which do not have training data, we used the development data to train. If neither training nor development data exists, we applied the 3-fold cross-validation. That is, we randomly split the test data into three folds, we used two folds to train a xgboost model and tested on the third fold. We applied this process three times so the whole test dataset can be evaluated.
 
 We fixed the xgboost model training with the following settings. Specifically, we used the ndcg metric as model update objective, a moderate learning rate (`eta`) of 0.1, regularization parameter (`gamma`) of 1.0, `min_child_weight` of 0.1, maximum depth of tree up to 6, and evaluation metric of ndcg@10. We used a fixed number (100) of boosting iterations (`num_boost_round`), thus no attempting to optimize the training per dataset.
 
@@ -127,4 +127,4 @@ For datasets which have training data (FEVER, FiQA2018, HotpotQA, NFCorpus, and 
 | SciFact  | 73.16 | 75.33      | 2.17  | 2.96   |
 | Average  | 59.41 | 62.05      | 2.63  | 4.68   |
 
-The ES+VS+RR_n model (NDCG@10 of 62.05) improves the vector search NDCG@10 baseline (NDCG@10 of 59.41) by 2.63 absolute and 4.68% relative gains on these five datasets. It is worth noting that, on the widely used benchmark dataset MSMARCO, the ES+VS+RR_n leads significant relative NDCG@10 gian of 13.07% when compared to vector search baseline.
+The ES+VS+RR_n model (NDCG@10 of 62.05) improves the vector search NDCG@10 baseline (NDCG@10 of 59.41) by 2.63 absolute and 4.68% relative gains on these five datasets. It is worth noting that, on the widely used benchmark dataset MSMARCO, the ES+VS+RR_n leads to a significant relative NDCG@10 gain of 13.07% when compared to vector search baseline.
