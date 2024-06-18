@@ -316,7 +316,7 @@ class RetrieverMilvus(Retriever):
                     exprs.append(f"{internal_field} == {unix_time}")
             else:
                 category_id = self.field_cat_to_id[field].get(category_or_date_str)
-                if category_id:
+                if category_id is not None:
                     exprs.append(f"{internal_field}=={category_id}")
         expr_str = " and ".join(exprs)
         search_params = {
