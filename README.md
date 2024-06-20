@@ -43,7 +43,7 @@ The initial release of Denser Retriever provides the following features.
 
 ## 📦 Installation
 
-To install Denser Retriever, you can run:
+We recommend installing Python via [Anaconda](https://www.anaconda.com/download), as we have received feedback about issues with Numpy installation when using the installer from https://www.python.org/downloads/. We are working on providing a solution to this problem. To install Denser Retriever, you can run:
 
 ### Pip
 
