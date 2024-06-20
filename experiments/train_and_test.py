@@ -349,7 +349,9 @@ if __name__ == "__main__":
     # model_dir = "/home/ubuntu/denser_output_retriever/exp_msmarco/models/"
 
     if len(sys.argv) != 5:
-        print("Usage: python train_and_test.py [config_file] [dataset_name] [train] [test]")
+        print(
+            "Usage: python train_and_test.py [config_file] [dataset_name] [train] [test]"
+        )
         sys.exit(0)
 
     config_file = sys.argv[1]
