@@ -46,10 +46,8 @@ check-codestyle:
 	poetry run ruff format --check --config pyproject.toml .
 	poetry run ruff check --config pyproject.toml .
 
-
-
 .PHONY: lint
-lint: test check-codestyle 
+lint: test check-codestyle
 
 .PHONY: lint-fix
 lint-fix: polish-codestyle

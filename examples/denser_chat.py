@@ -4,7 +4,6 @@ import time
 
 import openai
 import streamlit as st
-import tiktoken
 
 from denser_retriever.retriever_general import RetrieverGeneral
 
