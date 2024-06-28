@@ -1,6 +1,69 @@
 import os
-
+import logging
+import requests
+from bs4 import BeautifulSoup
+from langchain_community.document_loaders import WebBaseLoader, TextLoader, PyPDFLoader
 from denser_retriever.utils import standardize_normalize, min_max_normalize
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+def get_all_urls_from_domain(base_url):
+    """Recursively get all URLs under the given domain."""
+    urls_to_visit = {base_url}
+    visited_urls = set()
+    domain_urls = set()
+
+    while urls_to_visit:
+        url = urls_to_visit.pop()
+        if url in visited_urls:
+            continue
+
+        visited_urls.add(url)
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                domain_urls.add(url)
+                soup = BeautifulSoup(response.content, "html.parser")
+                logger.info(f"Processing URL: {url}")
+                for link in soup.find_all("a", href=True):
+                    full_url = requests.compat.urljoin(base_url, link["href"])
+                    if base_url in full_url and full_url not in visited_urls:
+                        urls_to_visit.add(full_url)
+        except requests.RequestException as e:
+            print(f"Failed to fetch {url}: {e}")
+
+    return domain_urls
+
+
+class CustomWebBaseLoader(WebBaseLoader):
+    def __init__(self, base_url):
+        self.base_url = base_url
+        self.urls = get_all_urls_from_domain(base_url)
+
+    def load(self):
+        all_docs = []
+        for url in self.urls:
+            loader = WebBaseLoader(url)
+            docs = loader.load()
+            all_docs.extend(docs)
+        return all_docs
+
+
+# Define a function to load documents based on file extension
+def load_document(file_path):
+    _, file_extension = os.path.splitext(file_path)
+    if file_extension in [".txt", ".csv", ".tsv"]:
+        loader = TextLoader(file_path)
+    elif file_extension == ".pdf":
+        loader = PyPDFLoader(file_path)
+    elif file_extension in [".html", ".htm"]:
+        loader = WebBaseLoader(file_path)
+    else:
+        raise ValueError(f"Unsupported file format: {file_extension}")
+
+    return loader.load()
 
 
 def save_data(
