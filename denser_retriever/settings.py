@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 import yaml
+import os
+from dotenv import load_dotenv
 
 
 class RetrieverSettings(BaseModel):
@@ -26,6 +28,12 @@ class RetrieverSettings(BaseModel):
 
     def _from_yaml(yaml_file: str) -> RetrieverSettings:
         data = yaml.safe_load(open(yaml_file))
+        # Load environment variables
+        load_dotenv()
+        data['keyword']['es_host'] = os.getenv('ES_HOST')
+        data['keyword']['es_passwd'] = os.getenv('ES_PASSWD')
+        data['vector']['milvus_host'] = os.getenv('MILVUS_HOST')
+        data['vector']['milvus_passwd'] = os.getenv('MILVUS_PASSWD')
         return RetrieverSettings(**data)
 
 
