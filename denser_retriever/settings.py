@@ -30,10 +30,16 @@ class RetrieverSettings(BaseModel):
         data = yaml.safe_load(open(yaml_file))
         # Load environment variables
         load_dotenv()
-        data["keyword"]["es_host"] = os.getenv("ES_HOST")
-        data["keyword"]["es_passwd"] = os.getenv("ES_PASSWD")
-        data["vector"]["milvus_host"] = os.getenv("MILVUS_HOST")
-        data["vector"]["milvus_passwd"] = os.getenv("MILVUS_PASSWD")
+        data["keyword"]["es_host"] = os.getenv("ES_HOST", data["keyword"]["es_host"])
+        data["keyword"]["es_passwd"] = os.getenv(
+            "ES_PASSWD", data["keyword"]["es_passwd"]
+        )
+        data["vector"]["milvus_host"] = os.getenv(
+            "MILVUS_HOST", data["vector"]["milvus_host"]
+        )
+        data["vector"]["milvus_passwd"] = os.getenv(
+            "MILVUS_PASSWD", data["vector"]["milvus_passwd"]
+        )
         return RetrieverSettings(**data)
 
 
