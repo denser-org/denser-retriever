@@ -28,33 +28,70 @@ class RetrieverElasticSearch(Retriever):
 
     def create_index(self, index_name: str):
         # Define the index settings and mappings
-        settings = {
-            "analysis": {"analyzer": {"default": {"type": "standard"}}},
-            "similarity": {
-                "custom_bm25": {
-                    "type": "BM25",
-                    "k1": 1.2,
-                    "b": 0.75,
-                }
-            },
-        }
-        mappings = {
-            "properties": {
-                "content": {
-                    "type": "text",
-                    "similarity": "custom_bm25",  # Use the custom BM25 similarity
-                },
-                "title": {
-                    "type": "text",
-                },
-                "source": {
-                    "type": "text",
-                },
-                "pid": {
-                    "type": "text",
+
+        if self.settings.keyword.analysis == "default":
+            settings = {
+                "analysis": {"analyzer": {"default": {"type": "standard"}}},
+                "similarity": {
+                    "custom_bm25": {
+                        "type": "BM25",
+                        "k1": 1.2,
+                        "b": 0.75,
+                    }
                 },
             }
-        }
+            mappings = {
+                "properties": {
+                    "content": {
+                        "type": "text",
+                        "similarity": "custom_bm25",  # Use the custom BM25 similarity
+                    },
+                    "title": {
+                        "type": "text",
+                    },
+                    "source": {
+                        "type": "text",
+                    },
+                    "pid": {
+                        "type": "text",
+                    },
+                }
+            }
+        else:  # ik
+            settings = {
+                "analysis": {
+                    "analyzer": {
+                        "ik_max_word": {"type": "custom", "tokenizer": "ik_max_word"},
+                        "ik_smart": {"type": "custom", "tokenizer": "ik_smart"},
+                    }
+                },
+                "similarity": {
+                    "custom_bm25": {
+                        "type": "BM25",
+                        "k1": 1.2,
+                        "b": 0.75,
+                    }
+                },
+            }
+            mappings = {
+                "properties": {
+                    "content": {
+                        "type": "text",
+                        "analyzer": "ik_max_word",
+                        "similarity": "custom_bm25",  # Use the custom BM25 similarity
+                    },
+                    "title": {
+                        "type": "text",
+                        "analyzer": "ik_smart",
+                    },
+                    "source": {
+                        "type": "text",
+                    },
+                    "pid": {
+                        "type": "text",
+                    },
+                }
+            }
 
         for key in self.field_types:
             mappings["properties"][key] = self.field_types[key]

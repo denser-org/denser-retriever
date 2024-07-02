@@ -12,6 +12,7 @@ keyword:
   es_host: http://localhost:9200
   es_ingest_passage_bs: 5000
   topk: 5
+  analysis: ik
 
 vector:
   milvus_host: localhost

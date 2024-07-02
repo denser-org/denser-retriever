@@ -49,6 +49,7 @@ class Keyword(BaseModel):
     es_host: str = "localhost"
     es_ingest_passage_bs: int
     topk: int
+    analysis: str = "default"
 
 
 class Vector(BaseModel):
