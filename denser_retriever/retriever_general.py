@@ -113,8 +113,8 @@ class RetrieverGeneral(Retriever):
             rerank_time_sec = time.time() - start_time
             logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
 
-        if len(passages) > self.settings.rerank.topk:
-            passages = passages[: self.settings.rerank.topk]
+            if len(passages) > self.settings.rerank.topk:
+                passages = passages[: self.settings.rerank.topk]
 
         return passages
 
