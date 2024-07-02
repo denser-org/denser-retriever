@@ -29,6 +29,7 @@ class RetrieverElasticSearch(Retriever):
     def create_index(self, index_name: str):
         # Define the index settings and mappings
 
+        logger.info(f"ES analysis {self.settings.keyword.analysis}")
         if self.settings.keyword.analysis == "default":
             settings = {
                 "analysis": {"analyzer": {"default": {"type": "standard"}}},
