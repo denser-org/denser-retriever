@@ -147,9 +147,10 @@ class RetrieverMilvus(Retriever):
             with open(fields_file, "r") as file:
                 self.field_cat_to_id, self.field_id_to_cat = json.load(file)
 
-    def generate_embedding(self, texts, batch_size, query=False):
+    def generate_embedding(self, texts, batch_size=32, query=False):
         if query and not self.config.one_model:
-            embeddings = self.model.encode(texts, batch_size=batch_size, prompt_name="query")
+            embeddings = self.model.encode(
+                texts, batch_size=batch_size, prompt_name="query")
             # embeddings = self.model.encode(texts, prompt="Represent this sentence for searching relevant passages:")
         else:
             embeddings = self.model.encode(texts, batch_size=batch_size)
@@ -203,8 +204,8 @@ class RetrieverMilvus(Retriever):
                     else:  # missing category value
                         fieldss[i].append(-1)
                 record_id += 1
-                if len(batch) == batch_size:
-                    embeddings = self.generate_embedding(batch,batch_size)
+                if len(batch) == batch_size*10:
+                    embeddings = self.generate_embedding(batch, batch_size)
                     record = [uids, sources, titles, texts, pids, np.array(embeddings)]
                     record += fieldss
                     try:
@@ -215,7 +216,7 @@ class RetrieverMilvus(Retriever):
                         )
 
                     records_per_file.append(record)
-                    if len(records_per_file) == 100:
+                    if len(records_per_file) == 10:
                         with open(f"{cache_file}_{record_id}.pkl", "wb") as file:
                             pickle.dump(records_per_file, file)
                         records_per_file = []
@@ -229,7 +230,7 @@ class RetrieverMilvus(Retriever):
                     fieldss = [[] for _ in self.field_types.keys()]
 
             if len(batch) > 0:
-                embeddings = self.generate_embedding(batch)
+                embeddings = self.generate_embedding(batch, batch_size)
                 record = [uids, sources, titles, texts, pids, np.array(embeddings)]
                 record += fieldss
                 try:
