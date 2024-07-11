@@ -66,6 +66,7 @@ coverage-badge = "^1.1.0"
 streamlit = "^1.33.0"
 openai = "^0.28"
 tiktoken = "^0.6.0"
+ipykernel = "^6.29.5"
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
