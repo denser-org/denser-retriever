@@ -1,12 +1,12 @@
-import Image from "next/image"
-import { cn } from "@/utils/cn"
+import Image from "next/image";
+import { cn } from "@/utils/cn";
 
 type ScreenshotProps = {
-  src: string
-  alt: string
-  full: boolean
-  className: string
-}
+  src: string;
+  alt: string;
+  full: boolean;
+  className: string;
+};
 
 export function Screenshot({
   src,
@@ -33,5 +33,5 @@ export function Screenshot({
         />
       </div>
     </div>
-  )
+  );
 }

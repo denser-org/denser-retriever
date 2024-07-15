@@ -6,9 +6,7 @@ title: Quick Start
 
 The following diagram illustrates a Denser Retriever, which consists of three components:
 
-import DenserRetriever from './experiments/denser-retriever.png'
-
-<ImageZoom src={DenserRetriever} alt="Denser Retriever" className="border rounded-md p-2" />
+<ImageZoom src="/images/denser-retriever.png" alt="Denser Retriever" width={800} height={600} className="border rounded-md p-2" />
 
 - **Keyword search** relies on traditional search techniques that use exact keyword matching. We use [elasticsearch](https://www.elastic.co/guide/en/elasticsearch/reference/current/targz.html) in Denser Retriever.
 - **Vector search** uses neural network models to encode both the query and the documents into dense vector representations in a high-dimensional space. We use [Milvus](https://milvus.io/docs/install_standalone-docker.md) and [snowflake-arctic-embed-m](https://github.com/Snowflake-Labs/arctic-embed?tab=readme-ov-file) model, which achieves state-of-the-art performance on the MTEB/BEIR [leaderboard](https://huggingface.co/spaces/mteb/leaderboard) for each of their size variants.

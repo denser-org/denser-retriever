@@ -1,25 +1,25 @@
-import { notFound } from "next/navigation"
-import { ArrowSquareOut } from "@phosphor-icons/react/dist/ssr"
-import { getPage, getPages } from "@/app/source"
-import { DocsPage, DocsBody } from "fumadocs-ui/page"
-import type { Metadata } from "next"
+import { notFound } from "next/navigation";
+import { ArrowSquareOut } from "@phosphor-icons/react/dist/ssr";
+import { getPage, getPages } from "@/app/source";
+import { DocsPage, DocsBody } from "fumadocs-ui/page";
+import type { Metadata } from "next";
 
 interface Param {
-  slug: string[]
+  slug: string[];
 }
 
-export const dynamicParams = false
+export const dynamicParams = false;
 
 export default async function Page({ params }: { params: Param }) {
-  const page = getPage(params.slug)
+  const page = getPage(params.slug);
 
   if (page == null) {
-    notFound()
+    notFound();
   }
 
-  const path = `/content/docs/${page.file.path}`
+  const path = `/content/docs/${page.file.path}`;
 
-  const MDX = page.data.exports.default
+  const MDX = page.data.exports.default;
 
   return (
     <DocsPage
@@ -44,33 +44,33 @@ export default async function Page({ params }: { params: Param }) {
         <MDX />
       </DocsBody>
     </DocsPage>
-  )
+  );
 }
 
 export async function generateStaticParams() {
   return getPages().map((page) => ({
     slug: page.slugs,
-  }))
+  }));
 }
 
 export function generateMetadata({ params }: { params: { slug?: string[] } }) {
-  const page = getPage(params.slug)
+  const page = getPage(params.slug);
 
-  if (page == null) notFound()
+  if (page == null) notFound();
 
   const description =
-    page.data.description ?? "The library for building documentation sites"
+    page.data.description ?? "The library for building documentation sites";
 
-  const imageParams = new URLSearchParams()
-  imageParams.set("title", page.data.title)
-  imageParams.set("description", description)
+  const imageParams = new URLSearchParams();
+  imageParams.set("title", page.data.title);
+  imageParams.set("description", description);
 
   const image = {
     alt: "Banner",
     url: `/api/og/${params.slug?.[0]}?${imageParams.toString()}`,
     width: 1200,
     height: 630,
-  }
+  };
 
   return {
     title: page.data.title,
@@ -82,5 +82,5 @@ export function generateMetadata({ params }: { params: { slug?: string[] } }) {
     twitter: {
       images: image,
     },
-  } satisfies Metadata
+  } satisfies Metadata;
 }

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   Bar,
@@ -10,10 +10,10 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from "recharts"
+} from "recharts";
 
 export interface MtebChartProps {
-  data: any
+  data: any;
 }
 
 export default function MtebChart({ data }: MtebChartProps) {
@@ -51,27 +51,18 @@ export default function MtebChart({ data }: MtebChartProps) {
 
         <Legend
           formatter={(value) => {
-            if (value === "evrn") return "ES+VS+RR_n"
-            return value.toUpperCase()
+            if (value === "evrn") return "ES+VS+RR_n";
+            return value.toUpperCase();
           }}
           wrapperStyle={{
             paddingTop: "1rem",
             fontSize: "12px",
           }}
         />
-        <Bar
-          dataKey="es"
-          fill="#519DE9"
-        />
-        <Bar
-          dataKey="vs"
-          fill="#7CC674"
-        />
-        <Bar
-          dataKey="ES+VS+RR_n"
-          fill="#F4C145"
-        />
+        <Bar dataKey="es" fill="#519DE9" />
+        <Bar dataKey="vs" fill="#7CC674" />
+        <Bar dataKey="ES+VS+RR_n" fill="#F4C145" />
       </BarChart>
     </ResponsiveContainer>
-  )
+  );
 }

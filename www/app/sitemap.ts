@@ -1,9 +1,9 @@
-import type { MetadataRoute } from "next"
-import { baseUrl } from "@/utils/metadata"
-import { utils } from "@/utils/source"
+import type { MetadataRoute } from "next";
+import { baseUrl } from "@/utils/metadata";
+import { utils } from "@/utils/source";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const url = (path: string): string => new URL(path, baseUrl).toString()
+  const url = (path: string): string => new URL(path, baseUrl).toString();
 
   return [
     {
@@ -24,5 +24,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.5,
     })),
-  ]
+  ];
 }

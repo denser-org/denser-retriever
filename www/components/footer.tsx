@@ -1,4 +1,4 @@
-import { Logo } from "./ui/icons"
+import { Logo } from "./ui/icons";
 
 export function Footer() {
   return (
@@ -97,5 +97,5 @@ export function Footer() {
         </div>
       </div>
     </footer>
-  )
+  );
 }

@@ -38,7 +38,7 @@ To support additional types of files such as PDF, users can refer to LangChain [
 
 The following diagram illustrates a denser retriever, which consists of three components:
 
-![image](./denser-retriever.png)
+![image](/images/denser-retriever.png)
 
 - **Keyword search** relies on traditional search techniques that use exact keyword matching. We use [elasticsearch](https://www.elastic.co/guide/en/elasticsearch/reference/current/targz.html) in denser retriever.
 - **Vector search** uses neural network models to encode both the query and the documents into dense vector representations in a high-dimensional space. We use [Milvus](https://milvus.io/docs/install_standalone-docker.md) and [snowflake-arctic-embed-m](https://github.com/Snowflake-Labs/arctic-embed?tab=readme-ov-file) model, which achieves state-of-the-art performance on the MTEB/BEIR [leaderboard](https://huggingface.co/spaces/mteb/leaderboard) for each of their size variants.

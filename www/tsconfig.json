@@ -1,50 +1,29 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ESNext",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
     "jsx": "preserve",
+    "incremental": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@/components/*": [
-        "./components/*"
-      ],
-      "@/content/*": [
-        "./content/*"
-      ]
+      "@/*": ["./*"]
     },
     "plugins": [
       {
         "name": "next"
       }
-    ],
-    "noEmit": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "target": "es2022",
-    "allowJs": true,
-    "resolveJsonModule": true,
-    "moduleDetection": "legacy",
-    "isolatedModules": true,
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "moduleResolution": "node",
-    "module": "esnext",
-    "sourceMap": true,
-    "lib": [
-      "es2022",
-      "dom",
-      "dom.iterable"
-    ],
-    "incremental": true
+    ]
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "sst.config.ts"
-  ]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
 }

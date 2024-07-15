@@ -1,4 +1,4 @@
-import { Audio, Browser, Servers } from "@/components/ui/icons"
+import { Audio, Browser, Servers } from "@/components/ui/icons";
 
 export function BentoFeatures() {
   return (
@@ -229,5 +229,5 @@ export function BentoFeatures() {
         </div>
       </div>
     </section>
-  )
+  );
 }

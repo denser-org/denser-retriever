@@ -1,0 +1,158 @@
+---
+title: crawl
+full: true
+---
+
+import { Root, API, APIInfo, APIExample, Responses, Response, ResponseTypes, ExampleResponse, TypeScriptResponse, Property, ObjectCollapsible, Requests, Request } from "fumadocs-ui/components/api";
+
+<Root>
+
+<API>
+
+<APIInfo method={"POST"} route={"/api/v1/crawl/extract-links"}>
+
+## Extract Links
+
+Extract links from the given URL.
+
+### Request Body
+
+<Property name={"url"} type={"Url"} required={true} deprecated={undefined}>
+
+<span>Minimum length: `1`</span>
+
+<span>Maximum length: `2083`</span>
+
+<span>Format: `"uri"`</span>
+
+</Property>
+
+| Status code | Description |
+| ----------- | ----------- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+</APIInfo>
+
+<APIExample>
+
+<Requests items={["cURL","JavaScript"]}>
+
+<Request value={"cURL"}>
+
+```bash
+curl -X POST "https://example.com/api/v1/crawl/extract-links" \
+  -d '{
+  "url": "http://example.com"
+}'
+```
+
+</Request>
+
+<Request value={"JavaScript"}>
+
+```js
+fetch("https://example.com/api/v1/crawl/extract-links", {
+  method: "POST"
+});
+```
+
+</Request>
+
+</Requests>
+
+<Responses items={["200","422"]}>
+
+<Response value={"200"}>
+
+Response for the extracted links.
+
+<ResponseTypes>
+
+<ExampleResponse>
+
+```json
+{
+  "url": "string",
+  "links": [
+    "string"
+  ]
+}
+```
+
+</ExampleResponse>
+
+<TypeScriptResponse>
+
+```ts
+export type Url = string;
+export type Links = string[];
+
+/**
+ * Response for the extracted links.
+ */
+export interface ExtractLinksResponse {
+  url: Url;
+  links: Links;
+}
+```
+
+</TypeScriptResponse>
+
+</ResponseTypes>
+
+</Response>
+
+<Response value={"422"}>
+
+<ResponseTypes>
+
+<ExampleResponse>
+
+```json
+{
+  "detail": [
+    {
+      "loc": [
+        "string"
+      ],
+      "msg": "string",
+      "type": "string"
+    }
+  ]
+}
+```
+
+</ExampleResponse>
+
+<TypeScriptResponse>
+
+```ts
+export type Location = (string | number)[];
+export type Message = string;
+export type ErrorType = string;
+export type Detail = ValidationError[];
+
+export interface HTTPValidationError {
+  detail?: Detail;
+}
+export interface ValidationError {
+  loc: Location;
+  msg: Message;
+  type: ErrorType;
+}
+```
+
+</TypeScriptResponse>
+
+</ResponseTypes>
+
+</Response>
+
+</Responses>
+
+</APIExample>
+
+</API>
+
+</Root>

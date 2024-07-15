@@ -305,5 +305,5 @@ export function Pricing() {
         </div>
       </div>
     </section>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import { Logo } from "@/components/ui/icons"
-import Ripple from "@/components/ui/ripple"
+import { Logo } from "@/components/ui/icons";
+import Ripple from "@/components/ui/ripple";
 
 export function JoinCTA() {
   return (
@@ -16,8 +16,8 @@ export function JoinCTA() {
               DenserRetriever v1 Beta coming!
             </h5>
             <p className="mt-3 text-base leading-relaxed text-left text-gray-500 dark:text-neutral-100">
-              You can try out DenserRetriever in your self-hosted machine,
-              with an extremely simple docker setup.
+              You can try out DenserRetriever in your self-hosted machine, with
+              an extremely simple docker setup.
             </p>
             <div className="flex w-1/2 gap-4 mt-6">
               <a
@@ -51,5 +51,5 @@ export function JoinCTA() {
         <Ripple />
       </div>
     </section>
-  )
+  );
 }

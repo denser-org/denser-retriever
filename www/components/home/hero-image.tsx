@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import Screenshot from "../../public/images/screenshot-hero.png"
-import ScreenshotLight from "../../public/images/screenshot-hero.png"
+import Image from "next/image";
+import Screenshot from "../../public/images/screenshot-hero.png";
+import ScreenshotLight from "../../public/images/screenshot-hero.png";
 
 export const HeroImage = () => {
   return (
@@ -28,5 +28,5 @@ export const HeroImage = () => {
         <div className="relative w-12 h-full bg-gray-100/90 blur-md dark:bg-white/20"></div>
       </div>
     </div>
-  )
-}
+  );
+};

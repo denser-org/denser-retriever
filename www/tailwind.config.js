@@ -1,7 +1,7 @@
-const { createPreset } = require("fumadocs-ui/tailwind-plugin")
-const plugin = require("tailwindcss/plugin")
-import { StaticShadows } from "open-props/src/shadows"
-import * as Gradients from "open-props/src/gradients"
+const { createPreset } = require("fumadocs-ui/tailwind-plugin");
+const plugin = require("tailwindcss/plugin");
+import { StaticShadows } from "open-props/src/shadows";
+import * as Gradients from "open-props/src/gradients";
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -138,7 +138,7 @@ module.exports = {
         ".noise-filter-5": {
           filter: Gradients["--noise-filter-5"],
         },
-      })
+      });
     }),
   ],
   theme: {
@@ -194,4 +194,4 @@ module.exports = {
       },
     },
   },
-}
+};

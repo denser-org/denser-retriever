@@ -53,9 +53,7 @@ We first build an Elasticsearch index, a vector index and a reranker using scifa
 
 The Denser retriever is illustrated in the following diagram, with the top and bottom boxes describing the training and inference respectively. For each query in the training data, we query Elasticsearch and vector database to retrieve two sets of topk (100) passages respectively. We note that these two sets may overlap. We then apply a ML reranker to rerank the passages returned from Elasticsearch and vector search.
 
-import RagFlowData from './rag-flow-data.png'
-
-<ImageZoom src={RagFlowData} alt="Denser Retriever" className="border border-dashed rounded-md" />
+<ImageZoom src="/images/rag-flow-data.png" alt="Denser Retriever" className="border border-dashed rounded-md" />
 
 Let's consider a query and two passages in the following. The first passage is annotated with label 1 (relevant) while the second is 0 (irrelevant).
 
@@ -147,4 +145,4 @@ On the contrary, the xgboost models can effectively estimate the feature importa
 
 Xgboost model has a nice feature to estimate the feature importance. We plot the feature importance in the following picture. It shows that the normalized vector search score (VS Norm2) is the most important feature to predict if a passage is relevant or not. The normalized reranker feature (RR Norm1) is the second most important feature.
 
-![Feature importance](./feature_importance.png)
+![Feature importance](/images/feature_importance.png)
