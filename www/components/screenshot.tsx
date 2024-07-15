@@ -26,6 +26,8 @@ export function Screenshot({
         <Image
           src={src}
           alt={alt}
+          width={full ? 1920 : 1280}
+          height={full ? 1080 : 720}
           className={cn(
             "m-0 object-cover object-top block w-full h-full select-none rounded-lg outline-red-500",
             full ? "w-full" : "ring-2 dark:ring-neutral-800 ring-gray-200",

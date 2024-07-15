@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { ArrowSquareOut } from "@phosphor-icons/react/dist/ssr";
 import { getPage, getPages } from "@/app/source";
 import { DocsPage, DocsBody } from "fumadocs-ui/page";
@@ -14,7 +14,7 @@ export default async function Page({ params }: { params: Param }) {
   const page = getPage(params.slug);
 
   if (page == null) {
-    notFound();
+		permanentRedirect("/docs/core");
   }
 
   const path = `/content/docs/${page.file.path}`;

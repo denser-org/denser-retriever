@@ -53,7 +53,7 @@ We first build an Elasticsearch index, a vector index and a reranker using scifa
 
 The Denser retriever is illustrated in the following diagram, with the top and bottom boxes describing the training and inference respectively. For each query in the training data, we query Elasticsearch and vector database to retrieve two sets of topk (100) passages respectively. We note that these two sets may overlap. We then apply a ML reranker to rerank the passages returned from Elasticsearch and vector search.
 
-<ImageZoom src="/images/rag-flow-data.png" alt="Denser Retriever" className="border border-dashed rounded-md" />
+<ImageZoom src="/images/rag-flow-data.png" width={800} height={600} alt="Denser Retriever" className="border border-dashed rounded-md" />
 
 Let's consider a query and two passages in the following. The first passage is annotated with label 1 (relevant) while the second is 0 (irrelevant).
 
