@@ -1,12 +1,12 @@
-import copy
 import json
 import logging
 import sys
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 import pytrec_eval
 import torch
-import numpy as np
+from langchain_core.documents import Document
 from scipy.sparse import csr_matrix
 
 
@@ -85,7 +85,7 @@ def mrr(
         MRR[f"MRR@{k}"] = round(MRR[f"MRR@{k}"] / len(qrels), 5)
         logging.info("MRR@{}: {:.4f}".format(k, MRR[f"MRR@{k}"]))
 
-    return MRR
+    return MRR  # type: ignore
 
 
 def recall_cap(
@@ -119,7 +119,7 @@ def recall_cap(
         capped_recall[f"R_cap@{k}"] = round(capped_recall[f"R_cap@{k}"] / len(qrels), 5)
         logging.info("R_cap@{}: {:.4f}".format(k, capped_recall[f"R_cap@{k}"]))
 
-    return capped_recall
+    return capped_recall  # type: ignore
 
 
 def hole(
@@ -154,7 +154,7 @@ def hole(
         Hole[f"Hole@{k}"] = round(Hole[f"Hole@{k}"] / len(qrels), 5)
         logging.info("Hole@{}: {:.4f}".format(k, Hole[f"Hole@{k}"]))
 
-    return Hole
+    return Hole  # type: ignore
 
 
 def top_k_accuracy(
@@ -192,7 +192,7 @@ def top_k_accuracy(
         top_k_acc[f"Accuracy@{k}"] = round(top_k_acc[f"Accuracy@{k}"] / len(qrels), 5)
         logging.info("Accuracy@{}: {:.4f}".format(k, top_k_acc[f"Accuracy@{k}"]))
 
-    return top_k_acc
+    return top_k_acc  # type: ignore
 
 
 loggers = {}
@@ -235,7 +235,7 @@ def get_logger_file(name):
 def evaluate(
     qrels: Dict[str, Dict[str, int]],
     results: Dict[str, Dict[str, float]],
-    metric_file: str = None,
+    metric_file: Optional[str] = None,
     k_values: List[int] = [1, 3, 5, 10, 100, 1000],
     ignore_identical_ids: bool = True,
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float], Dict[str, float]]:
@@ -400,59 +400,6 @@ def build_dicts(passages):
     return uid_to_passages, uid_to_scores, uid_to_ranks
 
 
-def merge_score_linear(uid_to_scores_1, uid_to_scores_2, weight_1, weight_2):
-    uid_to_score = {}
-    all_uids = set().union(*[uid_to_scores_1, uid_to_scores_2])
-    for uid in all_uids:
-        uid_to_score[uid] = weight_1 * uid_to_scores_1.get(
-            uid, 0
-        ) + weight_2 * uid_to_scores_2.get(uid, 0)
-    return uid_to_score
-
-
-def merge_score_rank(uid_to_ranks_1, uid_to_ranks_2):
-    uid_to_score = {}
-    k = 60
-    all_uids = set().union(*[uid_to_ranks_1, uid_to_ranks_2])
-    for uid in all_uids:
-        uid_to_score[uid] = 1 / (k + uid_to_ranks_1.get(uid, 1000)) + 1 / (
-            k + uid_to_ranks_2.get(uid, 1000)
-        )
-    return uid_to_score
-
-
-def merge_results(passages_1, passages_2, weight_1, weight_2, combine):
-    uid_to_passages_1, uid_to_scores_1, uid_to_ranks_1 = build_dicts(
-        copy.deepcopy(passages_1)
-    )
-    uid_to_passages_2, uid_to_scores_2, uid_to_ranks_2 = build_dicts(
-        copy.deepcopy(passages_2)
-    )
-    # import pdb; pdb.set_trace()
-    uid_to_passages_1.update(uid_to_passages_2)
-    if combine == "linear":
-        uid_to_scores = merge_score_linear(
-            uid_to_scores_1, uid_to_scores_2, weight_1, weight_2
-        )
-    else:  # rank
-        uid_to_scores = merge_score_rank(uid_to_ranks_1, uid_to_ranks_2)
-    assert len(uid_to_passages_1) == len(uid_to_scores)
-    sorted_uids = sorted(uid_to_scores.items(), key=lambda x: x[1], reverse=True)
-    passages = []
-    for uid, _ in sorted_uids:
-        passage = uid_to_passages_1[uid]
-        passage["score"] = uid_to_scores[uid]
-        passages.append(passage)
-    return passages
-
-
-def scale_results(passages, weight):
-    res = copy.deepcopy(passages)
-    for passage in res:
-        passage["score"] *= weight
-    return res
-
-
 def standardize_normalize(data):
     # Convert list to numpy array for easier manipulation
     arr = np.array(data)
@@ -508,3 +455,87 @@ def parse_features(features):
     num_features = max(col) + 1  # Determine the number of features
 
     return csr_matrix((value, (row, col)), shape=(num_samples, num_features))
+
+
+def scale_results(passages: List[Tuple[Document, float]], weight: float):
+    return [(doc, score * weight) for doc, score in passages]
+
+
+def merge_score_linear(
+    passages_1: List[Tuple[Document, float]],
+    passages_2: List[Tuple[Document, float]],
+    weight_1: float,
+    weight_2: float,
+) -> List[Tuple[Document, float]]:
+    scaled = scale_results(passages_1, weight_1)
+    scaled.extend(scale_results(passages_2, weight_2))
+
+    return scaled
+
+
+def merge_score_rank(
+    passages_1: List[Tuple[Document, float]], passages_2: List[Tuple[Document, float]]
+) -> List[Tuple[Document, float]]:
+    rank_dict: Dict[int, float] = {}
+    doc_dict: Dict[int, Document] = {}
+    k = 60
+
+    for rank, (document, _) in enumerate(passages_1, start=1):
+        rank_dict[rank] = 1 / (k + rank)
+        doc_dict[rank] = document
+
+    offset = len(passages_1)
+    for rank, (document, _) in enumerate(passages_2, start=1):
+        rank_dict[offset + rank] = rank_dict.get(offset + rank, 0) + 1 / (k + rank)
+        doc_dict[offset + rank] = document
+
+    return [(doc_dict[idx], score) for idx, score in rank_dict.items()]
+
+
+def merge_results(
+    passages_1: List[Tuple[Document, float]],
+    passages_2: List[Tuple[Document, float]],
+    weight_1: float,
+    weight_2: float,
+    combine: str,
+) -> List[Tuple[Document, float]]:
+    if combine == "linear":
+        merged_passages = merge_score_linear(passages_1, passages_2, weight_1, weight_2)
+    else:  # rank
+        merged_passages = merge_score_rank(passages_1, passages_2)
+
+    # remove duplicates
+    seen = set()
+    merged_passages = [
+        x
+        for x in merged_passages
+        if not (x[0].page_content in seen or seen.add(x[0].page_content))
+    ]
+    # sort by score
+    merged_passages.sort(key=lambda x: x[1], reverse=True)
+
+    return merged_passages
+
+
+def docs_to_dict(
+    doc: List[Tuple[Document, float]],
+) -> Tuple[Dict[str, Document], Dict[str, float], Dict[str, int]]:
+    """Convert a list of documents and scores to dictionaries."""
+    doc_dict, score_dict, rank_dict = {}, {}, {}
+
+    for i, (document, score) in enumerate(doc, start=1):
+        id = document.metadata.get("pid", -1)
+        source = document.metadata["source"]
+
+        # unique id for each document, if not available use source
+        if id == -1:
+            uid_str = source
+        else:
+            uid_str = f"{source}_{id}"
+
+        # store the document, score and rank
+        doc_dict[uid_str] = document
+        score_dict[uid_str] = score
+        rank_dict[uid_str] = i + 1
+
+    return doc_dict, score_dict, rank_dict

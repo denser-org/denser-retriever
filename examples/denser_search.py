@@ -3,14 +3,41 @@ import time
 from datetime import date
 
 import streamlit as st
+from langchain_community.document_loaders import CSVLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from denser_retriever.retriever_general import RetrieverGeneral
+from denser_retriever.retriever import DenserRetriever
 
 logger = logging.getLogger(__name__)
 
+
+filter_fields = [
+    "Survived:keyword",
+    "Pclass:keyword",
+    "Sex:keyword",
+    "Age:keyword",
+]
+
+docs = CSVLoader(
+    "../tests/test_data/titanic.csv",
+    metadata_columns=[
+        "Survived",
+        "Pclass",
+        "Sex",
+        "Age",
+    ],
+).load()
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+texts = text_splitter.split_documents(docs)
+
 index_name = "unit_test_titanic"
-retriever = RetrieverGeneral(index_name, "tests/config-titanic.yaml")
-retriever.ingest("tests/test_data/titanic_top10.jsonl")
+retriever = DenserRetriever.from_qdrant(
+    index_name=index_name,
+    location=":memory:",
+    combine_mode="rank",
+)
+retriever.ingest(texts)
 
 starting_url = "https://github.com/datasciencedojo/datasets/blob/master/titanic.csv"
 optional_str = 'Try questions such as "cumings"'
@@ -23,7 +50,7 @@ def denser_search():
         st.caption(f"{optional_str}")
     st.divider()
 
-    fields_and_types = retriever.retrieverElasticSearch.get_index_mappings()
+    fields_and_types = retriever.get_filter_fields()
 
     meta_data = {}
     for field, type in fields_and_types.items():
@@ -52,13 +79,17 @@ def denser_search():
         st.write(f"Metadata: {meta_data}")
 
         start_time = time.time()
-        passages, docs = retriever.retrieve(query, meta_data)
+        res = retriever.retrieve(
+            query,
+            filter=meta_data,
+        )
+        docs = [doc for doc, _ in res]
         retrieve_time_sec = time.time() - start_time
         st.write(f"Retrieve time: {retrieve_time_sec:.3f} sec.")
 
         N_cards_per_row = 3
         chars_to_show = 80
-        if passages:
+        if docs:
             for n_row, row in enumerate(docs):
                 i = n_row % N_cards_per_row
                 if i == 0:
@@ -66,12 +97,11 @@ def denser_search():
                     cols = st.columns(N_cards_per_row, gap="large")
                 # draw the card
                 with cols[n_row % N_cards_per_row]:
-                    st.caption(f"{row['title'].strip()}")
-                    st.markdown(f"**{row['score']}**")
-                    st.markdown(f"*{row['text'][:chars_to_show].strip()}*")
+                    st.markdown(f"**{res[n_row][1]}**")
+                    st.markdown(f"*{row.page_content[:chars_to_show].strip()}*")
                     for field in meta_data:
-                        st.markdown(f"*{field}: {row.get(field)}*")
-                    st.markdown(f"**{row['source']}**")
+                        st.markdown(f"*{field}: {row.metadata.get(field)}*")
+                    st.markdown(f"**{row.metadata['source']}**")
 
 
 if __name__ == "__main__":

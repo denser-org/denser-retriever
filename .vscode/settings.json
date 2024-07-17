@@ -1,4 +1,14 @@
 {
-  "python.analysis.typeCheckingMode": "off",
-  "python.analysis.autoImportCompletions": true
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "cSpell.words": [
+    "langchain",
+    "metadatas",
+    "milvus",
+    "Qdrant",
+    "Rerank",
+    "reranked",
+    "Reranker",
+    "vectorstores"
+  ]
 }
