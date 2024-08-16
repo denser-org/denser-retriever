@@ -1,12 +1,27 @@
-from denser_retriever.retriever import DenserRetriever
 from langchain_core.documents import Document
+
+from denser_retriever.gradient_boost import DenserGradientBoost
+from denser_retriever.retriever import (
+    DEFAULT_EMBEDDINGS,
+    DenserRetriever,
+)
+
+from tests.utils import elasticsearch, milvus, reranker
 
 
 class TestRetriever:
     def setup_method(self):
-        self.denser_retriever = DenserRetriever.from_milvus(
-            index_name="unit_test_retriever",
-            milvus_uri="http://localhost:19530",
+        index_name = "unit_test_retriever"
+
+        self.denser_retriever = DenserRetriever(
+            index_name=index_name,
+            vector_db=milvus,
+            keyword_search=elasticsearch,
+            reranker=reranker,
+            gradient_boost=DenserGradientBoost(
+                "experiments/models/scifact_xgb_es+vs+rr_n.json"
+            ),
+            embeddings=DEFAULT_EMBEDDINGS,
         )
 
     def test_ingest(self):
@@ -25,9 +40,9 @@ class TestRetriever:
         self.denser_retriever.ingest(docs)
         query = "content1"
         k = 2
-        result = self.denser_retriever.retrieve(query, k)
-        assert len(result) == 1
-        assert result[0][0].page_content == "content1"
+        results = self.denser_retriever.retrieve(query, k)
+        assert len(results) == k
+        assert results[0][0].page_content == "content1"
 
     def test_clear(self):
         self.denser_retriever.clear()

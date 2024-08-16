@@ -1,12 +1,13 @@
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from asyncio.log import logger
+from typing import Any, Dict, List, Sequence, Tuple
+import uuid
 
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from denser_retriever.keyword import (
-    ElasticsearchKeywordSearch,
-    create_elasticsearch_client,
-)
+from denser_retriever.gradient_boost import DenserGradientBoost
+from denser_retriever.keyword import ElasticsearchKeywordSearch
 from denser_retriever.reranker import DenserReranker
 from denser_retriever.utils import (
     docs_to_dict,
@@ -17,9 +18,10 @@ from denser_retriever.utils import (
     standardize_normalize,
 )
 from denser_retriever.vectordb.base import DenserVectorDB
-from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
-from denser_retriever.vectordb.qdrant import QdrantDenserVectorDB
 
+DEFAULT_EMBEDDINGS = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
 
 config_to_features = {
     "es+vs": ["1,2,3,4,5,6", None],
@@ -38,167 +40,69 @@ class DenserRetriever:
         self,
         index_name: str,
         vector_db: DenserVectorDB,
-        embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+        keyword_search: ElasticsearchKeywordSearch,
+        embeddings: Embeddings,
+        gradient_boost: DenserGradientBoost,
+        reranker: DenserReranker,
+        *,
         embedding_dim: int = 4,
         combine_mode: str = "linear",
-        k: int = 4,
-        xgb_model_path: str = "model/xgb_model.json",
-        xgb_model_features: str = "es+vs",
-        rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        xgb_model_features: str = "es+vs+rr_n",
         filter_fields: List[str] = [],
         keyword_weight: float = 0.5,
-        keyword_args: Dict[str, Any] = {
-            "engine": "elasticsearch",
-            "args": {
-                "url": "http://localhost:9200",
-            },
-        },
+        keyword_k: int = 50,
         vector_weight: float = 0.5,
+        vector_k: int = 50,
         rerank_weight: float = 0.5,
+        rerank_k: int = 50,
     ):
+        # config parameters
         self.index_name = index_name
         self.combine_mode = combine_mode
         self.keyword_weight = keyword_weight
+        self.keyword_k = keyword_k
         self.vector_weight = vector_weight
+        self.vector_k = vector_k
         self.rerank_weight = rerank_weight
-
-        self.embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
-        self.embedding_dim = embedding_dim
-        self.k = k
-
-        self.xgb_model_path = xgb_model_path
+        self.rerank_k = rerank_k
         self.xgb_model_features = config_to_features[xgb_model_features]
 
-        self.reranker = DenserReranker(model_name=rerank_model)
-
-        self._init_keyword_store(keyword_args, filter_fields)
+        # models
+        self.embeddings = embeddings
+        self.embedding_dim = embedding_dim
+        self.gradient_boost = gradient_boost
+        self.keyword_search = keyword_search
         self.vector_db = vector_db
+        self.reranker = reranker
 
-    @staticmethod
-    def from_milvus(
-        index_name: str,
-        milvus_uri: str,
-        drop_old: bool = False,
-        k: int = 4,
-        combine_mode: str = "linear",
-        embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        embedding_dim: int = 4,
-        xgb_model_path: str = "model/xgb_model.json",
-        xgb_model_features: str = "es+vs",
-        rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
-        filter_fields: List[str] = [],
-        keyword_weight: float = 0.5,
-        keyword_args: Dict[str, Any] = {
-            "engine": "elasticsearch",
-            "args": {
-                "url": "http://localhost:9200",
-            },
-        },
-        vector_weight: float = 0.5,
-        rerank_weight: float = 0.5,
-    ):
-        vector_db = MilvusDenserVectorDB(
-            embedding_function=HuggingFaceEmbeddings(model_name=embedding_model),
-            collection_name=index_name,
-            collection_description="Denser Collection",
-            drop_old=drop_old,
-            auto_id=True,
-            connection_args={"uri": milvus_uri},
-        )
+    # def _init_keyword_store(
+    #     self,
+    #     filter_fields: List[str] = [],
+    # ):
+    #     if args["engine"] == "elasticsearch":
+    #         self.ks_engine = "elasticsearch"
+    #         es_connection = create_elasticsearch_client(
+    #             **args["args"],
+    #         )
+    #         field_types = {}
+    #         for field in filter_fields:
+    #             comps = field.split(":")
+    #             assert len(comps) == 2
+    #             field_types[comps[0]] = {"type": comps[-1]}
 
-        return DenserRetriever(
-            index_name=index_name,
-            vector_db=vector_db,
-            combine_mode=combine_mode,
-            embedding_model=embedding_model,
-            embedding_dim=embedding_dim,
-            k=k,
-            xgb_model_path=xgb_model_path,
-            xgb_model_features=xgb_model_features,
-            rerank_model=rerank_model,
-            filter_fields=filter_fields,
-            keyword_weight=keyword_weight,
-            keyword_args=keyword_args,
-            vector_weight=vector_weight,
-            rerank_weight=rerank_weight,
-        )
-
-    @staticmethod
-    def from_qdrant(
-        index_name: str,
-        url: Optional[str] = None,
-        location: Optional[str] = None,
-        k: int = 4,
-        combine_mode="linear",
-        embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        embedding_dim: int = 4,
-        xgb_model_path: str = "model/xgb_model.json",
-        xgb_model_features: str = "es+vs",
-        rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
-        filter_fields: List[str] = [],
-        keyword_weight: float = 0.5,
-        keyword_args: Dict[str, Any] = {
-            "engine": "elasticsearch",
-            "args": {
-                "url": "http://localhost:9200",
-            },
-        },
-        vector_weight: float = 0.5,
-        rerank_weight: float = 0.5,
-    ):
-        vector_db = QdrantDenserVectorDB(
-            url=url,
-            location=location,
-            collection_name=index_name,
-            embedding=HuggingFaceEmbeddings(model_name=embedding_model),
-        )
-
-        return DenserRetriever(
-            index_name=index_name,
-            vector_db=vector_db,
-            embedding_model=embedding_model,
-            embedding_dim=embedding_dim,
-            combine_mode=combine_mode,
-            k=k,
-            xgb_model_path=xgb_model_path,
-            xgb_model_features=xgb_model_features,
-            rerank_model=rerank_model,
-            filter_fields=filter_fields,
-            keyword_weight=keyword_weight,
-            keyword_args=keyword_args,
-            vector_weight=vector_weight,
-            rerank_weight=rerank_weight,
-        )
-
-    def _init_keyword_store(
-        self,
-        args: Dict[str, Any],
-        filter_fields: List[str] = [],
-    ):
-        if args["engine"] == "elasticsearch":
-            self.ks_engine = "elasticsearch"
-            es_connection = create_elasticsearch_client(
-                **args["args"],
-            )
-            field_types = {}
-            for field in filter_fields:
-                comps = field.split(":")
-                assert len(comps) == 2
-                field_types[comps[0]] = {"type": comps[-1]}
-
-            self.keyword_search = ElasticsearchKeywordSearch(
-                self.index_name,
-                es_connection=es_connection,
-                analysis="default",
-                field_types=field_types,
-            )
-        else:
-            raise NotImplementedError
+    #         self.keyword_search = ElasticsearchKeywordSearch(
+    #             self.index_name,
+    #             es_connection=es_connection,
+    #             analysis="default",
+    #             field_types=field_types,
+    #         )
+    #     else:
+    #         raise NotImplementedError
 
     def ingest(self, docs: List[Document]):
         # add pid into metadata for each document
-        for idx, doc in enumerate(docs):
-            doc.metadata["pid"] = idx
+        for _, doc in enumerate(docs):
+            doc.metadata["pid"] = uuid.uuid4().hex
 
         self.keyword_search.add_documents(docs)
         self.vector_db.add_documents(documents=docs)
@@ -217,14 +121,18 @@ class DenserRetriever:
         passages = []
 
         if self.keyword_weight > 0:
-            es_docs = self.keyword_search.retrieve(query, k, filter=filter, **kwargs)
+            es_docs = self.keyword_search.retrieve(
+                query, self.keyword_k, filter=filter, **kwargs
+            )
             es_passages = scale_results(es_docs, self.keyword_weight)
+            logger.info(f"Keyword search: {len(es_passages)}")
             passages.extend(es_passages)
 
         if self.vector_weight > 0:
             vector_docs = self.vector_db.similarity_search_with_score(
-                query, k, filter, **kwargs
+                query, self.vector_k, filter, **kwargs
             )
+            logger.info(f"Vector search: {len(vector_docs)}")
 
             passages = merge_results(
                 passages, vector_docs, 1.0, self.vector_weight, self.combine_mode
@@ -233,23 +141,17 @@ class DenserRetriever:
         if self.rerank_weight > 0:
             docs = [doc for doc, _ in passages]
             compressed_docs = self.compress_documents(docs, query)
-            return list(compressed_docs)
-        return passages[: self.k]
+            logger.info(f"Rerank search: {len(compressed_docs)}")
+            passages = list(compressed_docs)
+        return passages[:k]
 
     def _retrieve_by_model(
         self, query: str, k: int = 4, filter: Dict[str, Any] = {}, **kwargs: Any
     ) -> List[Tuple[Document, float]]:
-        docs, doc_features = self._retrieve_with_features(query, k, filter, **kwargs)
+        docs, doc_features = self._retrieve_with_features(query, filter, **kwargs)
 
         csr_data = parse_features(doc_features)
-
-        # predict using xgb model
-        import xgboost as xgb
-
-        xgb_model = xgb.Booster()
-        test_data = xgb.DMatrix(csr_data)
-        xgb_model.load_model(self.xgb_model_path)
-        pred = xgb_model.predict(test_data)
+        pred = self.gradient_boost.predict(csr_data)
 
         assert len(pred) == len(docs)
         scores = pred.tolist()
@@ -257,14 +159,14 @@ class DenserRetriever:
         reranked_docs = list(zip(docs, scores))
         reranked_docs.sort(key=lambda x: x[1], reverse=True)
 
-        return reranked_docs[: self.k]
+        return reranked_docs[:k]
 
     def _retrieve_with_features(
-        self, query: str, k: int = 4, filter: Dict[str, Any] = {}, **kwargs: Any
+        self, query: str, filter: Dict[str, Any] = {}, **kwargs: Any
     ) -> Tuple[List[Document], List[List[str]]]:
-        ks_docs = self.keyword_search.retrieve(query, k, filter, **kwargs)
+        ks_docs = self.keyword_search.retrieve(query, self.keyword_k, filter, **kwargs)
         vs_docs = self.vector_db.similarity_search_with_score(
-            query, k, filter, **kwargs
+            query, k=self.vector_k, filter=filter, **kwargs
         )
 
         combined = []
@@ -370,10 +272,22 @@ class DenserRetriever:
         return self.reranker.compress_documents(documents, query)
 
     def clear(self):
+        """Clear the retriever."""
         self.keyword_search.client.indices.delete(index=self.index_name)
 
     def get_field_categories(self, field, k: int = 10):
+        """
+        Get the categories of a field.
+
+        Args:
+            field: The field to get the categories of.
+            k: The number of categories to return.
+
+        Returns:
+            A list of categories.
+        """
         return self.keyword_search.get_categories(field, k)
 
     def get_filter_fields(self):
+        """Get the filter fields."""
         return self.keyword_search.get_index_mappings()
