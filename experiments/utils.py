@@ -1,4 +1,4 @@
-from denser_retriever.keyword import ElasticsearchKeywordSearch, create_elasticsearch_client
+from denser_retriever.keyword import DenserKeywordSearch, create_elasticsearch_client
 from denser_retriever.reranker import DenserReranker
 from denser_retriever.retriever import DEFAULT_EMBEDDINGS
 from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
@@ -14,7 +14,7 @@ milvus = MilvusDenserVectorDB(
             auto_id=True,
         )
 
-elasticsearch = ElasticsearchKeywordSearch(
+elasticsearch = DenserKeywordSearch(
     index_name=index_name,
     field_types={
         "title": {"type": "keyword"},

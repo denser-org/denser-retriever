@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
@@ -46,42 +47,85 @@ def create_elasticsearch_client(
     return es_client
 
 
-class ElasticsearchKeywordSearch:
+class DenserKeywordSearch(ABC):
+    """
+    Denser keyword search interface.
+    """
+
+    def __init__(self, top_k: int = 50, weight: float = 0.5):
+        self.top_k = top_k
+        self.weight = weight
+
+    @abstractmethod
+    def create_index(
+        self, index_name: str, search_fields: Dict[str, Any] = {}, **args: Any
+    ):
+        raise NotImplementedError
+
+    @abstractmethod
+    def add_documents(
+        self,
+        documents: List[Document],
+        **kwargs: Any,
+    ) -> List[str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def retrieve(
+        self,
+        query: str,
+        k: int = 4,
+        filter: Dict[str, Any] = {},
+    ) -> List[Tuple[Document, float]]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_index_mappings(self) -> Dict[Any, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_categories(self, field: str, k: int = 10) -> List[Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete(
+        self, ids: Optional[List[str]] = None, expr: Optional[str] = None, **kwargs: str
+    ):
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_all(self):
+        raise NotImplementedError
+
+
+class ElasticKeywordSearch(DenserKeywordSearch):
     """
     Elasticsearch keyword search class.
     """
 
+    index_name: str
+    """Index name for retrieval"""
+    client: Elasticsearch
+    """Elasticsearch client"""
+    search_fields: Dict[str, Any]
+    """Fields to be indexed"""
+    analysis: Optional[str]
+    """Analysis type"""
+
     def __init__(
         self,
-        index_name: str,
-        field_types: Dict[str, Any],
+        es_connection: Elasticsearch,
         analysis: Optional[str] = "default",
-        es_connection: Optional[Elasticsearch] = None,
-        es_url: Optional[str] = None,
-        es_cloud_id: Optional[str] = None,
-        es_user: Optional[str] = None,
-        es_api_key: Optional[str] = None,
-        es_password: Optional[str] = None,
-        es_params: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ):
-        self.index_name = index_name
-        self.field_types = field_types
+        super().__init__()
         self.analysis = analysis
-
-        if not es_connection:
-            es_connection = create_elasticsearch_client(
-                url=es_url,
-                cloud_id=es_cloud_id,
-                api_key=es_api_key,
-                username=es_user,
-                password=es_password,
-                params=es_params,
-            )
-
         self.client = es_connection
 
-    def create_index(self, index_name: str):
+    def create_index(self, index_name: str, search_fields: Dict[str, Any], **args: Any):
         # Define the index settings and mappings
+        self.index_name = index_name
+        self.search_fields = search_fields
 
         logger.info("ES analysis %s", self.analysis)
         if self.analysis == "default":
@@ -148,14 +192,14 @@ class ElasticsearchKeywordSearch:
                 }
             }
 
-        for key in self.field_types:
-            mappings["properties"][key] = self.field_types[key]
+        for key in self.search_fields:
+            mappings["properties"][key] = self.search_fields[key]
 
         # Create the index with the specified settings and mappings
-        if self.client.indices.exists(index=index_name):
-            self.client.indices.delete(index=index_name)
+        if self.client.indices.exists(index=self.index_name):
+            self.client.indices.delete(index=self.index_name)
         self.client.indices.create(
-            index=index_name, mappings=mappings, settings=settings
+            index=self.index_name, mappings=mappings, settings=settings
         )
 
     def add_documents(
@@ -176,8 +220,6 @@ class ElasticsearchKeywordSearch:
         ids = [str(uuid.uuid4()) for _ in texts]
         requests = []
 
-        self.create_index(self.index_name)
-
         for i, text in enumerate(texts):
             metadata = metadatas[i] if metadatas else {}
 
@@ -190,7 +232,7 @@ class ElasticsearchKeywordSearch:
                 "source": metadata.get("source"),
                 "pid": metadata.get("pid"),
             }
-            for filter in self.field_types.keys():
+            for filter in self.search_fields.keys():
                 v = metadata.get(filter, "").strip()
                 if v:
                     request[filter] = v
@@ -294,6 +336,10 @@ class ElasticsearchKeywordSearch:
                 if _source.get(field):
                     doc.metadata[field] = _source.get(field)
             docs.append((doc, score))
+        if len(docs) < k:
+            # fill in the rest with dummy documents
+            for _ in range(k - len(docs)):
+                docs.append((Document(page_content=""), 0.0))
         return docs
 
     def get_index_mappings(self):
@@ -342,3 +388,13 @@ class ElasticsearchKeywordSearch:
             categories = categories[:k]
         res = [category["key"] for category in categories]
         return res
+
+    def delete(self, ids: Optional[List[str]] = None, **kwargs: str):
+        if ids:
+            for id in ids:
+                self.client.delete(index=self.index_name, id=id)
+        else:
+            self.client.indices.delete(index=self.index_name)
+
+    def delete_all(self):
+        self.client.indices.delete(index=self.index_name)

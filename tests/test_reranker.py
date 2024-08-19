@@ -4,7 +4,7 @@ from typing import List
 
 from langchain_core.documents import Document
 
-from denser_retriever.reranker import DenserReranker
+from denser_retriever.reranker import HFReranker
 
 
 def test_rerank() -> None:
@@ -17,7 +17,7 @@ def test_rerank() -> None:
         "bbb3",
     ]
     docs = list(map(lambda text: Document(page_content=text), texts))
-    compressor = DenserReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    compressor = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
     actual_docs = compressor.compress_documents(docs, "bbb2")
     actual = list(map(lambda doc: doc[0].page_content, actual_docs))[0:3]
     expected_returned = ["bbb2", "bbb1", "bbb3"]
@@ -29,6 +29,6 @@ def test_rerank() -> None:
 
 def test_rerank_empty() -> None:
     docs: List[Document] = []
-    compressor = DenserReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    compressor = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
     actual_docs = compressor.compress_documents(docs, "query")
     assert len(actual_docs) == 0

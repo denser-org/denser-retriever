@@ -3,7 +3,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from denser_retriever.gradient_boost import DenserGradientBoost
 from denser_retriever.keyword import (
-    ElasticsearchKeywordSearch,
+    DenserKeywordSearch,
     create_elasticsearch_client,
 )
 from denser_retriever.reranker import DenserReranker
@@ -28,7 +28,7 @@ retriever = DenserRetriever(
         connection_args={"uri": "http://localhost:19530"},
         embedding_function=embeddings,
     ),
-    keyword_search=ElasticsearchKeywordSearch(
+    keyword_search=DenserKeywordSearch(
         index_name="agent_webpage",
         field_types={"title": {"type": "keyword"}},
         es_connection=create_elasticsearch_client(url="http://localhost:9200"),

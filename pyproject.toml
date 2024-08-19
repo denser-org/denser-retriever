@@ -165,6 +165,7 @@ addopts = [
   "--tb=short",
   "--doctest-modules",
   "--doctest-continue-on-failure",
+  "-s"
 ]
 
 [tool.coverage.run]

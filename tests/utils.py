@@ -1,24 +1,25 @@
-from denser_retriever.keyword import ElasticsearchKeywordSearch, create_elasticsearch_client
-from denser_retriever.reranker import DenserReranker
+from denser_retriever.keyword import (
+    ElasticKeywordSearch,
+    create_elasticsearch_client,
+)
+from denser_retriever.reranker import HFReranker
 from denser_retriever.retriever import DEFAULT_EMBEDDINGS
+from denser_retriever.utils import top_k_accuracy
 from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
 
-index_name="unit_test_retriever"
+index_name = "unit_test_retriever"
 
 embeddings = DEFAULT_EMBEDDINGS
 
 milvus = MilvusDenserVectorDB(
-            collection_name=index_name,
-            embedding_function=embeddings,
-            connection_args={"uri": "http://localhost:19530"},
-            auto_id=True,
-        )
+    top_k=5,
+    connection_args={"uri": "http://localhost:19530"},
+    auto_id=True,
+    drop_old=True
+)
 
-elasticsearch = ElasticsearchKeywordSearch(
-    index_name=index_name,
-    field_types={
-        "title": {"type": "keyword"},
-    },
+elasticsearch = ElasticKeywordSearch(
+    top_k=5,
     es_connection=create_elasticsearch_client(url="http://localhost:9200"),
 )
-reranker = DenserReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
+reranker = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2", top_k=5)

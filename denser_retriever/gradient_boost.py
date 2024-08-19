@@ -1,8 +1,20 @@
+from abc import ABC, abstractmethod
+from numpy import ndarray
 import xgboost as xgb
 from scipy.sparse import csr_matrix
 
 
-class DenserGradientBoost:
+class DenserGradientBoost(ABC):
+    @abstractmethod
+    def load(self):
+        pass
+
+    @abstractmethod
+    def predict(self, csr_data: csr_matrix) -> ndarray:
+        pass
+
+
+class XGradientBoost(DenserGradientBoost):
     def __init__(
         self,
         xgb_model_path: str,
@@ -11,10 +23,8 @@ class DenserGradientBoost:
         self.load()
 
     def load(self):
-        xgb_model = xgb.Booster()
-        xgb_model.load_model(self.xgb_model_path)
-        self.xgb_model = xgb_model
+        self.model = xgb.Booster()
+        self.model.load_model(self.xgb_model_path)
 
     def predict(self, csr_data: csr_matrix):
-        test_data = xgb.DMatrix(csr_data)
-        return self.xgb_model.predict(test_data)
+        return self.model.predict(xgb.DMatrix(csr_data))

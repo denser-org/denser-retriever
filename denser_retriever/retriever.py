@@ -1,5 +1,5 @@
 from asyncio.log import logger
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
 from langchain_core.documents import Document
@@ -7,7 +7,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
 from denser_retriever.gradient_boost import DenserGradientBoost
-from denser_retriever.keyword import ElasticsearchKeywordSearch
+from denser_retriever.keyword import DenserKeywordSearch
 from denser_retriever.reranker import DenserReranker
 from denser_retriever.utils import (
     docs_to_dict,
@@ -39,41 +39,33 @@ class DenserRetriever:
     def __init__(
         self,
         index_name: str,
-        vector_db: DenserVectorDB,
-        keyword_search: ElasticsearchKeywordSearch,
         embeddings: Embeddings,
-        gradient_boost: DenserGradientBoost,
-        reranker: DenserReranker,
+        vector_db: Optional[DenserVectorDB],
+        keyword_search: Optional[DenserKeywordSearch],
+        reranker: Optional[DenserReranker],
+        gradient_boost: Optional[DenserGradientBoost],
         *,
-        embedding_dim: int = 4,
         combine_mode: str = "linear",
         xgb_model_features: str = "es+vs+rr_n",
-        filter_fields: List[str] = [],
-        keyword_weight: float = 0.5,
-        keyword_k: int = 50,
-        vector_weight: float = 0.5,
-        vector_k: int = 50,
-        rerank_weight: float = 0.5,
-        rerank_k: int = 50,
+        search_fields: Dict[str, Any] = {},
     ):
         # config parameters
         self.index_name = index_name
         self.combine_mode = combine_mode
-        self.keyword_weight = keyword_weight
-        self.keyword_k = keyword_k
-        self.vector_weight = vector_weight
-        self.vector_k = vector_k
-        self.rerank_weight = rerank_weight
-        self.rerank_k = rerank_k
         self.xgb_model_features = config_to_features[xgb_model_features]
 
         # models
         self.embeddings = embeddings
-        self.embedding_dim = embedding_dim
         self.gradient_boost = gradient_boost
         self.keyword_search = keyword_search
         self.vector_db = vector_db
         self.reranker = reranker
+
+        # create index
+        if self.vector_db:
+            self.vector_db.create_index(index_name, embeddings)
+        if self.keyword_search:
+            self.keyword_search.create_index(index_name, search_fields)
 
     # def _init_keyword_store(
     #     self,
@@ -99,13 +91,17 @@ class DenserRetriever:
     #     else:
     #         raise NotImplementedError
 
-    def ingest(self, docs: List[Document]):
+    def ingest(self, docs: List[Document]) -> List[str]:
         # add pid into metadata for each document
         for _, doc in enumerate(docs):
             doc.metadata["pid"] = uuid.uuid4().hex
 
-        self.keyword_search.add_documents(docs)
-        self.vector_db.add_documents(documents=docs)
+        if self.keyword_search:
+            self.keyword_search.add_documents(docs)
+        if self.vector_db:
+            self.vector_db.add_documents(documents=docs)
+
+        return [doc.metadata["pid"] for doc in docs]
 
     def retrieve(
         self, query: str, k: int = 4, filter: Dict[str, Any] = {}, **kwargs: Any
@@ -120,27 +116,27 @@ class DenserRetriever:
     ):
         passages = []
 
-        if self.keyword_weight > 0:
+        if self.keyword_search:
             es_docs = self.keyword_search.retrieve(
-                query, self.keyword_k, filter=filter, **kwargs
+                query, self.keyword_search.top_k, filter=filter, **kwargs
             )
-            es_passages = scale_results(es_docs, self.keyword_weight)
+            es_passages = scale_results(es_docs, self.keyword_search.top_k)
             logger.info(f"Keyword search: {len(es_passages)}")
             passages.extend(es_passages)
 
-        if self.vector_weight > 0:
+        if self.vector_db:
             vector_docs = self.vector_db.similarity_search_with_score(
-                query, self.vector_k, filter, **kwargs
+                query, self.vector_db.top_k, filter, **kwargs
             )
             logger.info(f"Vector search: {len(vector_docs)}")
 
             passages = merge_results(
-                passages, vector_docs, 1.0, self.vector_weight, self.combine_mode
+                passages, vector_docs, 1.0, self.vector_db.weight, self.combine_mode
             )
 
-        if self.rerank_weight > 0:
+        if self.reranker:
             docs = [doc for doc, _ in passages]
-            compressed_docs = self.compress_documents(docs, query)
+            compressed_docs = self.reranker.compress_documents(docs, query)
             logger.info(f"Rerank search: {len(compressed_docs)}")
             passages = list(compressed_docs)
         return passages[:k]
@@ -149,6 +145,9 @@ class DenserRetriever:
         self, query: str, k: int = 4, filter: Dict[str, Any] = {}, **kwargs: Any
     ) -> List[Tuple[Document, float]]:
         docs, doc_features = self._retrieve_with_features(query, filter, **kwargs)
+
+        if not self.gradient_boost:
+            raise ValueError("Gradient Boost model not provided")
 
         csr_data = parse_features(doc_features)
         pred = self.gradient_boost.predict(csr_data)
@@ -164,10 +163,16 @@ class DenserRetriever:
     def _retrieve_with_features(
         self, query: str, filter: Dict[str, Any] = {}, **kwargs: Any
     ) -> Tuple[List[Document], List[List[str]]]:
-        ks_docs = self.keyword_search.retrieve(query, self.keyword_k, filter, **kwargs)
-        vs_docs = self.vector_db.similarity_search_with_score(
-            query, k=self.vector_k, filter=filter, **kwargs
-        )
+        ks_docs = []
+        if self.keyword_search:
+            ks_docs = self.keyword_search.retrieve(
+                query, self.keyword_search.top_k, filter=filter, **kwargs
+            )
+        vs_docs = []
+        if self.vector_db:
+            vs_docs = self.vector_db.similarity_search_with_score(
+                query, k=self.vector_db.top_k, filter=filter, **kwargs
+            )
 
         combined = []
         seen = set()
@@ -176,7 +181,10 @@ class DenserRetriever:
                 combined.append(item)
                 seen.add(item[0].page_content)
         combined_docs = [doc for doc, _ in combined]
-        reranked_docs = self.compress_documents(combined_docs, query)
+
+        reranked_docs = []
+        if self.reranker:
+            reranked_docs = self.reranker.compress_documents(combined_docs, query)
 
         _, ks_score_dict, ks_rank_dict = docs_to_dict(ks_docs)
         _, vs_score_dict, vs_rank_dict = docs_to_dict(vs_docs)
@@ -253,27 +261,19 @@ class DenserRetriever:
 
         return docs, non_zero_normalized_features
 
-    def compress_documents(
-        self,
-        documents: Sequence[Document],
-        query: str,
-    ) -> List[Tuple[Document, float]]:
-        """
-        Rerank documents using CrossEncoder.
-
-        Args:
-            documents: A sequence of documents to compress.
-            query: The query to use for compressing the documents.
-            callbacks: Callbacks to run during the compression process.
-
-        Returns:
-            A list of tuples containing the document and its score.
-        """
-        return self.reranker.compress_documents(documents, query)
-
-    def clear(self):
+    def delete(self, ids: Optional[List[str]] = None, **kwargs: str):
         """Clear the retriever."""
-        self.keyword_search.client.indices.delete(index=self.index_name)
+        if self.vector_db:
+            self.vector_db.delete(ids=ids, **kwargs)
+        if self.keyword_search:
+            self.keyword_search.delete(ids=ids, **kwargs)
+
+    def delete_all(self):
+        """Clear the retriever."""
+        if self.vector_db:
+            self.vector_db.delete_all()
+        if self.keyword_search:
+            self.keyword_search.delete_all()
 
     def get_field_categories(self, field, k: int = 10):
         """
@@ -286,8 +286,12 @@ class DenserRetriever:
         Returns:
             A list of categories.
         """
+        if not self.keyword_search:
+            raise ValueError("Keyword search not initialized")
         return self.keyword_search.get_categories(field, k)
 
     def get_filter_fields(self):
         """Get the filter fields."""
+        if not self.keyword_search:
+            raise ValueError("Keyword search not initialized")
         return self.keyword_search.get_index_mappings()

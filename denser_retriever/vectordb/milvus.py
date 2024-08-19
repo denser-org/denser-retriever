@@ -9,14 +9,20 @@ from denser_retriever.vectordb.base import DenserVectorDB
 class MilvusDenserVectorDB(DenserVectorDB):
     def __init__(
         self,
-        embedding_function: Embeddings,
-        collection_name: str = "DenserCollection",
-        collection_description: str = "",
         drop_old: Optional[bool] = False,
         auto_id: bool = False,
         connection_args: Optional[dict] = None,
         **args: Any,
     ):
+        super().__init__(**args)
+        self.drop_old = drop_old
+        self.auto_id = auto_id
+        self.connection_args = connection_args
+
+    def create_index(
+        self, index_name: str, embedding_function: Embeddings, **args: Any
+    ):
+        """Create the index for the vector db."""
         try:
             from langchain_milvus import Milvus
         except ImportError:
@@ -25,11 +31,10 @@ class MilvusDenserVectorDB(DenserVectorDB):
             )
         self.store = Milvus(
             embedding_function=embedding_function,
-            collection_name=collection_name,
-            collection_description=collection_description,
-            drop_old=drop_old,
-            auto_id=auto_id,
-            connection_args=connection_args,
+            collection_name=index_name,
+            drop_old=self.drop_old,
+            auto_id=self.auto_id,
+            connection_args=self.connection_args,
             **args,
         )
 
@@ -86,3 +91,16 @@ class MilvusDenserVectorDB(DenserVectorDB):
             else:
                 expressions.append(f"{key} == '{value}'")
         return " and ".join(expressions)
+
+    def delete(self, ids: Optional[List[str]] = None, **kwargs: str):
+        """Delete documents from the vector db.
+
+        Args:
+            ids (Optional[List[str]]): IDs of the documents to delete.
+            expr (Optional[str]): Expression to filter the deletion.
+        """
+        self.store.delete(ids=ids, **kwargs)
+
+    def delete_all(self):
+        """Delete all documents from the vector db."""
+        self.store.delete(expr="pk > -1")

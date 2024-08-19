@@ -1,6 +1,6 @@
 from langchain_core.documents import Document
 
-from denser_retriever.gradient_boost import DenserGradientBoost
+from denser_retriever.gradient_boost import XGradientBoost
 from denser_retriever.retriever import (
     DEFAULT_EMBEDDINGS,
     DenserRetriever,
@@ -18,11 +18,12 @@ class TestRetriever:
             vector_db=milvus,
             keyword_search=elasticsearch,
             reranker=reranker,
-            gradient_boost=DenserGradientBoost(
+            gradient_boost=XGradientBoost(
                 "experiments/models/scifact_xgb_es+vs+rr_n.json"
             ),
             embeddings=DEFAULT_EMBEDDINGS,
         )
+
 
     def test_ingest(self):
         docs = [
@@ -45,8 +46,9 @@ class TestRetriever:
         assert results[0][0].page_content == "content1"
 
     def test_clear(self):
-        self.denser_retriever.clear()
+        self.denser_retriever.delete_all()
         # Add assertions to verify the clearing process
+        assert True
 
     def test_get_field_categories(self):
         docs = [
