@@ -1,21 +1,22 @@
+from denser_retriever.embedings import SentenceTransformerEmbeddings
 from denser_retriever.keyword import (
     ElasticKeywordSearch,
     create_elasticsearch_client,
 )
 from denser_retriever.reranker import HFReranker
-from denser_retriever.retriever import DEFAULT_EMBEDDINGS
-from denser_retriever.utils import top_k_accuracy
 from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
 
 index_name = "unit_test_retriever"
 
-embeddings = DEFAULT_EMBEDDINGS
+embeddings = SentenceTransformerEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2",
+)
 
 milvus = MilvusDenserVectorDB(
     top_k=5,
     connection_args={"uri": "http://localhost:19530"},
     auto_id=True,
-    drop_old=True
+    drop_old=True,
 )
 
 elasticsearch = ElasticKeywordSearch(

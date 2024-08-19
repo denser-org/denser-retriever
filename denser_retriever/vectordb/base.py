@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
+from denser_retriever.embedings import DenserEmbeddings
+
 
 class DenserVectorDB(ABC):
     """
@@ -14,7 +16,13 @@ class DenserVectorDB(ABC):
         self.top_k = top_k
         self.weight = weight
 
-    def create_index(self, index_name: str, embeddings: Embeddings, **args: Any):
+    def create_index(
+        self,
+        index_name: str,
+        embeddings: DenserEmbeddings,
+        search_fields: List[str],
+        **args: Any,
+    ):
         raise NotImplementedError(
             f"create_index has not been implemented for {self.__class__.__name__}"
         )

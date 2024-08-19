@@ -7,6 +7,8 @@ from elasticsearch import Elasticsearch
 
 from langchain_core.documents import Document
 
+from denser_retriever.filter import FieldMapper
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,9 +59,7 @@ class DenserKeywordSearch(ABC):
         self.weight = weight
 
     @abstractmethod
-    def create_index(
-        self, index_name: str, search_fields: Dict[str, Any] = {}, **args: Any
-    ):
+    def create_index(self, index_name: str, search_fields: List[str], **args: Any):
         raise NotImplementedError
 
     @abstractmethod
@@ -107,7 +107,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
     """Index name for retrieval"""
     client: Elasticsearch
     """Elasticsearch client"""
-    search_fields: Dict[str, Any]
+    search_fields: FieldMapper
     """Fields to be indexed"""
     analysis: Optional[str]
     """Analysis type"""
@@ -122,10 +122,10 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         self.analysis = analysis
         self.client = es_connection
 
-    def create_index(self, index_name: str, search_fields: Dict[str, Any], **args: Any):
+    def create_index(self, index_name: str, search_fields: List[str], **args: Any):
         # Define the index settings and mappings
         self.index_name = index_name
-        self.search_fields = search_fields
+        self.search_fields = FieldMapper(search_fields)
 
         logger.info("ES analysis %s", self.analysis)
         if self.analysis == "default":
@@ -192,8 +192,10 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 }
             }
 
-        for key in self.search_fields:
-            mappings["properties"][key] = self.search_fields[key]
+        for key in self.search_fields.get_keys():
+            mappings["properties"][key] = {
+                "type": self.search_fields.get_field_type(key) or "text"
+            }
 
         # Create the index with the specified settings and mappings
         if self.client.indices.exists(index=self.index_name):
@@ -232,7 +234,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 "source": metadata.get("source"),
                 "pid": metadata.get("pid"),
             }
-            for filter in self.search_fields.keys():
+            for filter in self.search_fields.get_keys():
                 v = metadata.get(filter, "").strip()
                 if v:
                     request[filter] = v
