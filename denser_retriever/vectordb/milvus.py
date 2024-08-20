@@ -72,9 +72,12 @@ class MilvusDenserVectorDB(DenserVectorDB):
         Returns:
             List[Tuple[Document, float]]: List of tuples of documents and their similarity scores.
         """
-        return self.store.similarity_search_with_score(
+        docs =  self.store.similarity_search_with_score(
             query, k, expr=self.filter_expression(filter), **kwargs
         )
+        # change the distance to similarity measure
+        docs = [(doc, -score) for doc, score in docs]
+        return docs
 
     def filter_expression(
         self,
