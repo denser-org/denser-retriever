@@ -8,6 +8,7 @@ import pytrec_eval
 import torch
 from langchain_core.documents import Document
 from scipy.sparse import csr_matrix
+from collections import defaultdict
 
 
 def cos_sim(a, b):
@@ -462,17 +463,35 @@ def scale_results(passages: List[Tuple[Document, float]], weight: float):
 
 
 def merge_score_linear(
-    passages_1: List[Tuple[Document, float]],
-    passages_2: List[Tuple[Document, float]],
-    weight_1: float,
-    weight_2: float,
+        passages_1: List[Tuple[Document, float]],
+        passages_2: List[Tuple[Document, float]],
+        weight_1: float,
+        weight_2: float,
 ) -> List[Tuple[Document, float]]:
-    scaled = scale_results(passages_1, weight_1)
-    scaled.extend(scale_results(passages_2, weight_2))
+    # Dictionary to store the combined scores with pid as the key
+    combined_scores: Dict[str, float] = defaultdict(float)
+    document_map: Dict[str, Document] = {}
 
-    return scaled
+    # Add the weighted scores from passages_1
+    for doc, score in passages_1:
+        pid = doc.metadata["pid"]
+        combined_scores[pid] += score * weight_1
+        document_map[pid] = doc
+
+    # Add the weighted scores from passages_2
+    for doc, score in passages_2:
+        pid = doc.metadata["pid"]
+        combined_scores[pid] += score * weight_2
+        document_map[pid] = doc
+
+    # Create a list of tuples from the combined scores and sort by score in descending order
+    merged_passages = [(document_map[pid], score) for pid, score in combined_scores.items()]
+    merged_passages.sort(key=lambda x: x[1], reverse=True)
+
+    return merged_passages
 
 
+# TODO: to fix this function
 def merge_score_rank(
     passages_1: List[Tuple[Document, float]], passages_2: List[Tuple[Document, float]]
 ) -> List[Tuple[Document, float]]:
@@ -503,16 +522,6 @@ def merge_results(
         merged_passages = merge_score_linear(passages_1, passages_2, weight_1, weight_2)
     else:  # rank
         merged_passages = merge_score_rank(passages_1, passages_2)
-
-    # remove duplicates
-    seen = set()
-    merged_passages = [
-        x
-        for x in merged_passages
-        if not (x[0].page_content in seen or seen.add(x[0].page_content))
-    ]
-    # sort by score
-    merged_passages.sort(key=lambda x: x[1], reverse=True)
 
     return merged_passages
 

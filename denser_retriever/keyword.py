@@ -336,10 +336,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 if _source.get(field):
                     doc.metadata[field] = _source.get(field)
             docs.append((doc, score))
-        if len(docs) < k:
-            # fill in the rest with dummy documents
-            for _ in range(k - len(docs)):
-                docs.append((Document(page_content=""), 0.0))
+
         return docs
 
     def get_index_mappings(self):

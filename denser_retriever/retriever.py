@@ -1,6 +1,7 @@
 from asyncio.log import logger
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
+import time
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -120,7 +121,7 @@ class DenserRetriever:
             es_docs = self.keyword_search.retrieve(
                 query, self.keyword_search.top_k, filter=filter, **kwargs
             )
-            es_passages = scale_results(es_docs, self.keyword_search.top_k)
+            es_passages = scale_results(es_docs, self.keyword_search.weight)
             logger.info(f"Keyword search: {len(es_passages)}")
             passages.extend(es_passages)
 
@@ -129,16 +130,26 @@ class DenserRetriever:
                 query, self.vector_db.top_k, filter, **kwargs
             )
             logger.info(f"Vector search: {len(vector_docs)}")
-
             passages = merge_results(
-                passages, vector_docs, 1.0, self.vector_db.weight, self.combine_mode
+                passages, vector_docs, 1.0, -self.vector_db.weight, self.combine_mode
             )
 
         if self.reranker:
-            docs = [doc for doc, _ in passages]
+            start_time = time.time()
+            docs = [doc for doc, _ in passages[:self.reranker.top_k]]
             compressed_docs = self.reranker.compress_documents(docs, query)
-            logger.info(f"Rerank search: {len(compressed_docs)}")
-            passages = list(compressed_docs)
+
+            passages = merge_results(
+                passages,
+                compressed_docs,
+                1.0,
+                self.reranker.weight,
+                self.combine_mode,
+            )
+            rerank_time_sec = time.time() - start_time
+            logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
+
+
         return passages[:k]
 
     def _retrieve_by_model(

@@ -21,6 +21,16 @@ class TestTitanic:
                 model_name="sentence-transformers/all-MiniLM-L6-v2"
             ),
             combine_mode="linear",
+            search_fields={
+                "Survived": {"type": "keyword"},
+                "Pclass": {"type": "keyword"},
+                "Sex": {"type": "keyword"},
+                "Age": {"type": "keyword"},
+                "SibSp": {"type": "keyword"},
+                "Parch": {"type": "keyword"},
+                "Embarked": {"type": "keyword"},
+                "Birthday": {"type": "date"}
+            },
         )
 
     @pytest.fixture(autouse=True)
