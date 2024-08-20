@@ -137,11 +137,11 @@ class DenserRetriever:
         if self.reranker:
             start_time = time.time()
             docs = [doc for doc, _ in passages[:self.reranker.top_k]]
-            compressed_docs = self.reranker.compress_documents(docs, query)
+            reranked_docs = self.reranker.rerank(docs, query)
 
             passages = merge_results(
                 passages,
-                compressed_docs,
+                reranked_docs,
                 1.0,
                 self.reranker.weight,
                 self.combine_mode,
@@ -195,7 +195,7 @@ class DenserRetriever:
 
         reranked_docs = []
         if self.reranker:
-            reranked_docs = self.reranker.compress_documents(combined_docs, query)
+            reranked_docs = self.reranker.rerank(combined_docs, query)
 
         _, ks_score_dict, ks_rank_dict = docs_to_dict(ks_docs)
         _, vs_score_dict, vs_rank_dict = docs_to_dict(vs_docs)

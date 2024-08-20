@@ -12,7 +12,7 @@ class DenserReranker(ABC):
         self.weight = weight
 
     @abstractmethod
-    def compress_documents(
+    def rerank(
         self,
         documents: Sequence[Document],
         query: str,
@@ -27,7 +27,7 @@ class HFReranker(DenserReranker):
         super().__init__()
         self.model = HuggingFaceCrossEncoder(model_name=model_name)
 
-    def compress_documents(
+    def rerank(
         self,
         documents: Sequence[Document],
         query: str,
@@ -36,9 +36,8 @@ class HFReranker(DenserReranker):
         Rerank documents using CrossEncoder.
 
         Args:
-            documents: A sequence of documents to compress.
-            query: The query to use for compressing the documents.
-            callbacks: Callbacks to run during the compression process.
+            documents: A sequence of documents to rerank.
+            query: The query to use for ranking the documents.
 
         Returns:
             A list of tuples containing the document and its score.
