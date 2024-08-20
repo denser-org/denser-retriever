@@ -63,30 +63,6 @@ class DenserRetriever:
         if self.keyword_search:
             self.keyword_search.create_index(index_name, search_fields)
 
-    # def _init_keyword_store(
-    #     self,
-    #     filter_fields: List[str] = [],
-    # ):
-    #     if args["engine"] == "elasticsearch":
-    #         self.ks_engine = "elasticsearch"
-    #         es_connection = create_elasticsearch_client(
-    #             **args["args"],
-    #         )
-    #         field_types = {}
-    #         for field in filter_fields:
-    #             comps = field.split(":")
-    #             assert len(comps) == 2
-    #             field_types[comps[0]] = {"type": comps[-1]}
-
-    #         self.keyword_search = ElasticsearchKeywordSearch(
-    #             self.index_name,
-    #             es_connection=es_connection,
-    #             analysis="default",
-    #             field_types=field_types,
-    #         )
-    #     else:
-    #         raise NotImplementedError
-
     def ingest(self, docs: List[Document]) -> List[str]:
         # add pid into metadata for each document
         for _, doc in enumerate(docs):
@@ -266,12 +242,12 @@ class DenserRetriever:
 
         return docs, non_zero_normalized_features
 
-    def delete(self, ids: Optional[List[str]] = None, **kwargs: str):
+    def delete(self, ids: Optional[List[str]] = None, source: Optional[str] = None, **kwargs: str):
         """Clear the retriever."""
         if self.vector_db:
-            self.vector_db.delete(ids=ids, **kwargs)
+            self.vector_db.delete(ids=ids, source=source, **kwargs)
         if self.keyword_search:
-            self.keyword_search.delete(ids=ids, **kwargs)
+            self.keyword_search.delete(ids=ids, source=source, **kwargs)
 
     def delete_all(self):
         """Clear the retriever."""

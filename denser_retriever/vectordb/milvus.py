@@ -79,7 +79,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
     def filter_expression(
         self,
         filter_dict: Dict[str, Any],
-    ) -> Any:
+    ) -> str:
         """Generate a Milvus expression from a filter dictionary."""
         expressions = []
         for key, value in filter_dict.items():
@@ -92,14 +92,21 @@ class MilvusDenserVectorDB(DenserVectorDB):
                 expressions.append(f"{key} == '{value}'")
         return " and ".join(expressions)
 
-    def delete(self, ids: Optional[List[str]] = None, **kwargs: str):
+    def delete(
+        self,
+        ids: Optional[List[str]] = None,
+        source: Optional[str] = None,
+        **kwargs: str,
+    ):
         """Delete documents from the vector db.
 
         Args:
             ids (Optional[List[str]]): IDs of the documents to delete.
             expr (Optional[str]): Expression to filter the deletion.
         """
-        self.store.delete(ids=ids, **kwargs)
+        if source:
+            expr = self.filter_expression({"source": source})
+        self.store.delete(ids=ids, expr=expr, **kwargs)
 
     def delete_all(self):
         """Delete all documents from the vector db."""

@@ -89,7 +89,10 @@ class DenserKeywordSearch(ABC):
 
     @abstractmethod
     def delete(
-        self, ids: Optional[List[str]] = None, expr: Optional[str] = None, **kwargs: str
+        self,
+        ids: Optional[List[str]] = None,
+        source: Optional[str] = None,
+        **kwargs: str,
     ):
         raise NotImplementedError
 
@@ -386,12 +389,20 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         res = [category["key"] for category in categories]
         return res
 
-    def delete(self, ids: Optional[List[str]] = None, **kwargs: str):
+    def delete(
+        self,
+        ids: Optional[List[str]] = None,
+        source: Optional[str] = None,
+        **kwargs: str,
+    ):
         if ids:
             for id in ids:
                 self.client.delete(index=self.index_name, id=id)
+        elif source:
+            query = {"query": {"match": {"source": source}}}
+            self.client.delete_by_query(index=self.index_name, body=query)
         else:
-            self.client.indices.delete(index=self.index_name)
+            raise ValueError("Please provide either ids or source to delete.")
 
     def delete_all(self):
         self.client.indices.delete(index=self.index_name)

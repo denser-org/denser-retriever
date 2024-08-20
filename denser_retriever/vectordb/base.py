@@ -48,7 +48,7 @@ class DenserVectorDB(ABC):
         )
 
     def delete(
-        self, ids: Optional[List[str]] = None, expr: Optional[str] = None, **kwargs: str
+        self, ids: Optional[List[str]] = None, source: Optional[str] = None, **kwargs: str
     ):
         raise NotImplementedError(
             f"clear has not been implemented for {self.__class__.__name__}"
