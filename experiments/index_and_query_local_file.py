@@ -18,15 +18,12 @@ retriever = DenserRetriever(
     vector_db=MilvusDenserVectorDB(
         auto_id=True,
         connection_args={"uri": "http://localhost:19530"},
-        embedding_function=embeddings,
     ),
     keyword_search=ElasticKeywordSearch(
         es_connection=create_elasticsearch_client(url="http://localhost:9200"),
     ),
     reranker=reranker,
-    gradient_boost=XGradientBoost(
-        "experiments/models/msmarco_xgb_es+vs+rr_n.json"
-    ),
+    gradient_boost=XGradientBoost("experiments/models/msmarco_xgb_es+vs+rr_n.json"),
     embeddings=embeddings,
     combine_mode="model",
     xgb_model_features="es+vs+rr_n",

@@ -5,7 +5,6 @@ import time
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_huggingface import HuggingFaceEmbeddings
 
 from denser_retriever.gradient_boost import DenserGradientBoost
 from denser_retriever.keyword import DenserKeywordSearch
@@ -19,10 +18,6 @@ from denser_retriever.utils import (
     standardize_normalize,
 )
 from denser_retriever.vectordb.base import DenserVectorDB
-
-DEFAULT_EMBEDDINGS = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-)
 
 config_to_features = {
     "es+vs": ["1,2,3,4,5,6", None],
@@ -136,7 +131,7 @@ class DenserRetriever:
 
         if self.reranker:
             start_time = time.time()
-            docs = [doc for doc, _ in passages[:self.reranker.top_k]]
+            docs = [doc for doc, _ in passages[: self.reranker.top_k]]
             reranked_docs = self.reranker.rerank(docs, query)
 
             passages = merge_results(
@@ -148,7 +143,6 @@ class DenserRetriever:
             )
             rerank_time_sec = time.time() - start_time
             logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
-
 
         return passages[:k]
 
