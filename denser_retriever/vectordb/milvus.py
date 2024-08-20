@@ -95,7 +95,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
     def delete(
         self,
         ids: Optional[List[str]] = None,
-        source: Optional[str] = None,
+        source_id: Optional[str] = None,
         **kwargs: str,
     ):
         """Delete documents from the vector db.
@@ -104,8 +104,8 @@ class MilvusDenserVectorDB(DenserVectorDB):
             ids (Optional[List[str]]): IDs of the documents to delete.
             expr (Optional[str]): Expression to filter the deletion.
         """
-        if source:
-            expr = self.filter_expression({"source": source})
+        if source_id:
+            expr = self.filter_expression({"source_id": source_id})
         self.store.delete(ids=ids, expr=expr, **kwargs)
 
     def delete_all(self):

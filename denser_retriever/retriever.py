@@ -242,12 +242,12 @@ class DenserRetriever:
 
         return docs, non_zero_normalized_features
 
-    def delete(self, ids: Optional[List[str]] = None, source: Optional[str] = None, **kwargs: str):
+    def delete(self, ids: Optional[List[str]] = None, source_id: Optional[str] = None, **kwargs: str):
         """Clear the retriever."""
         if self.vector_db:
-            self.vector_db.delete(ids=ids, source=source, **kwargs)
+            self.vector_db.delete(ids=ids, source_id=source_id, **kwargs)
         if self.keyword_search:
-            self.keyword_search.delete(ids=ids, source=source, **kwargs)
+            self.keyword_search.delete(ids=ids, source_id=source_id, **kwargs)
 
     def delete_all(self):
         """Clear the retriever."""
