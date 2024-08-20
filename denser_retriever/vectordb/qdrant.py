@@ -2,39 +2,32 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+from qdrant_client.http import models
 
 from denser_retriever.vectordb.base import DenserVectorDB
 
 
-class MilvusDenserVectorDB(DenserVectorDB):
+class QdrantDenserVectorDB(DenserVectorDB):
     def __init__(
         self,
-        drop_old: Optional[bool] = False,
-        auto_id: bool = False,
-        connection_args: Optional[dict] = None,
+        collection_name: str,
+        embedding: Embeddings,
+        location: Optional[str] = None,
+        url: Optional[str] = None,
         **args: Any,
     ):
-        super().__init__(**args)
-        self.drop_old = drop_old
-        self.auto_id = auto_id
-        self.connection_args = connection_args
-
-    def create_index(
-        self, index_name: str, embedding_function: Embeddings, **args: Any
-    ):
-        """Create the index for the vector db."""
         try:
-            from langchain_milvus import Milvus
+            from langchain_qdrant import QdrantVectorStore
         except ImportError:
             raise ImportError(
-                "Please install langchain-milvus to use MilvusDenserVectorDB."
+                "Please install langchain-qdrant to use QdrantDenserVectorDB."
             )
-        self.store = Milvus(
-            embedding_function=embedding_function,
-            collection_name=index_name,
-            drop_old=self.drop_old,
-            auto_id=self.auto_id,
-            connection_args=self.connection_args,
+        self.store = QdrantVectorStore.from_documents(
+            documents=[],
+            collection_name=collection_name,
+            embedding=embedding,
+            location=location,
+            url=url,
             **args,
         )
 
@@ -73,34 +66,28 @@ class MilvusDenserVectorDB(DenserVectorDB):
             List[Tuple[Document, float]]: List of tuples of documents and their similarity scores.
         """
         return self.store.similarity_search_with_score(
-            query, k, expr=self.filter_expression(filter), **kwargs
+            query, k, filter=self.filter_expression(filter), **kwargs
         )
 
     def filter_expression(
         self,
         filter_dict: Dict[str, Any],
-    ) -> Any:
-        """Generate a Milvus expression from a filter dictionary."""
-        expressions = []
+    ):
+        filter = []
         for key, value in filter_dict.items():
             if value is None:
                 continue
             if isinstance(value, tuple) and len(value) == 2:
                 start, end = value
-                expressions.append(f"{key} >= '{start}' and {key} <= '{end}'")
+                filter.append(
+                    models.FieldCondition(
+                        key=key, range=models.DatetimeRange(gte=start, lte=end)
+                    )
+                )
             else:
-                expressions.append(f"{key} == '{value}'")
-        return " and ".join(expressions)
-
-    def delete(self, ids: Optional[List[str]] = None, **kwargs: str):
-        """Delete documents from the vector db.
-
-        Args:
-            ids (Optional[List[str]]): IDs of the documents to delete.
-            expr (Optional[str]): Expression to filter the deletion.
-        """
-        self.store.delete(ids=ids, **kwargs)
-
-    def delete_all(self):
-        """Delete all documents from the vector db."""
-        self.store.delete(expr="pk > -1")
+                filter.append(
+                    models.FieldCondition(
+                        key=key, match=models.MatchValue(value=str(value))
+                    )
+                )
+        return models.Filter(must=filter)

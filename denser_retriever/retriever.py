@@ -3,9 +3,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from denser_retriever.embedings import DenserEmbeddings
 from denser_retriever.gradient_boost import DenserGradientBoost
 from denser_retriever.keyword import DenserKeywordSearch
 from denser_retriever.reranker import DenserReranker
@@ -39,7 +39,7 @@ class DenserRetriever:
     def __init__(
         self,
         index_name: str,
-        embeddings: DenserEmbeddings,
+        embeddings: Embeddings,
         vector_db: Optional[DenserVectorDB],
         keyword_search: Optional[DenserKeywordSearch],
         reranker: Optional[DenserReranker],
@@ -47,7 +47,7 @@ class DenserRetriever:
         *,
         combine_mode: str = "linear",
         xgb_model_features: str = "es+vs+rr_n",
-        search_fields: List[str] = [],
+        search_fields: Dict[str, Any] = {},
     ):
         # config parameters
         self.index_name = index_name
@@ -63,7 +63,7 @@ class DenserRetriever:
 
         # create index
         if self.vector_db:
-            self.vector_db.create_index(index_name, embeddings, search_fields)
+            self.vector_db.create_index(index_name, embeddings)
         if self.keyword_search:
             self.keyword_search.create_index(index_name, search_fields)
 

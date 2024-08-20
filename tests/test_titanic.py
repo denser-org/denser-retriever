@@ -1,10 +1,10 @@
 import pytest
 from langchain_community.document_loaders.csv_loader import CSVLoader
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from denser_retriever.embedings import SentenceTransformerEmbeddings
 from denser_retriever.retriever import DenserRetriever
-from tests.utils import milvus, reranker, elasticsearch
+from tests.utils import elasticsearch, milvus, reranker
 
 
 class TestTitanic:
@@ -17,22 +17,13 @@ class TestTitanic:
             keyword_search=elasticsearch,
             reranker=reranker,
             gradient_boost=None,
-            embeddings=SentenceTransformerEmbeddings(
+            embeddings=HuggingFaceEmbeddings(
                 model_name="sentence-transformers/all-MiniLM-L6-v2"
             ),
             combine_mode="linear",
-            search_fields=[
-                "Survived:Survived:keyword",
-                "Pclass:Pclass:keyword",
-                "Sex:Sex:keyword",
-                "Age:Age:keyword",
-                "SibSp:SibSp:keyword",
-                "Parch:Parch:keyword",
-                "Embarked:Embarked:keyword",
-            ],
         )
 
-    @pytest.fixture(autouse=True, scope="class")
+    @pytest.fixture(autouse=True)
     def titanic_data(self):
         docs = CSVLoader(
             "tests/test_data/titanic_top10.csv",
@@ -59,6 +50,11 @@ class TestTitanic:
         texts = text_splitter.split_documents(docs)
         return texts
 
+    def test_clear(self):
+        self.denser_retriever.delete_all()
+        # Add assertions to verify the clearing process
+        assert True
+
     def test_ingest(self, titanic_data):
         ids = self.denser_retriever.ingest(titanic_data)
         # Add assertions to verify the ingestion process
@@ -68,6 +64,10 @@ class TestTitanic:
         self.denser_retriever.ingest(titanic_data)
         query = "Cumings"
         k = 2
-        filter = {"Sex": "female"}
+        filter={
+            "Sex": "female"
+        }
         results = self.denser_retriever.retrieve(query, k, filter=filter)
+        print(results)
+        assert len(results) == k
         assert abs(results[0][1] - 3.6725) < 0.01
