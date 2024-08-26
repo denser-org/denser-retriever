@@ -75,14 +75,15 @@ class MilvusDenserVectorDB(DenserVectorDB):
             List[Tuple[Document, float]]: List of tuples of documents and their similarity scores.
         """
         start_time = time.time()
-        docs =  self.store.similarity_search_with_score(
+        docs = self.store.similarity_search_with_score(
             query, k, expr=self.filter_expression(filter), **kwargs
         )
+        # change the distance to similarity measure
+        docs = [(doc, -score) for doc, score in docs]
         retrieve_time_sec = time.time() - start_time
         logger.info(f"Vector DB retrieve time: {retrieve_time_sec:.3f} sec.")
         logger.info(f"Retrieved {len(docs)} documents.")
         return docs
-
 
     def filter_expression(
         self,

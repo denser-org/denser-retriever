@@ -106,7 +106,7 @@ class DenserRetriever:
             )
             logger.info(f"Vector search: {len(vector_docs)}")
             passages = merge_results(
-                passages, vector_docs, 1.0, -self.vector_db.weight, self.combine_mode
+                passages, vector_docs, 1.0, self.vector_db.weight, self.combine_mode
             )
 
         if self.reranker:
@@ -162,9 +162,10 @@ class DenserRetriever:
         combined = []
         seen = set()
         for item in ks_docs + vs_docs:
-            if item[0].page_content not in seen:
+            if item[0].metadata["pid"] not in seen:
                 combined.append(item)
-                seen.add(item[0].page_content)
+                seen.add(item[0].metadata["pid"])
+
         combined_docs = [doc for doc, _ in combined]
 
         reranked_docs = []

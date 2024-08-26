@@ -3,13 +3,10 @@ from denser_retriever.keyword import (
     create_elasticsearch_client,
 )
 from denser_retriever.reranker import HFReranker
-from denser_retriever.retriever import DEFAULT_EMBEDDINGS
 from denser_retriever.utils import top_k_accuracy
 from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
 
 index_name = "unit_test_retriever"
-
-embeddings = DEFAULT_EMBEDDINGS
 
 milvus = MilvusDenserVectorDB(
     top_k=5,
