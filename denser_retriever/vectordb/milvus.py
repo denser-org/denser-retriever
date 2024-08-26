@@ -1,10 +1,12 @@
 from typing import Any, Dict, List, Optional, Tuple
-
+import time
+import logging
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
 from denser_retriever.vectordb.base import DenserVectorDB
 
+logger = logging.getLogger(__name__)
 
 class MilvusDenserVectorDB(DenserVectorDB):
     def __init__(
@@ -72,9 +74,15 @@ class MilvusDenserVectorDB(DenserVectorDB):
         Returns:
             List[Tuple[Document, float]]: List of tuples of documents and their similarity scores.
         """
-        return self.store.similarity_search_with_score(
+        start_time = time.time()
+        docs =  self.store.similarity_search_with_score(
             query, k, expr=self.filter_expression(filter), **kwargs
         )
+        retrieve_time_sec = time.time() - start_time
+        logger.info(f"Vector DB retrieve time: {retrieve_time_sec:.3f} sec.")
+        logger.info(f"Retrieved {len(docs)} documents.")
+        return docs
+
 
     def filter_expression(
         self,

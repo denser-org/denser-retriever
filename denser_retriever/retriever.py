@@ -67,17 +67,21 @@ class DenserRetriever:
         # add pid into metadata for each document
         for _, doc in enumerate(docs):
             doc.metadata["pid"] = uuid.uuid4().hex
-
         if self.keyword_search:
+            logger.info(f"Adding {len(docs)} documents to keyword search")
             self.keyword_search.add_documents(docs)
+            logger.info(f"Done adding {len(docs)} documents to keyword search")
         if self.vector_db:
+            logger.info(f"Adding {len(docs)} documents to vector db")
             self.vector_db.add_documents(documents=docs)
+            logger.info(f"Done adding {len(docs)} documents to vector db")
 
         return [doc.metadata["pid"] for doc in docs]
 
     def retrieve(
         self, query: str, k: int = 4, filter: Dict[str, Any] = {}, **kwargs: Any
     ):
+        logger.info(f"Retrieve query: {query} top_k: {k}")
         if self.combine_mode in ["linear", "rank"]:
             return self._retrieve_by_linear_or_rank(query, k, filter, **kwargs)
         else:

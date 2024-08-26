@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 import operator
 from typing import List, Sequence, Tuple
-
+import time
+import logging
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_core.documents import Document
 
+logger = logging.getLogger(__name__)
 
 class DenserReranker(ABC):
     def __init__(self, top_k: int = 50, weight: float = 0.5):
@@ -44,7 +46,12 @@ class HFReranker(DenserReranker):
         """
         if not documents:
             return []
+        start_time = time.time()
         scores = self.model.score([(query, doc.page_content) for doc in documents])
         docs_with_scores = list(zip(documents, scores))
         result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
+        rerank_time_sec = time.time() - start_time
+        logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
+        logger.info(f"Reranked {len(result)} documents.")
         return result
+

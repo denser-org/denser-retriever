@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
+import time
 
 from elasticsearch import Elasticsearch
 
@@ -249,11 +250,11 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                     stats_only=True,
                     refresh=refresh_indices,
                 )
-                logger.debug(
+                logger.info(
                     f"Added {success} and failed to add {failed} texts to index"
                 )
 
-                logger.debug(f"added texts {ids} to index")
+                logger.info(f"added texts {ids} to index")
                 return ids
             except BulkIndexError as e:
                 logger.error(f"Error adding texts: {e}")
@@ -261,7 +262,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 logger.error(f"First error reason: {firstError.get('reason')}")
                 raise e
         else:
-            logger.debug("No documents to add to index")
+            logger.info("No documents to add to index")
             return []
 
     def retrieve(
@@ -271,7 +272,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         filter: Dict[str, Any] = {},
     ) -> List[Tuple[Document, float]]:
         assert self.client.indices.exists(index=self.index_name)
-
+        start_time = time.time()
         query_dict = {
             "query": {
                 "bool": {
@@ -339,7 +340,9 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 if _source.get(field):
                     doc.metadata[field] = _source.get(field)
             docs.append((doc, score))
-
+        retrieve_time_sec = time.time() - start_time
+        logger.info(f"Keyword retrieve time: {retrieve_time_sec:.3f} sec.")
+        logger.info(f"Retrieved {len(docs)} documents.")
         return docs
 
     def get_index_mappings(self):
