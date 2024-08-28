@@ -34,12 +34,14 @@ classifiers = [  #! Update me
 "denser-retriever" = "denser_retriever.__main__:app"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
+python = "^3.10.0"
 
 typer = {extras = ["all"], version = "^0.12.1"}
 rich = "^10.14.0"
 pytrec-eval = "^0.5"
-sentence-transformers = "^2.6.1"
+
+sentence-transformers = "^2.2.2"  # Specify the version of sentence-transformers
+torch = {url = "https://download.pytorch.org/whl/cu117/torch-1.13.1%2Bcu117-cp310-cp310-linux_x86_64.whl"}
 elasticsearch = "^8.13.0"
 pymilvus = "^2.4.4"
 datasets = "^2.18.0"
