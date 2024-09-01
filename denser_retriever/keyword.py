@@ -7,6 +7,7 @@ import time
 from elasticsearch import Elasticsearch
 
 from langchain_core.documents import Document
+from denser_retriever.filter import FieldMapper
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +59,7 @@ class DenserKeywordSearch(ABC):
         self.weight = weight
 
     @abstractmethod
-    def create_index(
-        self, index_name: str, search_fields: Dict[str, Any] = {}, **args: Any
-    ):
+    def create_index(self, index_name: str, search_fields: List[str], **args: Any):
         raise NotImplementedError
 
     @abstractmethod
@@ -75,7 +74,7 @@ class DenserKeywordSearch(ABC):
     def retrieve(
         self,
         query: str,
-        k: int = 4,
+        k: int = 100,
         filter: Dict[str, Any] = {},
     ) -> List[Tuple[Document, float]]:
         raise NotImplementedError
@@ -111,25 +110,28 @@ class ElasticKeywordSearch(DenserKeywordSearch):
     """Index name for retrieval"""
     client: Elasticsearch
     """Elasticsearch client"""
-    search_fields: Dict[str, Any]
+    search_fields: FieldMapper
     """Fields to be indexed"""
     analysis: Optional[str]
     """Analysis type"""
 
     def __init__(
         self,
+        drop_old: Optional[bool],
         es_connection: Elasticsearch,
         analysis: Optional[str] = "default",
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.drop_old = drop_old
         self.analysis = analysis
         self.client = es_connection
 
-    def create_index(self, index_name: str, search_fields: Dict[str, Any], **args: Any):
+    def create_index(self, index_name: str, search_fields: List[str], **args: Any):
+
         # Define the index settings and mappings
         self.index_name = index_name
-        self.search_fields = search_fields
+        self.search_fields = FieldMapper(search_fields)
 
         logger.info("ES analysis %s", self.analysis)
         if self.analysis == "default":
@@ -195,16 +197,20 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                     },
                 }
             }
-
-        for key in self.search_fields:
-            mappings["properties"][key] = self.search_fields[key]
+        for key in self.search_fields.get_keys():
+            mappings["properties"][key] = {
+                "type": self.search_fields.get_field_type(key) or "text"
+            }
 
         # Create the index with the specified settings and mappings
         if self.client.indices.exists(index=self.index_name):
-            self.client.indices.delete(index=self.index_name)
-        self.client.indices.create(
-            index=self.index_name, mappings=mappings, settings=settings
-        )
+            if self.drop_old:
+                self.client.indices.delete(index=self.index_name)
+
+        if not self.client.indices.exists(index=self.index_name):
+            self.client.indices.create(
+                index=self.index_name, mappings=mappings, settings=settings
+            )
 
     def add_documents(
         self,
@@ -236,7 +242,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 "source": metadata.get("source"),
                 "pid": metadata.get("pid"),
             }
-            for filter in self.search_fields.keys():
+            for filter in self.search_fields.get_keys():
                 v = metadata.get(filter, "").strip()
                 if v:
                     request[filter] = v
@@ -254,7 +260,6 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                     f"Added {success} and failed to add {failed} texts to index"
                 )
 
-                logger.info(f"added texts {ids} to index")
                 return ids
             except BulkIndexError as e:
                 logger.error(f"Error adding texts: {e}")
@@ -268,7 +273,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
     def retrieve(
         self,
         query: str,
-        k: int = 4,
+        k: int = 100,
         filter: Dict[str, Any] = {},
     ) -> List[Tuple[Document, float]]:
         assert self.client.indices.exists(index=self.index_name)

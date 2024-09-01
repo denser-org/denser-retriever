@@ -4,8 +4,8 @@ import uuid
 import time
 
 from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
 
+from denser_retriever.embeddings import DenserEmbeddings
 from denser_retriever.gradient_boost import DenserGradientBoost
 from denser_retriever.keyword import DenserKeywordSearch
 from denser_retriever.reranker import DenserReranker
@@ -35,15 +35,14 @@ class DenserRetriever:
     def __init__(
         self,
         index_name: str,
-        embeddings: Embeddings,
-        vector_db: Optional[DenserVectorDB],
         keyword_search: Optional[DenserKeywordSearch],
+        vector_db: Optional[DenserVectorDB],
         reranker: Optional[DenserReranker],
+        embeddings: DenserEmbeddings,
         gradient_boost: Optional[DenserGradientBoost],
-        *,
         combine_mode: str = "linear",
         xgb_model_features: str = "es+vs+rr_n",
-        search_fields: Dict[str, Any] = {},
+        search_fields: List[str] = []
     ):
         # config parameters
         self.index_name = index_name
@@ -57,16 +56,18 @@ class DenserRetriever:
         self.vector_db = vector_db
         self.reranker = reranker
 
-        # create index
+        # create index. If exists, remove them first if drop_old is true
         if self.vector_db:
-            self.vector_db.create_index(index_name, embeddings)
+            assert embeddings
+            self.vector_db.create_index(index_name, embeddings, search_fields, embeddings.embedding_size)
         if self.keyword_search:
             self.keyword_search.create_index(index_name, search_fields)
 
-    def ingest(self, docs: List[Document]) -> List[str]:
+    def ingest(self, docs: List[Document], overwrite_pid: bool = True) -> List[str]:
         # add pid into metadata for each document
-        for _, doc in enumerate(docs):
-            doc.metadata["pid"] = uuid.uuid4().hex
+        if overwrite_pid:
+            for _, doc in enumerate(docs):
+                doc.metadata["pid"] = uuid.uuid4().hex
         if self.keyword_search:
             logger.info(f"Adding {len(docs)} documents to keyword search")
             self.keyword_search.add_documents(docs)
@@ -79,7 +80,7 @@ class DenserRetriever:
         return [doc.metadata["pid"] for doc in docs]
 
     def retrieve(
-        self, query: str, k: int = 4, filter: Dict[str, Any] = {}, **kwargs: Any
+        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, **kwargs: Any
     ):
         logger.info(f"Retrieve query: {query} top_k: {k}")
         if self.combine_mode in ["linear", "rank"]:
@@ -88,7 +89,7 @@ class DenserRetriever:
             return self._retrieve_by_model(query, k, filter, **kwargs)
 
     def _retrieve_by_linear_or_rank(
-        self, query: str, k: int = 4, filter: Dict[str, Any] = {}, **kwargs: Any
+        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, **kwargs: Any
     ):
         passages = []
 
@@ -127,7 +128,7 @@ class DenserRetriever:
         return passages[:k]
 
     def _retrieve_by_model(
-        self, query: str, k: int = 4, filter: Dict[str, Any] = {}, **kwargs: Any
+        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, **kwargs: Any
     ) -> List[Tuple[Document, float]]:
         docs, doc_features = self._retrieve_with_features(query, filter, **kwargs)
 
@@ -139,7 +140,7 @@ class DenserRetriever:
 
         assert len(pred) == len(docs)
         scores = pred.tolist()
-
+        logger.info(f"xgb prediction scores: {scores}")
         reranked_docs = list(zip(docs, scores))
         reranked_docs.sort(key=lambda x: x[1], reverse=True)
 

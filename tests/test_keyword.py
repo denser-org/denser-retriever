@@ -12,16 +12,17 @@ class TestElasticsearchKeywordStore:
     def keyword_search(self):
         return ElasticKeywordSearch(
             es_connection=create_elasticsearch_client(url="http://localhost:9200"),
+            drop_old=True
         )
 
     @pytest.fixture(scope="function", autouse=True)
     def create_index(self, keyword_search):
         keyword_search.create_index(
             "unit_test",
-            search_fields={
-                "field1": {"type": "keyword"},
-                "field2": {"type": "keyword"},
-            },
+            search_fields=[
+                "field1:keyword",
+                "field2:keyword",
+            ],
         )
 
     def test_add_documents(self, keyword_search):

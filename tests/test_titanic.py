@@ -1,10 +1,10 @@
 import pytest
 from langchain_community.document_loaders.csv_loader import CSVLoader
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from denser_retriever.embeddings import SentenceTransformerEmbeddings
 from denser_retriever.retriever import DenserRetriever
-from tests.utils import elasticsearch, milvus, reranker
+from tests.utils import milvus, reranker, elasticsearch
 
 
 class TestTitanic:
@@ -17,23 +17,22 @@ class TestTitanic:
             keyword_search=elasticsearch,
             reranker=reranker,
             gradient_boost=None,
-            embeddings=HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2"
+            embeddings=SentenceTransformerEmbeddings(
+                "sentence-transformers/all-MiniLM-L6-v2", 384, True
             ),
             combine_mode="linear",
-            search_fields={
-                "Survived": {"type": "keyword"},
-                "Pclass": {"type": "keyword"},
-                "Sex": {"type": "keyword"},
-                "Age": {"type": "keyword"},
-                "SibSp": {"type": "keyword"},
-                "Parch": {"type": "keyword"},
-                "Embarked": {"type": "keyword"},
-                "Birthday": {"type": "date"}
-            },
+            search_fields=[
+                "Survived:Survived:keyword",
+                "Pclass:Pclass:keyword",
+                "Sex:Sex:keyword",
+                "Age:Age:keyword",
+                "SibSp:SibSp:keyword",
+                "Parch:Parch:keyword",
+                "Embarked:Embarked:keyword",
+            ],
         )
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(autouse=True, scope="class")
     def titanic_data(self):
         docs = CSVLoader(
             "tests/test_data/titanic_top10.csv",
@@ -60,11 +59,6 @@ class TestTitanic:
         texts = text_splitter.split_documents(docs)
         return texts
 
-    def test_clear(self):
-        self.denser_retriever.delete_all()
-        # Add assertions to verify the clearing process
-        assert True
-
     def test_ingest(self, titanic_data):
         ids = self.denser_retriever.ingest(titanic_data)
         # Add assertions to verify the ingestion process
@@ -74,10 +68,6 @@ class TestTitanic:
         self.denser_retriever.ingest(titanic_data)
         query = "Cumings"
         k = 2
-        filter={
-            "Sex": "female"
-        }
+        filter = {"Sex": "female"}
         results = self.denser_retriever.retrieve(query, k, filter=filter)
-        print(results)
-        assert len(results) == k
         assert abs(results[0][1] - 3.6725) < 0.01

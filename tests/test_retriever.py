@@ -4,9 +4,8 @@ from denser_retriever.gradient_boost import XGradientBoost
 from denser_retriever.retriever import (
     DenserRetriever,
 )
-from langchain_huggingface import HuggingFaceEmbeddings
 
-from tests.utils import elasticsearch, milvus, reranker
+from tests.utils import elasticsearch, milvus, reranker, embeddings
 
 
 class TestRetriever:
@@ -21,9 +20,7 @@ class TestRetriever:
             gradient_boost=XGradientBoost(
                 "experiments/models/scifact_xgb_es+vs+rr_n.json"
             ),
-            embeddings=HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2"
-            ),
+            embeddings=embeddings
         )
 
 

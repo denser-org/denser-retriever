@@ -1,7 +1,7 @@
 import textwrap
 
 from langchain_community.document_loaders import WebBaseLoader
-from langchain_huggingface import HuggingFaceEmbeddings
+from denser_retriever.embeddings import SentenceTransformerEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from denser_retriever.gradient_boost import XGradientBoost
@@ -31,8 +31,8 @@ retriever = DenserRetriever(
         field_types={"title": {"type": "keyword"}},
         es_connection=create_elasticsearch_client(url="http://localhost:9200"),
     ),
-    embeddings=HuggingFaceEmbeddings(
-        model_name="sentence-transformers/msmarco-MiniLM-L-6-v2"
+    embeddings=SentenceTransformerEmbeddings(
+        "sentence-transformers/all-MiniLM-L6-v2", 384, True
     ),
     reranker=HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2"),
     gradient_boost=XGradientBoost("experiments/models/scifact_xgb_es+vs+rr_n.json"),

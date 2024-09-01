@@ -2,7 +2,7 @@ from abc import ABC
 from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
+from denser_retriever.embeddings import DenserEmbeddings
 
 
 class DenserVectorDB(ABC):
@@ -10,11 +10,17 @@ class DenserVectorDB(ABC):
     Interface for a denser vector database.
     """
 
-    def __init__(self, top_k: int = 4, weight: float = 0.5):
+    def __init__(self, top_k: int = 100, weight: float = 0.5):
         self.top_k = top_k
         self.weight = weight
 
-    def create_index(self, index_name: str, embeddings: Embeddings, **args: Any):
+    def create_index(
+        self,
+        index_name: str,
+        embeddings: DenserEmbeddings,
+        search_fields: List[str],
+        **args: Any,
+    ):
         raise NotImplementedError(
             f"create_index has not been implemented for {self.__class__.__name__}"
         )
@@ -31,7 +37,7 @@ class DenserVectorDB(ABC):
     def similarity_search_with_score(
         self,
         query: str,
-        k: int = 4,
+        k: int = 100,
         filter: Dict[str, Any] = {},
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
@@ -48,7 +54,7 @@ class DenserVectorDB(ABC):
         )
 
     def delete(
-        self, ids: Optional[List[str]] = None, source_id: Optional[str] = None, **kwargs: str
+        self, ids: Optional[List[str]] = None, expr: Optional[str] = None, **kwargs: str
     ):
         raise NotImplementedError(
             f"clear has not been implemented for {self.__class__.__name__}"

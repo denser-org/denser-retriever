@@ -1,6 +1,6 @@
 import pytest
 from langchain_community.document_loaders.csv_loader import CSVLoader
-from langchain_huggingface import HuggingFaceEmbeddings
+from denser_retriever.embeddings import SentenceTransformerEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from denser_retriever.retriever import DenserRetriever
@@ -17,8 +17,8 @@ class TestCPWS:
             keyword_search=elasticsearch,
             reranker=reranker,
             gradient_boost=None,
-            embeddings=HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2"
+            embeddings=SentenceTransformerEmbeddings(
+                "sentence-transformers/all-MiniLM-L6-v2", 384, True
             ),
             combine_mode="linear",
         )
