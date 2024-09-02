@@ -42,7 +42,8 @@ rich = "^10.14.0"
 pytrec-eval = "^0.5"
 
 sentence-transformers = "^2.7.0"  # Specify the version of sentence-transformers
-torch = {url = "https://download.pytorch.org/whl/cu117/torch-1.13.1%2Bcu117-cp310-cp310-linux_x86_64.whl"}
+torch = [{markers = "sys_platform == 'darwin'", url = "https://download.pytorch.org/whl/cpu/torch-1.13.1-cp310-none-macosx_11_0_arm64.whl"},
+{markers = "sys_platform == 'linux'", url="https://download.pytorch.org/whl/cu117/torch-1.13.1%2Bcu117-cp310-cp310-linux_x86_64.whl"}]
 elasticsearch = "^8.13.0"
 pymilvus = "^2.4.4"
 datasets = "^2.18.0"
