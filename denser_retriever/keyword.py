@@ -54,7 +54,7 @@ class DenserKeywordSearch(ABC):
     Denser keyword search interface.
     """
 
-    def __init__(self, top_k: int = 50, weight: float = 0.5):
+    def __init__(self, top_k: int = 100, weight: float = 0.5):
         self.top_k = top_k
         self.weight = weight
 

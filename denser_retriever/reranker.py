@@ -27,7 +27,7 @@ class HFReranker(DenserReranker):
 
     def __init__(self, model_name: str, **kwargs):
         super().__init__()
-        self.model = HuggingFaceCrossEncoder(model_name=model_name, model_kwargs = {'device': 'cuda'})
+        self.model = HuggingFaceCrossEncoder(model_name=model_name)
 
     def rerank(
         self,
