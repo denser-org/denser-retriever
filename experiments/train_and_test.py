@@ -25,7 +25,7 @@ from denser_retriever.utils import (
     load_qrels,
     docs_to_dict,
 )
-from utils import prepare_xgbdata, save_HF_corpus_as_docs
+from experiments.utils import prepare_xgbdata, save_HF_corpus_as_docs
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

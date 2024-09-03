@@ -25,9 +25,9 @@ class DenserReranker(ABC):
 class HFReranker(DenserReranker):
     """Rerank documents using a HuggingFaceCrossEncoder model."""
 
-    def __init__(self, model_name: str, **kwargs):
+    def __init__(self, model_name: str, model_kwargs: dict = {}, **kwargs):
         super().__init__()
-        self.model = HuggingFaceCrossEncoder(model_name=model_name)
+        self.model = HuggingFaceCrossEncoder(model_name=model_name, model_kwargs = model_kwargs)
 
     def rerank(
         self,

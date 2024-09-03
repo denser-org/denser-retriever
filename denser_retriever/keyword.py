@@ -404,10 +404,10 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         **kwargs: str,
     ):
         if ids:
-            for id in ids:
-                self.client.delete(index=self.index_name, id=id)
+            query = {"query": {"terms": {"uid": ids}}}
+            self.client.delete_by_query(index=self.index_name, body=query)
         elif source_id:
-            query = {"query": {"match": {"source_id": source_id}}}
+            query = {"query": {"match": {"source": source_id}}}
             self.client.delete_by_query(index=self.index_name, body=query)
         else:
             raise ValueError("Please provide either ids or source to delete.")

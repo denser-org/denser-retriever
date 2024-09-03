@@ -1,7 +1,7 @@
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from datasets import Features, Value, load_dataset
 
@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 class HFDataLoader:
     def __init__(
             self,
-            hf_repo: str = None,
-            hf_repo_qrels: str = None,
-            data_folder: str = None,
-            prefix: str = None,
+            hf_repo: Optional[str] = None,
+            hf_repo_qrels: Optional[str] = None,
+            data_folder: Optional[str] = None,
+            prefix: Optional[str] = None,
             corpus_file: str = "corpus.jsonl",
             query_file: str = "queries.jsonl",
             qrels_folder: str = "qrels",

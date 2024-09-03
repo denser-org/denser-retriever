@@ -99,16 +99,14 @@ class MilvusDenserVectorDB(DenserVectorDB):
     def create_index(
         self,
         index_name: str,
-        embedding_function: DenserEmbeddings,
+        embeddings: DenserEmbeddings,
         search_fields: List[str],
-        embedding_size: int,
         **kwargs,
     ):
         """Create the index for the vector db."""
         self.index_name = index_name
         self.search_fields = FieldMapper(search_fields)
-        self.embeddings = embedding_function
-        self.embedding_size = embedding_size
+        self.embeddings = embeddings
         self.source_max_length = 500
         self.title_max_length = 500
         self.text_max_length = 8000
@@ -151,7 +149,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
             ),
             FieldSchema(name="pid", dtype=DataType.VARCHAR, max_length=100),
             FieldSchema(
-                name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.embedding_size
+                name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self.embeddings.embedding_size
             ),
         ]
         for key in self.search_fields.get_keys():
@@ -198,20 +196,23 @@ class MilvusDenserVectorDB(DenserVectorDB):
         failed_batches = []  # To store information about failed batches
         for doc, id in zip(documents, ids):
             batch.append(
-                (doc.metadata.get("title", "")[: self.title_max_length - 10]
-                + " "
-                + doc.page_content[:2000]).strip()
+                (
+                    doc.metadata.get("title", "")[: self.title_max_length - 10]
+                    + " "
+                    + doc.page_content[:2000]
+                ).strip()
             )
             uid_list.append(id)
             sources.append(
                 doc.metadata.get("source", "")[: self.source_max_length - 10]
             )
             titles.append(doc.metadata.get("title", "")[: self.title_max_length - 10])
-            texts.append(doc.page_content[: self.text_max_length - 1000]
-            )  # buffer
+            texts.append(doc.page_content[: self.text_max_length - 1000])  # buffer
             pid_list.append(doc.metadata.get("pid", "-1"))
 
-            for i, field_original_key in enumerate(self.search_fields.get_original_keys()):
+            for i, field_original_key in enumerate(
+                self.search_fields.get_original_keys()
+            ):
                 data = doc.metadata.get(field_original_key, -1)
                 converted_data = self.search_fields.convert_for_storage(
                     {field_original_key: data}
@@ -342,7 +343,13 @@ class MilvusDenserVectorDB(DenserVectorDB):
             "metric_type": "L2",
             "params": {"nprobe": 10},
         }
-        output_fields = ["source", "title", "text", "pid", "uid"] + self.search_fields.get_keys()
+        output_fields = [
+            "source",
+            "title",
+            "text",
+            "pid",
+            "uid",
+        ] + self.search_fields.get_keys()
 
         start_time = time.time()
         result = self.col.search(
@@ -371,12 +378,12 @@ class MilvusDenserVectorDB(DenserVectorDB):
                 "title": hit.entity.title,
                 "pid": hit.entity.pid,
             }
-            score = (-hit.entity.distance)
+            score = -hit.entity.distance
 
             for field in self.search_fields.get_keys():
-                original_value = self.search_fields.convert_to_original({
-                    field: hit.entity.get(field)
-                })
+                original_value = self.search_fields.convert_to_original(
+                    {field: hit.entity.get(field)}
+                )
                 doc.metadata[field] = original_value
             #     cat_id_or_unix_time = hit.entity.get(key)
             #     type = self.search_fields.get_field_type(field)
@@ -407,7 +414,12 @@ class MilvusDenserVectorDB(DenserVectorDB):
                 expressions.append(f"{key} == '{value}'")
         return " and ".join(expressions)
 
-    def delete(self, ids: Optional[List[str]] = None, **kwargs: str):
+    def delete(
+        self,
+        ids: Optional[List[str]] = None,
+        source_id: Optional[str] = None,
+        **kwargs: str,
+    ):
         """Delete documents from the vector db.
 
         Args:
@@ -415,7 +427,19 @@ class MilvusDenserVectorDB(DenserVectorDB):
             expr (Optional[str]): Expression to filter the deletion.
         """
         # self.col.delete(ids=ids, **kwargs)
+        if isinstance(ids, list) and len(ids) > 0:
+            if source_id is not None:
+                logger.warning(
+                    "Both ids and source_id are provided. " "Ignore source_id and delete by ids."
+                )
+            expr = f"uid in {ids}"
+            self.col.delete(expr=expr)
+        elif source_id:
+            self.col.delete(expr=f"source == '{source_id}'")
+        else:
+            raise ValueError("No ids or source_id provided for deletion")
 
     def delete_all(self):
         """Delete all documents from the vector db."""
-        self.store.delete(expr="pk > -1")
+        if self.col:
+            self.col.delete(expr="uid != ''")

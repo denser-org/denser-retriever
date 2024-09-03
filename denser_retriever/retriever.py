@@ -59,7 +59,7 @@ class DenserRetriever:
         # create index. If exists, remove them first if drop_old is true
         if self.vector_db:
             assert embeddings
-            self.vector_db.create_index(index_name, embeddings, search_fields, embeddings.embedding_size)
+            self.vector_db.create_index(index_name, embeddings, search_fields)
         if self.keyword_search:
             self.keyword_search.create_index(index_name, search_fields)
 

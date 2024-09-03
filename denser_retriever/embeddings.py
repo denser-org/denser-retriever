@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 
 class DenserEmbeddings(ABC):
+    embedding_size: int
+    
     @abstractmethod
     def embed_documents(self, texts) -> list:
         pass
