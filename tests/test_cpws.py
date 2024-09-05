@@ -7,6 +7,7 @@ from denser_retriever.retriever import DenserRetriever
 from tests.utils import elasticsearch, milvus, reranker
 
 
+# TODO: need rewrite
 class TestCPWS:
     def setup_method(self):
         index_name = "unit_test_cpws"
@@ -35,14 +36,8 @@ class TestCPWS:
         texts = text_splitter.split_documents(docs)
         return texts
 
-    def test_clear(self):
-        self.denser_retriever.delete_all()
-        # Add assertions to verify the clearing process
-        assert True
-
     def test_ingest(self, titanic_data):
         ids = self.denser_retriever.ingest(titanic_data)
-        # Add assertions to verify the ingestion process
         assert len(ids) == 10
 
     def test_retrieve(self, titanic_data):
@@ -51,6 +46,5 @@ class TestCPWS:
         filter = {"Sex": "female"}
         k = 2
         results = self.denser_retriever.retrieve(query, k, filter=filter)
-        print(results)
         assert len(results) == k
         assert abs(results[0][1] - 3.6725) < 0.01

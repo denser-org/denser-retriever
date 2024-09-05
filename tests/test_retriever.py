@@ -70,17 +70,6 @@ class TestRetriever:
         fields = self.denser_retriever.get_filter_fields()
         assert len(fields) == 4
 
-    def test_delete_by_source(self):
-        docs = [
-            Document(page_content="content1", metadata={"title": "title1", "source": "source_test1"}),
-            Document(page_content="content2", metadata={"title": "title2", "source": "source_test2"}),
-        ]
-        self.denser_retriever.ingest(docs)
-        self.denser_retriever.delete(source_id="source_test1")
-        results = self.denser_retriever.retrieve("content1", k=1)
-        # only content2 should be retrieved
-        assert len(results) == 1
-
     def test_delete_by_id(self):
         docs = [
             Document(page_content="content1", metadata={"title": "title1", "source": "source_test1"}),
@@ -99,3 +88,14 @@ class TestRetriever:
         self.denser_retriever.ingest(docs)
         self.denser_retriever.delete_all()
         assert True
+
+    def test_delete_by_source(self):
+        docs = [
+            Document(page_content="content1", metadata={"title": "title1", "source": "source_test1"}),
+            Document(page_content="content2", metadata={"title": "title2", "source": "source_test2"}),
+        ]
+        self.denser_retriever.ingest(docs)
+        self.denser_retriever.delete(source_id="source_test1")
+        results = self.denser_retriever.retrieve("content1", k=1)
+        # only content2 should be retrieved
+        assert len(results) == 1

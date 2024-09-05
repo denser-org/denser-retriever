@@ -155,7 +155,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                         "type": "text",
                     },
                     "source": {
-                        "type": "text",
+                        "type": "keyword",
                     },
                     "pid": {
                         "type": "text",
