@@ -418,7 +418,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
         self,
         ids: Optional[List[str]] = None,
         source_id: Optional[str] = None,
-        **kwargs: str,
+        source_url: Optional[str] = None,
     ):
         """Delete documents from the vector db.
 
@@ -436,6 +436,8 @@ class MilvusDenserVectorDB(DenserVectorDB):
             self.col.delete(expr=expr)
         elif source_id:
             self.col.delete(expr=f"source == '{source_id}'")
+        elif source_url:
+            self.col.delete(expr=f"source like '{source_url}%'")
         else:
             raise ValueError("No ids or source_id provided for deletion")
 

@@ -99,3 +99,13 @@ class TestRetriever:
         results = self.denser_retriever.retrieve("content1", k=1)
         # only content2 should be retrieved
         assert len(results) == 1
+
+    def test_delete_by_source_url(self):
+        docs = [
+            Document(page_content="content1", metadata={"title": "title1", "source_url": "source_test1"}),
+            Document(page_content="content2", metadata={"title": "title2", "source_url": "source_test2"}),
+        ]
+        self.denser_retriever.ingest(docs)
+        self.denser_retriever.delete(source_url="source_test1")
+        results = self.denser_retriever.retrieve("content1", k=1)
+        assert len(results) == 1

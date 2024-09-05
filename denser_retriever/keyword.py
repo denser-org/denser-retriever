@@ -92,6 +92,7 @@ class DenserKeywordSearch(ABC):
         self,
         ids: Optional[List[str]] = None,
         source_id: Optional[str] = None,
+        source_url: Optional[str] = None,
         **kwargs: str,
     ):
         raise NotImplementedError
@@ -401,16 +402,31 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         self,
         ids: Optional[List[str]] = None,
         source_id: Optional[str] = None,
+        source_url: Optional[str] = None,
         **kwargs: str,
     ):
         if ids:
             query = {"query": {"terms": {"uid": ids}}}
-            self.client.delete_by_query(index=self.index_name, body=query)
         elif source_id:
             query = {"query": {"match": {"source": source_id}}}
-            self.client.delete_by_query(index=self.index_name, body=query)
+        elif source_url:
+            query = {
+                "query": {
+                    "wildcard": {
+                        "source": f"*{source_url}*"
+                    }
+                }
+            }
         else:
-            raise ValueError("Please provide either ids or source to delete.")
+            raise ValueError("Please provide either ids, source_id, or source_url to delete.")
+
+        result = self.client.delete_by_query(index=self.index_name, body=query)
+        deleted_count = result.get('deleted', 0)
+
+        # Refresh the index to make the changes visible
+        self.client.indices.refresh(index=self.index_name)
+
+        logger.info(f"Deleted {deleted_count} documents with {'ids' if ids else 'source_id' if source_id else 'source_url'}: {ids or source_id or source_url}")
 
     def delete_all(self):
         self.client.indices.delete(index=self.index_name)
