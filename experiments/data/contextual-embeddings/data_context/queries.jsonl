@@ -1,0 +1,248 @@
+{"id": "0", "text": "What is the purpose of the DiffExecutor struct?"}
+{"id": "1", "text": "How do you create a new DiffExecutor instance?"}
+{"id": "2", "text": "What happens in the `run_target` method of the DiffExecutor?"}
+{"id": "3", "text": "What is the purpose of the SIGNALS and SIGNALS_PTR static variables?"}
+{"id": "4", "text": "How does the harness closure work?"}
+{"id": "5", "text": "What is the purpose of the StdMapObserver?"}
+{"id": "6", "text": "What feedbacks are used in this fuzzer?"}
+{"id": "7", "text": "How is the initial corpus generated?"}
+{"id": "8", "text": "What stages are used in the fuzzer?"}
+{"id": "9", "text": "What does the `OomObserver` struct do?"}
+{"id": "10", "text": "How do I create a new `OomObserver`?"}
+{"id": "11", "text": "What does the function `both_require` do?"}
+{"id": "12", "text": "How does `both_require` check for the sequence 'a', 'b', 'c'?"}
+{"id": "13", "text": "What is the purpose of the `len` parameter in `both_require`?"}
+{"id": "14", "text": "What does the vuln() function do?"}
+{"id": "15", "text": "How is input normally read in the main() function?"}
+{"id": "16", "text": "What input condition causes the program to abort in the main() function?"}
+{"id": "17", "text": "What is the purpose of the `MergeScheduler` struct?"}
+{"id": "18", "text": "How does the `on_add` method of the `MergeScheduler` work?"}
+{"id": "19", "text": "What is the purpose of the `removable()` method in the `MergeScheduler`?"}
+{"id": "20", "text": "How does the `on_remove` method of the `MergeScheduler` work?"}
+{"id": "21", "text": "What is the purpose of the `current()` method in the `MergeScheduler`?"}
+{"id": "22", "text": "Why is the `next()` method of the `MergeScheduler` unimplemented?"}
+{"id": "23", "text": "How are the `Fp` and `Lr` registers defined as aliases in the `Regs` enum?"}
+{"id": "24", "text": "What is the purpose of the `get_backdoor_arch_regs` function?"}
+{"id": "25", "text": "How do I get the `EnumMap` of backdoor architecture registers?"}
+{"id": "26", "text": "How do you convert a `NautilusInput` to a `BytesInput`?"}
+{"id": "27", "text": "How do you get the `Tree` representation of a `NautilusInput`?"}
+{"id": "28", "text": "What traits does `NautilusInput` implement?"}
+{"id": "29", "text": "How do you initialize the logger?"}
+{"id": "30", "text": "How is the log file created?"}
+{"id": "31", "text": "What logger implementation is being used?"}
+{"id": "32", "text": "How do you register a new type in the Registry?"}
+{"id": "33", "text": "What is the purpose of the `_real_register` method?"}
+{"id": "34", "text": "How can you retrieve registered types from the Registry?"}
+{"id": "35", "text": "How are targeted types handled in the Registry?"}
+{"id": "36", "text": "What is the purpose of the `_modules` set in the Registry?"}
+{"id": "37", "text": "What does the Octal class do?"}
+{"id": "38", "text": "How does the decode method of the Octal class work?"}
+{"id": "39", "text": "What does the getTarget method of the Octal class do?"}
+{"id": "40", "text": "What external dependencies does the Octal class have?"}
+{"id": "41", "text": "How does the decode method of the A1z26 class work?"}
+{"id": "42", "text": "What is the purpose of the priority method in the A1z26 class?"}
+{"id": "43", "text": "What does the getParams method do in the A1z26 class?"}
+{"id": "44", "text": "What is the purpose of the getTarget method?"}
+{"id": "45", "text": "How are the delimiters in the input ciphertext handled?"}
+{"id": "46", "text": "What is the purpose of the priority method in the Base58_ripple class?"}
+{"id": "47", "text": "What does the getParams method of the Base58_ripple class do?"}
+{"id": "48", "text": "What is the purpose of the getTarget method in the Base58_ripple class?"}
+{"id": "49", "text": "How are the character and word boundaries determined in the Morse code decoding process?"}
+{"id": "50", "text": "What is the purpose of the priority method in the Morse_code class?"}
+{"id": "51", "text": "What does the `getInfo` method of the `Soundex` class do?"}
+{"id": "52", "text": "What does the `getTarget` method of the `Soundex` class return?"}
+{"id": "53", "text": "How does the `attemptCrack` method of the `Soundex` class attempt to crack a Soundex-encoded ciphertext?"}
+{"id": "54", "text": "What does the `sortlistwithdict` method of the `Soundex` class do?"}
+{"id": "55", "text": "What parameters does the `Soundex` class take in its constructor?"}
+{"id": "56", "text": "What parameters can be configured for the Tap_code decoder?"}
+{"id": "57", "text": "How does the CipheyDists class handle configuration?"}
+{"id": "58", "text": "What is the priority method used for in the Base69 class?"}
+{"id": "59", "text": "How are the parameters for the Base69 class specified?"}
+{"id": "60", "text": "What encryption schemes do the tests cover?"}
+{"id": "61", "text": "What is the expected decrypted plaintext used in most of the tests?"}
+{"id": "62", "text": "What does the MakeBools function return?"}
+{"id": "63", "text": "How does the MakeFixedStrings function work?"}
+{"id": "64", "text": "What is the purpose of the long string in the MakeStrings function?"}
+{"id": "65", "text": "What UUID values are returned by the MakeUUIDs function?"}
+{"id": "66", "text": "How can I append a column to a ColumnTuple?"}
+{"id": "67", "text": "How do I load column data from an input stream into a ColumnTuple?"}
+{"id": "68", "text": "How can I clear the data in a ColumnTuple?"}
+{"id": "69", "text": "How do I get the number of rows in a ColumnTuple?"}
+{"id": "70", "text": "What is the purpose of the ColumnTupleT class?"}
+{"id": "71", "text": "How can you append elements to a ColumnIPv4 instance?"}
+{"id": "72", "text": "How can you access elements from a ColumnIPv4 instance?"}
+{"id": "73", "text": "How can you append the content of another column to a ColumnIPv4 instance?"}
+{"id": "74", "text": "How can you get the number of rows in a ColumnIPv4 instance?"}
+{"id": "75", "text": "How can you create a slice of a ColumnIPv4 instance?"}
+{"id": "76", "text": "What does the GetTypeMeta() function do?"}
+{"id": "77", "text": "How does the CompateStringsCaseInsensitive() function compare two strings case-insensitively?"}
+{"id": "78", "text": "What regular expression syntax is supported on Windows and Mac for death tests?"}
+{"id": "79", "text": "What is a known caveat with \"threadsafe\" style death tests?"}
+{"id": "80", "text": "How do you read a string using WireFormat?"}
+{"id": "81", "text": "How do you read a 64-bit unsigned integer using WireFormat?"}
+{"id": "82", "text": "What is the purpose of the LoadPrefix function in the Column class?"}
+{"id": "83", "text": "What is the purpose of the SavePrefix function in the Column class?"}
+{"id": "84", "text": "How does the Save function in the Column class work?"}
+{"id": "85", "text": "How does the ColumnLowCardinality class handle null values?"}
+{"id": "86", "text": "What geometric data types are supported by the code?"}
+{"id": "87", "text": "How can you append an element to a ColumnGeo?"}
+{"id": "88", "text": "How can you access an element in a ColumnGeo?"}
+{"id": "89", "text": "How can you append the content of one ColumnGeo to another?"}
+{"id": "90", "text": "How can you clear the data of a ColumnGeo?"}
+{"id": "91", "text": "How do you construct a ProjectedIterator?"}
+{"id": "92", "text": "How do you increment and decrement a ProjectedIterator?"}
+{"id": "93", "text": "What are the possible values for the ConsoleOutput enum?"}
+{"id": "94", "text": "What package is the ConsoleOutput enum defined in?"}
+{"id": "95", "text": "What do the different values of the ConsoleOutput enum represent?"}
+{"id": "96", "text": "How does the UpdateChecker store the timestamp of the last update check?"}
+{"id": "97", "text": "What does the UpdateChecker return if the current version is up to date?"}
+{"id": "98", "text": "How does the DefaultCredentialRetrievers class handle credential helpers on Windows?"}
+{"id": "99", "text": "How does the DefaultCredentialRetrievers class avoid duplicate CredentialRetriever instances?"}
+{"id": "100", "text": "What does the `ReproducibleImageTest` test class verify?"}
+{"id": "101", "text": "How does the `createImage()` method create the test image?"}
+{"id": "102", "text": "What is the expected tarball structure and how is it verified in `testTarballStructure()`?"}
+{"id": "103", "text": "What package does the HelloWorld class belong to?"}
+{"id": "104", "text": "What license is this code released under?"}
+{"id": "105", "text": "What year was this code copyrighted?"}
+{"id": "106", "text": "What company owns the copyright to this code?"}
+{"id": "107", "text": "How does MavenSettingsServerCredentials infer credentials for a server?"}
+{"id": "108", "text": "What exceptions can be thrown when inferring credentials with MavenSettingsServerCredentials?"}
+{"id": "109", "text": "What is the format of the returned AuthProperty when inferring credentials?"}
+{"id": "110", "text": "How are the test settings files used in the tests?"}
+{"id": "111", "text": "How does the testPull() method verify the correctness of the pulled BLOB?"}
+{"id": "112", "text": "How is the RegistryClient instance created in the test methods?"}
+{"id": "113", "text": "How does JibBuildRunner handle a RegistryUnauthorizedException with a 403 Forbidden status code?"}
+{"id": "114", "text": "How does the buildToDockerDaemonAndRun method verify the built image?"}
+{"id": "115", "text": "How does the testExecute_dockerClient test work?"}
+{"id": "116", "text": "What exception is thrown when registry authentication fails?"}
+{"id": "117", "text": "What information is included in the exception message when a `RegistryAuthenticationFailedException` is thrown?"}
+{"id": "118", "text": "What is the default length of a generated pepper when no length is specified?"}
+{"id": "119", "text": "Is it possible to generate a pepper with a length of zero?"}
+{"id": "120", "text": "What is the expected value of the pepper returned by the PepperGenerator.get() method?"}
+{"id": "121", "text": "What is the purpose of the slowEquals method that takes two CharSequence objects?"}
+{"id": "122", "text": "How does the hash method handle the presence or absence of a salt value?"}
+{"id": "123", "text": "What are the input parameters for the BalloonHashingFunction constructor?"}
+{"id": "124", "text": "How can I obtain an instance of the BalloonHashingFunction using the factory method?"}
+{"id": "125", "text": "What are the test vectors used in the `TEST_VECTORS` array?"}
+{"id": "126", "text": "What is the maximum digest size supported by this Blake2b implementation?"}
+{"id": "127", "text": "How do you reset the hasher to its initial state?"}
+{"id": "128", "text": "What class does BadParametersException extend?"}
+{"id": "129", "text": "What package does the BadParametersException class belong to?"}
+{"id": "130", "text": "Who is the author of the BadParametersException class?"}
+{"id": "131", "text": "Since which version has the BadParametersException class been available?"}
+{"id": "132", "text": "What is the purpose of the Hash class?"}
+{"id": "133", "text": "What information does the Hash class store?"}
+{"id": "134", "text": "How do I create a HashBuilder instance?"}
+{"id": "135", "text": "How do I specify the hashing algorithm to use with the HashBuilder?"}
+{"id": "136", "text": "What is the difference between withPBKDF2() and withCompressedPBKDF2()?"}
+{"id": "137", "text": "How do you create an instance of MessageDigestFunction with a specific hashing algorithm and salt option?"}
+{"id": "138", "text": "How do you hash a password using MessageDigestFunction?"}
+{"id": "139", "text": "How do you check if a password matches a hashed value using MessageDigestFunction?"}
+{"id": "140", "text": "How can you retrieve the hashing algorithm and salt option used by a MessageDigestFunction instance?"}
+{"id": "141", "text": "What does the test method `issue92()` do?"}
+{"id": "142", "text": "What does the test method `issue99()` do?"}
+{"id": "143", "text": "What does the test method `issue93()` do?"}
+{"id": "144", "text": "What does the test method `issue120()` do?"}
+{"id": "145", "text": "Which package does the Argon2 enum belong to?"}
+{"id": "146", "text": "What is the purpose of the `Tag` class?"}
+{"id": "147", "text": "What is the purpose of the `pull` function in the `Tag` class?"}
+{"id": "148", "text": "How does the Serializer class serialize branch control instructions like br and br_if?"}
+{"id": "149", "text": "What is the purpose of the `Log` class?"}
+{"id": "150", "text": "What is the expected behavior of the `body` method of the `Log` class?"}
+{"id": "151", "text": "What is the purpose of the `procRaise` function in the `Environ` class?"}
+{"id": "152", "text": "How does the `procRaise` function handle unsupported signals?"}
+{"id": "153", "text": "What is the purpose of the `printPluginMock` function?"}
+{"id": "154", "text": "What is the purpose of the `body` method in the mock classes?"}
+{"id": "155", "text": "How do you access the magic bytes of a Module?"}
+{"id": "156", "text": "What sections are contained in a Module?"}
+{"id": "157", "text": "How do you check if a Module has been validated?"}
+{"id": "158", "text": "How can I retrieve the current log level using the provided classes?"}
+{"id": "159", "text": "How can I set an integer option value using the provided classes?"}
+{"id": "160", "text": "What is the purpose of the AVRescaleQ class?"}
+{"id": "161", "text": "What is the purpose of the WasmEdge::PO namespace?"}
+{"id": "162", "text": "What error codes are defined in the ErrCode enum?"}
+{"id": "163", "text": "What data does the Error class store?"}
+{"id": "164", "text": "How can I construct an Error object?"}
+{"id": "165", "text": "How can I access the error code and message of an Error object?"}
+{"id": "166", "text": "How can I set the ID of a specific chapter using the provided functions?"}
+{"id": "167", "text": "How can I set the time base of a specific chapter?"}
+{"id": "168", "text": "What does the AVChapterStart function do?"}
+{"id": "169", "text": "What is the purpose of the `importPk` function?"}
+{"id": "170", "text": "How does the `pkExportData` function work?"}
+{"id": "171", "text": "How do you create a new instance of the `Pty` struct?"}
+{"id": "172", "text": "How can you access the child process watcher associated with a `Pty` instance?"}
+{"id": "173", "text": "What does the `merge` function do?"}
+{"id": "174", "text": "How does the `merge_tables` function work?"}
+{"id": "175", "text": "What does the `merge_sequence` test verify?"}
+{"id": "176", "text": "How does the `get_pw_entry` function work?"}
+{"id": "177", "text": "What fields does the `Mouse` struct contain?"}
+{"id": "178", "text": "How are the default mouse bindings obtained in the `default` implementation of `MouseBindings`?"}
+{"id": "179", "text": "How is deserialization handled for the `MouseBindings` struct?"}
+{"id": "180", "text": "What is the purpose of the `MouseBinding` type?"}
+{"id": "181", "text": "What is the purpose of the `new_nop` method?"}
+{"id": "182", "text": "How does the Scheduler schedule a new event?"}
+{"id": "183", "text": "How can you cancel a scheduled event?"}
+{"id": "184", "text": "How can you check if a timer is already scheduled?"}
+{"id": "185", "text": "What does the `attach_handler` function do?"}
+{"id": "186", "text": "How do you create a new `Row` instance?"}
+{"id": "187", "text": "What does the `grow` method do in the `Row` struct?"}
+{"id": "188", "text": "How does the `shrink` method work in the `Row` struct?"}
+{"id": "189", "text": "What is the purpose of the `Debug` struct?"}
+{"id": "190", "text": "How can I specify the renderer preference in Alacritty?"}
+{"id": "191", "text": "What is the purpose of the Display struct?"}
+{"id": "192", "text": "How does the Display struct handle configuration updates?"}
+{"id": "193", "text": "What is the purpose of the FrameTimer struct?"}
+{"id": "194", "text": "What class does HasWeightCol extend?"}
+{"id": "195", "text": "What is the name and description of the weight column parameter?"}
+{"id": "196", "text": "How can I get the value of the weight column parameter?"}
+{"id": "197", "text": "What is the default value of the weight column parameter?"}
+{"id": "198", "text": "What parameters does the VectorSlicer class have?"}
+{"id": "199", "text": "How do I specify the indices to slice from the input vector?"}
+{"id": "200", "text": "What restrictions are there on the indices parameter?"}
+{"id": "201", "text": "How does an operator or UDF get access to the current epoch number?"}
+{"id": "202", "text": "Are the vector and l2Norm fields mutable in the VectorWithNorm class?"}
+{"id": "203", "text": "How do you set the parameters of the UnivariateFeatureSelector?"}
+{"id": "204", "text": "What happens if you don't set the feature_type or label_type parameters of the UnivariateFeatureSelector?"}
+{"id": "205", "text": "What is the output schema of the UnivariateFeatureSelectorModel after transforming data?"}
+{"id": "206", "text": "How does the testParam() method verify the parameter settings of LinearRegression?"}
+{"id": "207", "text": "What does the testInputTypeConversion() method verify?"}
+{"id": "208", "text": "What does the testRegularization() method check?"}
+{"id": "209", "text": "What is the maximum size of a segment that the MemorySegmentWriter will write?"}
+{"id": "210", "text": "What is the purpose of the HeadOperatorCoordinator class?"}
+{"id": "211", "text": "How does the HeadOperatorCoordinator determine when to send out a GloballyAlignedEvent?"}
+{"id": "212", "text": "How is the input data generated in this example?"}
+{"id": "213", "text": "How are the results extracted and displayed in this example?"}
+{"id": "214", "text": "What execution environment is used in this example?"}
+{"id": "215", "text": "How do you create an IndexToStringModel instance?"}
+{"id": "216", "text": "How do you set the model data for the IndexToStringModel?"}
+{"id": "217", "text": "How do you extract and display the results after applying the IndexToStringModel?"}
+{"id": "218", "text": "How do you create a new instance of the ColorEndPatternConverter?"}
+{"id": "219", "text": "What parameters does the ColorEndPatternConverter constructor take?"}
+{"id": "220", "text": "What namespaces are used in this file?"}
+{"id": "221", "text": "What does the XMLFilenameFilter constructor do?"}
+{"id": "222", "text": "What is the purpose of the pattern and replacement strings constructed in the XMLFilenameFilter constructor?"}
+{"id": "223", "text": "How would the XMLFilenameFilter be used?"}
+{"id": "224", "text": "What C++ standard library classes are used in this code?"}
+{"id": "225", "text": "How does the testTrigger unit test work?"}
+{"id": "226", "text": "How does the testValid unit test work?"}
+{"id": "227", "text": "How do you configure the logging system with a specific layout using BasicConfigurator?"}
+{"id": "228", "text": "How do you configure the logging system with a specific appender using BasicConfigurator?"}
+{"id": "229", "text": "How do you reset the logging configuration to its default state using BasicConfigurator?"}
+{"id": "230", "text": "What is the default layout used by BasicConfigurator if no layout is provided?"}
+{"id": "231", "text": "What is the purpose of the WideLife template class used in the code?"}
+{"id": "232", "text": "How does the hexdump function handle different character types for logging?"}
+{"id": "233", "text": "How do you create a DenyAllFilter instance?"}
+{"id": "234", "text": "What do you need to do after creating a DenyAllFilter instance?"}
+{"id": "235", "text": "What is the signature of the decide() method of the DenyAllFilter?"}
+{"id": "236", "text": "What namespaces are used in this file?"}
+{"id": "237", "text": "What is the purpose of the MinimumTestCase class?"}
+{"id": "238", "text": "What is the purpose of the common() method?"}
+{"id": "239", "text": "How do you obtain an instance of NDCPatternConverter?"}
+{"id": "240", "text": "How does the NDCPatternConverter format the logging event?"}
+{"id": "241", "text": "What is the inheritance hierarchy of NDCPatternConverter?"}
+{"id": "242", "text": "What macros are used in the NDCPatternConverter class declaration?"}
+{"id": "243", "text": "How does the test1() method test the FMTLayout?"}
+{"id": "244", "text": "What is the purpose of the common() method?"}
+{"id": "245", "text": "How do you construct a BufferedWriter object?"}
+{"id": "246", "text": "What methods does BufferedWriter override from its parent class?"}
+{"id": "247", "text": "How does BufferedWriter handle object destruction?"}
