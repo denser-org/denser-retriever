@@ -11,6 +11,16 @@ from denser_retriever.utils import standardize_normalize, min_max_normalize
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def copy_file(source_file, dest_file, top_k):
+    # Open the source file and destination file
+    with open(source_file, 'r') as src, open(dest_file, 'w') as dest:
+        # Loop through the first K lines and write them to the destination file
+        for i, line in enumerate(src):
+            if top_k <= 0 or i < top_k:
+                dest.write(line)
+            else:
+                break
+
 def save_HF_corpus_as_docs(corpus, output_file: str, max_doc_size):
     out = open(output_file, "w")
     seen = set()

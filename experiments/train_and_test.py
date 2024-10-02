@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import json
+import shutil
 
 from langchain_core.documents import Document
 import xgboost as xgb
@@ -16,8 +17,9 @@ from denser_retriever.keyword import (
 from denser_retriever.reranker import HFReranker
 from denser_retriever.retriever import DenserRetriever
 from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
-from denser_retriever.embeddings import SentenceTransformerEmbeddings
+from denser_retriever.embeddings import VoyageAPIEmbeddings
 from experiments.hf_data_loader import HFDataLoader
+from experiments.denser_data import DenserData
 from denser_retriever.utils import (
     evaluate,
     save_queries,
@@ -25,7 +27,7 @@ from denser_retriever.utils import (
     load_qrels,
     docs_to_dict,
 )
-from experiments.utils import prepare_xgbdata, save_HF_corpus_as_docs
+from utils import prepare_xgbdata, save_HF_corpus_as_docs, copy_file
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,32 +63,41 @@ class Experiment:
                 auto_id=True,
                 drop_old=drop_old
             ),
-            reranker=HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2", top_k=100),
-            embeddings=SentenceTransformerEmbeddings(
-                "Snowflake/snowflake-arctic-embed-m", 768, False
-            ),
+            reranker=HFReranker(model_name="jinaai/jina-reranker-v2-base-multilingual", top_k=100,
+                                automodel_args={"torch_dtype": "float32"}, trust_remote_code=True),
+            embeddings=VoyageAPIEmbeddings(api_key="YOUR_API_KEY",
+                                           model_name="voyage-2", embedding_size=1024),
             gradient_boost=None
         )
 
+        self.max_query_size = 0
+        self.max_query_len = 2000
         self.max_doc_size = 0
-        self.max_query_size = 8000
+        self.max_doc_len = 8000
 
     def ingest(self, dataset_name, split):
-        corpus, queries, qrels = HFDataLoader(
-            hf_repo=dataset_name,
-            hf_repo_qrels=None,
-            streaming=False,
-            keep_in_memory=False,
-        ).load(split=split)
-
         exp_dir = os.path.join(self.output_prefix, split)
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
 
         passage_file = os.path.join(exp_dir, "passages.jsonl")
-        save_HF_corpus_as_docs(
-            corpus, passage_file, self.max_doc_size
-        )
+        if dataset_name == 'anthropic_base':
+            copy_file('experiments/data/contextual-embeddings/data_base/passages.jsonl', passage_file,
+                      self.max_doc_size)
+        elif dataset_name == 'anthropic_context':
+            copy_file('experiments/data/contextual-embeddings/data_context/passages.jsonl', passage_file,
+                      self.max_doc_size)
+        else:
+            corpus, _, _ = HFDataLoader(
+                hf_repo=dataset_name,
+                hf_repo_qrels=None,
+                streaming=False,
+                keep_in_memory=False,
+            ).load(split=split)
+
+            save_HF_corpus_as_docs(
+                corpus, passage_file, self.max_doc_size
+            )
 
         out = open(passage_file, "r")
         docs = []
@@ -103,21 +114,28 @@ class Experiment:
             self.retriever.ingest(docs, overwrite_pid=False)
 
     def generate_feature_data(self, dataset_name, split):
-        _, queries, qrels = HFDataLoader(
-            hf_repo=dataset_name,
-            hf_repo_qrels=None,
-            streaming=False,
-            keep_in_memory=False,
-        ).load(split=split)
-
         exp_dir = os.path.join(self.output_prefix, split)
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
-
         query_file = os.path.join(exp_dir, "queries.jsonl")
-        save_queries(queries, query_file)
         qrels_file = os.path.join(exp_dir, "qrels.jsonl")
-        save_qrels(qrels, qrels_file)
+
+        if dataset_name in ["anthropic_base", "anthropic_context"]:
+            shutil.copy('experiments/data/contextual-embeddings/data_context/queries.jsonl', query_file)
+            shutil.copy('experiments/data/contextual-embeddings/data_context/qrels.jsonl', qrels_file)
+            data = DenserData("experiments/data/contextual-embeddings/data_base")
+            queries = data.load_queries()
+            qrels = data.load_qrels()
+        else:  # assume HF datasets
+            _, queries, qrels = HFDataLoader(
+                hf_repo=dataset_name,
+                hf_repo_qrels=None,
+                streaming=False,
+                keep_in_memory=False,
+            ).load(split=split)
+            save_queries(queries, query_file)
+            save_qrels(qrels, qrels_file)
+
         feature_file = os.path.join(exp_dir, "features.svmlight")
         feature_out = open(feature_file, "w")
 
@@ -445,7 +463,8 @@ class Experiment:
                 retriever_config,
             )
 
-    def report(self, eval_on):
+    def report(self, eval_on, metric_str):
+        print(f"\n== {metric_str}")
         for metric_file in [
             "metric_keyword.json",
             "metric_vector.json",
@@ -462,7 +481,7 @@ class Experiment:
             file = os.path.join(self.output_prefix, eval_on, metric_file)
             for line in open(file, "r"):
                 line = line.strip()
-                if "NDCG@10" in line:
+                if metric_str in line:
                     print(f"{metric_file}: {line}")
                     break
 
@@ -512,4 +531,5 @@ if __name__ == "__main__":
     logger.info(
         f"train: {train_on}, eval: {eval_on}, cross-validation: {train_on == eval_on}"
     )
-    experiment.report(eval_on)
+    experiment.report(eval_on, "NDCG@20")
+    experiment.report(eval_on, "Recall@20")

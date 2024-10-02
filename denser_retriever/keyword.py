@@ -244,9 +244,13 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 "pid": metadata.get("pid"),
             }
             for filter in self.search_fields.get_keys():
-                v = metadata.get(filter, "").strip()
-                if v:
-                    request[filter] = v
+                value = metadata.get(filter, "")
+                if isinstance(value, list):
+                    value = [v.strip() for v in value]
+                elif value is not None:
+                    value = value.strip()
+                if value:
+                    request[filter] = value
             requests.append(request)
 
         if len(requests) > 0:
@@ -342,7 +346,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 },
             )
             score = res["hits"]["hits"][id]["_score"]
-            for field in filter:
+            for field in self.search_fields.get_keys():
                 if _source.get(field):
                     doc.metadata[field] = _source.get(field)
             docs.append((doc, score))

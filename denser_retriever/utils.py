@@ -12,7 +12,7 @@ def evaluate(
     qrels: Dict[str, Dict[str, int]],
     results: Dict[str, Dict[str, float]],
     metric_file: Optional[str] = None,
-    k_values: List[int] = [1, 3, 5, 10, 100, 1000],
+    k_values: List[int] = [1, 3, 5, 10, 20, 100, 1000],
     ignore_identical_ids: bool = True,
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float], Dict[str, float]]:
     if ignore_identical_ids:
@@ -76,6 +76,11 @@ def save_queries(queries, output_file: str):
         json.dump(data, out, ensure_ascii=False)
         out.write("\n")
 
+def load_queries(in_file: str):
+    res = []
+    for line in open(in_file, "r"):
+        res.append(json.loads(line))
+    return res
 
 def save_qrels(qrels, output_file: str):
     out = open(output_file, "w")
@@ -84,6 +89,17 @@ def save_qrels(qrels, output_file: str):
         json.dump(data, out, ensure_ascii=False)
         out.write("\n")
 
+def save_qrels_from_trec(trec_file, qrels_file):
+    qrels = {}
+    with open(trec_file, "r") as f:
+        for line in f:
+            qid, _, pid, rel = line.split()
+            if qid not in qrels:
+                qrels[qid] = {}
+            qrels[qid][pid] = int(rel)
+
+    save_qrels(qrels, qrels_file)
+    return qrels
 
 def load_qrels(in_file: str):
     res = {}

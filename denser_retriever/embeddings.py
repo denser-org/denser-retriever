@@ -38,3 +38,40 @@ class SentenceTransformerEmbeddings(DenserEmbeddings):
         else:
             embeddings = self.client.encode([text], prompt_name="query")
         return embeddings
+
+
+class VoyageAPIEmbeddings(DenserEmbeddings):
+    def __init__(self, api_key: str, model_name: str, embedding_size: int):
+        try:
+            import voyageai
+        except ImportError as exc:
+            raise ImportError(
+                "Could not import voyage python package. "
+                "Please install it with `pip install voyageai`."
+            ) from exc
+
+        self.client = voyageai.Client(api_key)
+        self.model_name = model_name
+        self.embedding_size = embedding_size
+
+    def embed_documents(self, texts):
+        """
+        Embeds multiple documents using the Voyage API.
+        Args:
+            texts: A list of document texts.
+        Returns:
+            A list of document embeddings.
+        """
+        embeddings = self.client.embed(texts, model=self.model_name).embeddings
+        return embeddings
+
+    def embed_query(self, text):
+        """
+        Embeds a single query using the Voyage API.
+        Args:
+            text: The query text.
+        Returns:
+            The query embedding.
+        """
+        embeddings = self.client.embed([text], model=self.model_name).embeddings
+        return embeddings
