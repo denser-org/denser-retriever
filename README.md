@@ -27,11 +27,11 @@ xgboost)** machine learning technique to combine:
 - **Vector databases** that are great for finding a wide range of potentially relevant answers.
 - **Machine Learning rerankers** that fine-tune the results to ensure the most relevant answers top the list.
 
-Our experiments on MTEB datasets show that the combination of keyword search, vector search and a reranker via an xgboost model (denoted as ES+VS+RR_n) can significantly improve the vector search (VS) baseline.
+* Our experiments on MTEB datasets show that the combination of keyword search, vector search and a reranker via a xgboost model (denoted as ES+VS+RR_n) can significantly improve the vector search (VS) baseline.
 
 ![mteb_ndcg_plot](mteb_ndcg_plot.png)
 
-
+* **Check out Denser Retriever experiments using the Anthropic Contextual Retrieval dataset at [here](https://github.com/denser-org/denser-retriever/tree/main/experiments/data/contextual-embeddings)**.
 ## 🚀 Features
 
 The initial release of Denser Retriever provides the following features.
