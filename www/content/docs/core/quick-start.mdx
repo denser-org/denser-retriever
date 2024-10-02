@@ -1,0 +1,52 @@
+---
+title: Quick Start
+---
+
+## Overview
+
+The following diagram illustrates a Denser Retriever, which consists of three components:
+
+<ImageZoom src="/images/denser-retriever.png" alt="Denser Retriever" width={800} height={600} className="border rounded-md p-2" />
+
+- **Keyword search** relies on traditional search techniques that use exact keyword matching. We use [elasticsearch](https://www.elastic.co/guide/en/elasticsearch/reference/current/targz.html) in Denser Retriever.
+- **Vector search** uses neural network models to encode both the query and the documents into dense vector representations in a high-dimensional space. We use [Milvus](https://milvus.io/docs/install_standalone-docker.md) and [snowflake-arctic-embed-m](https://github.com/Snowflake-Labs/arctic-embed?tab=readme-ov-file) model, which achieves state-of-the-art performance on the MTEB/BEIR [leaderboard](https://huggingface.co/spaces/mteb/leaderboard) for each of their size variants.
+- **A ML cross-encoder re-ranker** can be utilized to further boost accuracy over these two retriever approaches above. We use [cross-encoder/ms-marco-MiniLM-L-6-v2](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2), which has a good balance between accuracy and inference latency.
+
+## Requirements
+
+To get started, we need
+
+- Install `denser-retriever` python package, see [here](./install/installation)
+- Install `Elasticsearch` and `Milvus`: Either on a local machine (for example, my laptop), see [here](./install/install-local), or on a server (for example, an AWS instance), see [here](./install/install-server)
+
+## Experiments
+- [**Build an index and query:**](./experiments/index_and_query) users provide a collection of documents such as text files or webpages to build a retriever. Users can then ask questions to obtain relevant results from the provided documents.
+- [**Training:**](./experiments/training) Users provide a training dataset to train an xgboost model which governs on how to combine keyword search, vector search and reranking. Users can then use such a model to effectively combine keyword search, vector search and a reranker to get optimal results.
+- [**MTEB Experiments:**](./experiments/mteb_retrieval) User want to replicate the MTEB retrieval experiments.
+
+## Examples
+
+import { MessageCircle, Search } from "lucide-react"
+
+<Cards>
+<Card
+  icon={<MessageCircle />}
+  title="End to end Chat application"
+  description="An end-to-end chat application that uses the denser retriever to search for relevant responses to user queries."
+  href="/docs/examples/e2e-chat"
+/>
+<Card
+  icon={<Search />}
+  title="End to end Search application"
+  description="An end-to-end search application that uses the denser retriever to search for relevant documents to user queries."
+  href="/docs/examples/e2e-search"
+/>
+</Cards>
+
+## Miscellaneous
+
+### Filters
+Handling filters in semantic search, see [here](./misc/filters).
+
+### Unit Tests
+Unit tests at [here](./misc/unit-tests).

@@ -1,0 +1,32 @@
+---
+title: End to end Semantic Search App
+---
+
+<Callout type="info">
+  We can run this application either on a [localhost](../install/install-local) or a [server](../install/install-server).
+</Callout>
+
+
+We show the step-by-step guide to build an end-to-end search application. We first set the OpenAI api key.
+
+```bash
+export OPENAI_API_KEY=<API-KEY>
+```
+
+Under the [repo](https://github.com/denser-org/denser-retriever/tree/main) directory, we can run the following command to launch a streamlit search app. The source code can be found at [here](https://github.com/denser-org/denser-retriever/blob/main/examples/denser_search.py).
+
+```bash
+poetry run streamlit run examples/denser_search.py
+```
+
+This command first builds a mini retriever with the following code.
+
+```python
+index_name = "unit_test_titanic"
+retriever = RetrieverGeneral(index_name, "tests/config-titanic.yaml")
+retriever.ingest("tests/test_data/titanic_top10.jsonl")
+```
+
+It then launches a webpage with interactive UI so users can input queries. Once it is launched, we will see a search interface similar to the following screenshot. We can input any queries, along with the filters to search relevant results. Below shows an example query of `cumings` with `Sex` field is filled with `female`. The retriever returns the relevant passages which matches the specified filter value.
+
+<Screenshot src="/images/denser_search.png" full alt="Denser Chat" className="shadow-xs" />

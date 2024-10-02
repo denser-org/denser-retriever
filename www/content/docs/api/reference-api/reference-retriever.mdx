@@ -1,0 +1,410 @@
+---
+title: retriever
+full: true
+---
+
+import { Root, API, APIInfo, APIExample, Responses, Response, ResponseTypes, ExampleResponse, TypeScriptResponse, Property, ObjectCollapsible, Requests, Request } from "fumadocs-ui/components/api";
+
+<Root>
+
+<API>
+
+<APIInfo method={"POST"} route={"/api/v1/retriever/retrieve"}>
+
+## Retrieve
+
+Retrieve documents.
+
+### Request Body
+
+<Property name={"query"} type={"Query"} required={true} deprecated={undefined}>
+
+</Property>
+
+<Property name={"index_name"} type={"Index Name"} required={true} deprecated={undefined}>
+
+</Property>
+
+| Status code | Description |
+| ----------- | ----------- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+</APIInfo>
+
+<APIExample>
+
+<Requests items={["cURL","JavaScript"]}>
+
+<Request value={"cURL"}>
+
+```bash
+curl -X POST "https://example.com/api/v1/retriever/retrieve" \
+  -d '{
+  "query": "string",
+  "index_name": "string"
+}'
+```
+
+</Request>
+
+<Request value={"JavaScript"}>
+
+```js
+fetch("https://example.com/api/v1/retriever/retrieve", {
+  method: "POST"
+});
+```
+
+</Request>
+
+</Requests>
+
+<Responses items={["200","422"]}>
+
+<Response value={"200"}>
+
+<ResponseTypes>
+
+<ExampleResponse>
+
+```json
+null
+```
+
+</ExampleResponse>
+
+<TypeScriptResponse>
+
+```ts
+export interface Response {
+  [k: string]: unknown;
+}
+```
+
+</TypeScriptResponse>
+
+</ResponseTypes>
+
+</Response>
+
+<Response value={"422"}>
+
+<ResponseTypes>
+
+<ExampleResponse>
+
+```json
+{
+  "detail": [
+    {
+      "loc": [
+        "string"
+      ],
+      "msg": "string",
+      "type": "string"
+    }
+  ]
+}
+```
+
+</ExampleResponse>
+
+<TypeScriptResponse>
+
+```ts
+export type Location = (string | number)[];
+export type Message = string;
+export type ErrorType = string;
+export type Detail = ValidationError[];
+
+export interface HTTPValidationError {
+  detail?: Detail;
+}
+export interface ValidationError {
+  loc: Location;
+  msg: Message;
+  type: ErrorType;
+}
+```
+
+</TypeScriptResponse>
+
+</ResponseTypes>
+
+</Response>
+
+</Responses>
+
+</APIExample>
+
+</API>
+
+<API>
+
+<APIInfo method={"POST"} route={"/api/v1/retriever/ingest"}>
+
+## Ingest
+
+Ingest documents.
+
+### Request Body
+
+<Property name={"index_name"} type={"Index Name"} required={true} deprecated={undefined}>
+
+</Property>
+
+<Property name={"loader_type"} type={"Loader Type"} required={true} deprecated={undefined}>
+
+</Property>
+
+<Property name={"kwargs"} type={"Kwargs"} required={true} deprecated={undefined}>
+
+<ObjectCollapsible name={"kwargs"}>
+
+</ObjectCollapsible>
+
+</Property>
+
+| Status code | Description |
+| ----------- | ----------- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+</APIInfo>
+
+<APIExample>
+
+<Requests items={["cURL","JavaScript"]}>
+
+<Request value={"cURL"}>
+
+```bash
+curl -X POST "https://example.com/api/v1/retriever/ingest" \
+  -d '{
+  "index_name": "string",
+  "loader_type": "string",
+  "kwargs": {}
+}'
+```
+
+</Request>
+
+<Request value={"JavaScript"}>
+
+```js
+fetch("https://example.com/api/v1/retriever/ingest", {
+  method: "POST"
+});
+```
+
+</Request>
+
+</Requests>
+
+<Responses items={["200","422"]}>
+
+<Response value={"200"}>
+
+<ResponseTypes>
+
+<ExampleResponse>
+
+```json
+null
+```
+
+</ExampleResponse>
+
+<TypeScriptResponse>
+
+```ts
+export interface Response {
+  [k: string]: unknown;
+}
+```
+
+</TypeScriptResponse>
+
+</ResponseTypes>
+
+</Response>
+
+<Response value={"422"}>
+
+<ResponseTypes>
+
+<ExampleResponse>
+
+```json
+{
+  "detail": [
+    {
+      "loc": [
+        "string"
+      ],
+      "msg": "string",
+      "type": "string"
+    }
+  ]
+}
+```
+
+</ExampleResponse>
+
+<TypeScriptResponse>
+
+```ts
+export type Location = (string | number)[];
+export type Message = string;
+export type ErrorType = string;
+export type Detail = ValidationError[];
+
+export interface HTTPValidationError {
+  detail?: Detail;
+}
+export interface ValidationError {
+  loc: Location;
+  msg: Message;
+  type: ErrorType;
+}
+```
+
+</TypeScriptResponse>
+
+</ResponseTypes>
+
+</Response>
+
+</Responses>
+
+</APIExample>
+
+</API>
+
+<API>
+
+<APIInfo method={"GET"} route={"/api/v1/retriever/ingest/status/{task_id}"}>
+
+## Ingest Status
+
+Get ingest task status.
+
+### Path Parameters
+
+<Property name={"task_id"} type={"Task Id"} required={true} deprecated={false}>
+
+</Property>
+
+| Status code | Description |
+| ----------- | ----------- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+</APIInfo>
+
+<APIExample>
+
+<Requests items={["cURL","JavaScript"]}>
+
+<Request value={"cURL"}>
+
+```bash
+curl -X GET "https://example.com/api/v1/retriever/ingest/status/string"
+```
+
+</Request>
+
+<Request value={"JavaScript"}>
+
+```js
+fetch("https://example.com/api/v1/retriever/ingest/status/string", {
+  method: "GET"
+});
+```
+
+</Request>
+
+</Requests>
+
+<Responses items={["200","422"]}>
+
+<Response value={"200"}>
+
+<ResponseTypes>
+
+<ExampleResponse>
+
+```json
+null
+```
+
+</ExampleResponse>
+
+<TypeScriptResponse>
+
+```ts
+export interface Response {
+  [k: string]: unknown;
+}
+```
+
+</TypeScriptResponse>
+
+</ResponseTypes>
+
+</Response>
+
+<Response value={"422"}>
+
+<ResponseTypes>
+
+<ExampleResponse>
+
+```json
+{
+  "detail": [
+    {
+      "loc": [
+        "string"
+      ],
+      "msg": "string",
+      "type": "string"
+    }
+  ]
+}
+```
+
+</ExampleResponse>
+
+<TypeScriptResponse>
+
+```ts
+export type Location = (string | number)[];
+export type Message = string;
+export type ErrorType = string;
+export type Detail = ValidationError[];
+
+export interface HTTPValidationError {
+  detail?: Detail;
+}
+export interface ValidationError {
+  loc: Location;
+  msg: Message;
+  type: ErrorType;
+}
+```
+
+</TypeScriptResponse>
+
+</ResponseTypes>
+
+</Response>
+
+</Responses>
+
+</APIExample>
+
+</API>
+
+</Root>

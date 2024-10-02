@@ -1,5 +1,5 @@
-import { HeroText } from "@/components/home/hero-text"
-import { HeroImage } from "@/components/home/hero-image"
+import { HeroText } from "@/components/home/hero-text";
+import { HeroImage } from "@/components/home/hero-image";
 
 export function Hero() {
   return (
@@ -7,5 +7,5 @@ export function Hero() {
       <HeroText />
       <HeroImage />
     </div>
-  )
+  );
 }

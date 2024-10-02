@@ -1,4 +1,4 @@
-import { Plus } from "@phosphor-icons/react/dist/ssr"
+import { Plus } from "@phosphor-icons/react/dist/ssr";
 
 export function HeroText() {
   return (
@@ -15,5 +15,5 @@ export function HeroText() {
         </div>
       </div>
     </div>
-  )
+  );
 }

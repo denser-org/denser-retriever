@@ -1,0 +1,211 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "FastAPI", "version": "0.1.0" },
+  "paths": {
+    "/api/v1/crawl/extract-links": {
+      "post": {
+        "tags": ["crawl"],
+        "summary": "Extract Links",
+        "description": "Extract links from the given URL.",
+        "operationId": "extract_links_api_v1_crawl_extract_links_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ExtractLinksRequest" }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractLinksResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/retriever/retrieve": {
+      "post": {
+        "tags": ["retriever"],
+        "summary": "Retrieve",
+        "description": "Retrieve documents.",
+        "operationId": "retrieve_api_v1_retriever_retrieve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RetrieveRequest" }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": { "application/json": { "schema": {} } }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/retriever/ingest": {
+      "post": {
+        "tags": ["retriever"],
+        "summary": "Ingest",
+        "description": "Ingest documents.",
+        "operationId": "ingest_api_v1_retriever_ingest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/IngestRequest" }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": { "application/json": { "schema": {} } }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/retriever/ingest/status/{task_id}": {
+      "get": {
+        "tags": ["retriever"],
+        "summary": "Ingest Status",
+        "description": "Get ingest task status.",
+        "operationId": "ingest_status_api_v1_retriever_ingest_status__task_id__get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "title": "Task Id" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": { "application/json": { "schema": {} } }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ExtractLinksRequest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": ["url"],
+        "title": "ExtractLinksRequest",
+        "description": "Request to extract links from a given URL."
+      },
+      "ExtractLinksResponse": {
+        "properties": {
+          "url": { "type": "string", "title": "Url" },
+          "links": {
+            "items": { "type": "string" },
+            "type": "array",
+            "title": "Links"
+          }
+        },
+        "type": "object",
+        "required": ["url", "links"],
+        "title": "ExtractLinksResponse",
+        "description": "Response for the extracted links."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": { "$ref": "#/components/schemas/ValidationError" },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IngestRequest": {
+        "properties": {
+          "index_name": { "type": "string", "title": "Index Name" },
+          "loader_type": { "type": "string", "title": "Loader Type" },
+          "kwargs": { "type": "object", "title": "Kwargs" }
+        },
+        "type": "object",
+        "required": ["index_name", "loader_type", "kwargs"],
+        "title": "IngestRequest",
+        "description": "Ingest request schema."
+      },
+      "RetrieveRequest": {
+        "properties": {
+          "query": { "type": "string", "title": "Query" },
+          "index_name": { "type": "string", "title": "Index Name" }
+        },
+        "type": "object",
+        "required": ["query", "index_name"],
+        "title": "RetrieveRequest",
+        "description": "Retrieve request schema."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": { "anyOf": [{ "type": "string" }, { "type": "integer" }] },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": { "type": "string", "title": "Message" },
+          "type": { "type": "string", "title": "Error Type" }
+        },
+        "type": "object",
+        "required": ["loc", "msg", "type"],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
