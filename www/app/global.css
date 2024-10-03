@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 .api {
-    --primary: var(--api-color);
-  }
-  
+  --primary: var(--api-color);
+}
+
 .core {
   --primary: var(--core-color);
 }
