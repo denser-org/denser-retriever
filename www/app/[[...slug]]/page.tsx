@@ -8,13 +8,11 @@ interface Param {
   slug: string[];
 }
 
-export const dynamicParams = false;
-
 export default async function Page({ params }: { params: Param }) {
   const page = getPage(params.slug);
 
-  if (page == null) {
-		permanentRedirect("/docs/core");
+  if (!page) {
+    permanentRedirect("/docs/core");
   }
 
   const path = `/content/docs/${page.file.path}`;
