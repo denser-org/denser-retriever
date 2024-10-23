@@ -5,7 +5,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "denser-retriever"
-version = "0.1.2"
+version = "0.1.3"
 description = "Enterprise-grade AI retriever solution that seamlessly integrates to enhance your AI applications."
 readme = "README.md"
 authors = ["denser-org <support@denser.ai>"]
