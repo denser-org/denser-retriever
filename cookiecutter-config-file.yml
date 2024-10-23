@@ -6,7 +6,7 @@ default_context:
   organization: "denser-org"
   license: "MIT"
   minimal_python_version: 3.8
-  github_name: "denser_org"
+  github_name: "denser-org"
   email: "support@denser.ai"
   version: "0.1.0"
   line_length: "120"

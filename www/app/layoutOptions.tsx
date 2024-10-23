@@ -1,5 +1,5 @@
 import { Logo } from "@/components/ui/icons";
-import { BaseLayoutProps } from "fumadocs-ui/layout";
+import type { BaseLayoutProps } from "fumadocs-ui/layout";
 import { GlobeIcon } from "lucide-react";
 
 export const layoutOptions: BaseLayoutProps = {

@@ -1,4 +1,4 @@
-# <img src="assets/images/logo.png" alt="denser logo" width="40"/> Denser Retriever
+# <img src="https://github.com/denser-org/denser-retriever/blob/main/www/public/icon-192.png?raw=true" alt="denser logo" width="40"/> Denser Retriever
 
 <div align="center">
 
@@ -12,7 +12,6 @@
 [![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/denser-org/denser-retriever/blob/main/.pre-commit-config.yaml)
 [![Semantic Versions](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--versions-e10079.svg)](https://github.com/denser-org/denser-retriever/releases)
 [![License](https://img.shields.io/github/license/denser-org/denser-retriever)](https://github.com/denser-org/denser-retriever/blob/main/LICENSE)
-![Coverage Report](assets/images/coverage.svg)
 
 An enterprise-grade AI retriever designed to streamline AI integration into your applications, ensuring cutting-edge accuracy.
 
@@ -29,7 +28,7 @@ xgboost)** machine learning technique to combine:
 
 * Our experiments on MTEB datasets show that the combination of keyword search, vector search and a reranker via a xgboost model (denoted as ES+VS+RR_n) can significantly improve the vector search (VS) baseline.
 
-![mteb_ndcg_plot](mteb_ndcg_plot.png)
+![mteb_ndcg_plot](https://github.com/denser-org/denser-retriever/blob/main/mteb_ndcg_plot.png?raw=true)
 
 * **Check out Denser Retriever experiments using the Anthropic Contextual Retrieval dataset at [here](https://github.com/denser-org/denser-retriever/tree/main/experiments/data/contextual-embeddings)**.
 ## 🚀 Features
@@ -48,13 +47,13 @@ We recommend installing Python via [Anaconda](https://www.anaconda.com/download)
 ### Pip
 
 ```bash
-pip install git+https://github.com/denser-org/denser-retriever.git#main
+pip install denser-retriever
 ```
 
 ### Poetry
 
 ```bash
-poetry add git+https://github.com/denser-org/denser-retriever.git#main
+poetry add denser-retriever
 ```
 
 ## 📃 Documentation
