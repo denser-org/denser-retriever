@@ -25,8 +25,7 @@ classifiers = [  #! Update me
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
 ]
 
 [tool.poetry.scripts]
@@ -35,7 +34,6 @@ classifiers = [  #! Update me
 
 [tool.poetry.dependencies]
 python = "^3.10.0"
-#python = "^3.11.0"
 
 typer = {extras = ["all"], version = "^0.12.1"}
 rich = "^10.14.0"
