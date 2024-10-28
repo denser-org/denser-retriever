@@ -10,10 +10,6 @@ class DenserVectorDB(ABC):
     Interface for a denser vector database.
     """
 
-    def __init__(self, top_k: int = 100, weight: float = 0.5):
-        self.top_k = top_k
-        self.weight = weight
-
     def create_index(
         self,
         index_name: str,

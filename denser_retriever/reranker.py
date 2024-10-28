@@ -9,11 +9,8 @@ from langchain_core.documents import Document
 
 logger = logging.getLogger(__name__)
 
-class DenserReranker(ABC):
-    def __init__(self, top_k: int = 50, weight: float = 0.5):
-        self.top_k = top_k
-        self.weight = weight
 
+class DenserReranker(ABC):
     @abstractmethod
     def rerank(
         self,
@@ -26,8 +23,8 @@ class DenserReranker(ABC):
 class HFReranker(DenserReranker):
     """Rerank documents using a HuggingFaceCrossEncoder model."""
 
-    def __init__(self, model_name: str, top_k: int, **kwargs):
-        super().__init__(top_k=top_k)
+    def __init__(self, model_name: str, **kwargs):
+        super().__init__()
         self.model = CrossEncoder(model_name, **kwargs)
 
     def rerank(
@@ -48,7 +45,9 @@ class HFReranker(DenserReranker):
         if not documents:
             return []
         start_time = time.time()
-        scores = self.model.predict([(query, doc.page_content) for doc in documents], convert_to_tensor=True)
+        scores = self.model.predict(
+            [(query, doc.page_content) for doc in documents], convert_to_tensor=True
+        )
         docs_with_scores = list(zip(documents, scores))
         result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
         rerank_time_sec = time.time() - start_time
@@ -73,9 +72,9 @@ class CohereReranker(DenserReranker):
         self.model_name = model_name
 
     def rerank(
-            self,
-            documents: Sequence[Document],
-            query: str,
+        self,
+        documents: Sequence[Document],
+        query: str,
     ) -> List[Tuple[Document, float]]:
         """
         Rerank documents using Cohere's reranking model.
@@ -95,12 +94,13 @@ class CohereReranker(DenserReranker):
         # Prepare documents for reranking
         texts = [doc.page_content for doc in documents]
         response = self.client.rerank(
-            model=self.model_name,
-            query=query,
-            documents=texts
+            model=self.model_name, query=query, documents=texts
         )
         # Combine documents with scores from the rerank response
-        docs_with_scores = [(documents[result.index], result.relevance_score) for result in response.results]
+        docs_with_scores = [
+            (documents[result.index], result.relevance_score)
+            for result in response.results
+        ]
 
         # Sort the documents by their scores in descending order
         result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)

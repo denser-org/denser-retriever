@@ -364,7 +364,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
         logger.info(f"Vector DB retrieve time: {retrieve_time_sec:.3f} sec.")
         logger.info(f"Retrieved {len(result[0])} documents.")
 
-        top_k_used = min(len(result[0]), self.top_k)  # type: ignore
+        top_k_used = min(len(result[0]), k)  # type: ignore
 
         ret = []
         for id in range(top_k_used):

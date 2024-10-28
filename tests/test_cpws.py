@@ -38,7 +38,7 @@ class TestCPWS:
 
     def test_ingest(self, titanic_data):
         ids = self.denser_retriever.ingest(titanic_data)
-        assert len(ids) == 10
+        assert len(ids) == 25
 
     def test_retrieve(self, titanic_data):
         self.denser_retriever.ingest(titanic_data)
@@ -48,3 +48,7 @@ class TestCPWS:
         results = self.denser_retriever.retrieve(query, k, filter=filter)
         assert len(results) == k
         assert abs(results[0][1] - 3.6725) < 0.01
+
+    def cleanup(self):
+        self.denser_retriever.vector_db.delete_all()
+        self.denser_retriever.keyword_search.delete_all()
