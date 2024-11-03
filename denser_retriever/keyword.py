@@ -119,7 +119,6 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         analysis: Optional[str] = "default",
         **kwargs,
     ):
-        super().__init__(**kwargs)
         self.drop_old = drop_old
         self.analysis = analysis
         self.client = es_connection
