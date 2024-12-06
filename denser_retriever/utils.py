@@ -2,7 +2,7 @@ import json
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import pytrec_eval
+# import pytrec_eval
 
 from scipy.sparse import csr_matrix
 from collections import defaultdict
@@ -41,9 +41,10 @@ def evaluate(
     ndcg_string = "ndcg_cut." + ",".join([str(k) for k in k_values])
     recall_string = "recall." + ",".join([str(k) for k in k_values])
     precision_string = "P." + ",".join([str(k) for k in k_values])
-    evaluator = pytrec_eval.RelevanceEvaluator(
-        qrels, {map_string, ndcg_string, recall_string, precision_string}
-    )
+    # evaluator = pytrec_eval.RelevanceEvaluator(
+    #     qrels, {map_string, ndcg_string, recall_string, precision_string}
+    # )
+    evaluator = None
     scores = evaluator.evaluate(results)
 
     for query_id in scores.keys():

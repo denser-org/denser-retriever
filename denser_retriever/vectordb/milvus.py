@@ -109,7 +109,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
         self.embeddings = embeddings
         self.source_max_length = 500
         self.title_max_length = 500
-        self.text_max_length = 8000
+        self.text_max_length = 30000
         self.field_max_length = 500
 
         self.connection_args = self.connection_args or DEFAULT_MILVUS_CONNECTION
@@ -207,7 +207,10 @@ class MilvusDenserVectorDB(DenserVectorDB):
                 doc.metadata.get("source", "")[: self.source_max_length - 10]
             )
             titles.append(doc.metadata.get("title", "")[: self.title_max_length - 10])
-            texts.append(doc.page_content[: self.text_max_length - 1000])  # buffer
+            truncated_text = doc.page_content[:10000]
+            if len(truncated_text) >= self.text_max_length:
+                print(f"Truncated text length: {len(truncated_text)} longer than {self.text_max_length}")
+            texts.append(truncated_text)
             pid_list.append(doc.metadata.get("pid", "-1"))
 
             for i, field_original_key in enumerate(

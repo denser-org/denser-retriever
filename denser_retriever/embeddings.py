@@ -40,6 +40,27 @@ class SentenceTransformerEmbeddings(DenserEmbeddings):
         return embeddings
 
 
+class BGEEmbeddings(DenserEmbeddings):
+    def __init__(self, model_name: str, embedding_size: int):
+        try:
+            from FlagEmbedding import FlagICLModel
+        except ImportError as exc:
+            raise ImportError(
+                "Could not import FlagEmbedding python package."
+            ) from exc
+
+        self.client = FlagICLModel(model_name,
+                                   query_instruction_for_retrieval="Given a web search query, retrieve relevant passages that answer the query.",
+                                   examples_for_task=None,  # set `examples_for_task=None` to use model without examples
+                                   use_fp16=True)  # Setting use_fp16 to True speeds up computation with a slight performance degradation
+        self.embedding_size = embedding_size
+
+    def embed_documents(self, texts):
+        return self.client.encode_corpus(texts)
+
+    def embed_query(self, text):
+        return self.client.encode_queries(text)
+
 class VoyageAPIEmbeddings(DenserEmbeddings):
     def __init__(self, api_key: str, model_name: str, embedding_size: int):
         try:

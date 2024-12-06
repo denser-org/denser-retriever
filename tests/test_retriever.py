@@ -53,13 +53,6 @@ class TestRetriever:
             Document(page_content="content2", metadata={"title": "title2", "source": "source_test2"}),
         ]
         self.denser_retriever.ingest(docs)
-        field = "category_field"
-        k = 10
-        categories = self.denser_retriever.get_field_categories(field, k)
-        assert isinstance(categories, list)
-        assert len(categories) <= k
-        for category in categories:
-            assert isinstance(category, str)
 
     def test_get_metadata_fields(self):
         docs = [

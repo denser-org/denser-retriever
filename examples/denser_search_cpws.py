@@ -75,7 +75,8 @@ def denser_search():
                 format="MM.DD.YYYY",
             )
         else:
-            categories = retriever.get_field_categories(field, 10)
+            # categories = retriever.get_field_categories(field, 10)
+            _, categories = retriever.retrieve("", 0, {}, True)
             option = st.sidebar.selectbox(
                 field,
                 tuple(categories),

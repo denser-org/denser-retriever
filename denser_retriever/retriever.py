@@ -42,7 +42,8 @@ class DenserRetriever:
         gradient_boost: Optional[DenserGradientBoost],
         combine_mode: str = "linear",
         xgb_model_features: str = "es+vs+rr_n",
-        search_fields: List[str] = []
+        search_fields: List[str] = [],
+        date_fields: List[str] = [],
     ):
         # config parameters
         self.index_name = index_name
@@ -61,7 +62,7 @@ class DenserRetriever:
             assert embeddings
             self.vector_db.create_index(index_name, embeddings, search_fields)
         if self.keyword_search:
-            self.keyword_search.create_index(index_name, search_fields)
+            self.keyword_search.create_index(index_name, search_fields, date_fields)
 
     def ingest(self, docs: List[Document], overwrite_pid: bool = True) -> List[str]:
         # add pid into metadata for each document
@@ -80,22 +81,23 @@ class DenserRetriever:
         return [doc.metadata["pid"] for doc in docs]
 
     def retrieve(
-        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, **kwargs: Any
+        self, query: str, k: int = 100, filter: Dict[str, Any]= {}, aggregation: bool = False, **kwargs: Any
     ):
         logger.info(f"Retrieve query: {query} top_k: {k}")
         if self.combine_mode in ["linear", "rank"]:
-            return self._retrieve_by_linear_or_rank(query, k, filter, **kwargs)
+            return self._retrieve_by_linear_or_rank(query, k, filter, aggregation, **kwargs)
         else:
-            return self._retrieve_by_model(query, k, filter, **kwargs)
+            return self._retrieve_by_model(query, k, filter, aggregation, **kwargs)
 
     def _retrieve_by_linear_or_rank(
-        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, **kwargs: Any
+        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, aggregation: bool = False, **kwargs: Any
     ):
         passages = []
+        aggregations = None
 
         if self.keyword_search:
-            es_docs = self.keyword_search.retrieve(
-                query, self.keyword_search.top_k, filter=filter, **kwargs
+            es_docs, aggregations = self.keyword_search.retrieve(
+                query, self.keyword_search.top_k, filter=filter, aggregation=aggregation, **kwargs
             )
             es_passages = scale_results(es_docs, self.keyword_search.weight)
             logger.info(f"Keyword search: {len(es_passages)}")
@@ -125,10 +127,10 @@ class DenserRetriever:
             rerank_time_sec = time.time() - start_time
             logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
 
-        return passages[:k]
+        return passages[:k], aggregations
 
     def _retrieve_by_model(
-        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, **kwargs: Any
+        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, aggregation: bool = False, **kwargs: Any
     ) -> List[Tuple[Document, float]]:
         docs, doc_features = self._retrieve_with_features(query, filter, **kwargs)
 
@@ -262,20 +264,6 @@ class DenserRetriever:
         if self.keyword_search:
             self.keyword_search.delete_all()
 
-    def get_field_categories(self, field, k: int = 10):
-        """
-        Get the categories of a field.
-
-        Args:
-            field: The field to get the categories of.
-            k: The number of categories to return.
-
-        Returns:
-            A list of categories.
-        """
-        if not self.keyword_search:
-            raise ValueError("Keyword search not initialized")
-        return self.keyword_search.get_categories(field, k)
 
     def get_filter_fields(self):
         """Get the filter fields."""

@@ -21,13 +21,15 @@ def copy_file(source_file, dest_file, top_k):
             else:
                 break
 
-def save_HF_corpus_as_docs(corpus, output_file: str, max_doc_size):
+def save_HF_corpus_as_docs(corpus, output_file: str, max_doc_size, max_doc_len):
     out = open(output_file, "w")
     seen = set()
     for i, d in enumerate(corpus):
         if max_doc_size > 0 and i >= max_doc_size:
             break
         page_content = d.pop("text")
+        if max_doc_len > 0 and len(page_content) > max_doc_len:
+            page_content = page_content[:max_doc_len]
         d["pid"] = d.pop("id")
         assert d["pid"] not in seen
         seen.add(d["pid"])

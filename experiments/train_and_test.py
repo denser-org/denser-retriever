@@ -3,6 +3,8 @@ import os
 import sys
 import json
 import shutil
+import pickle
+import time
 
 from langchain_core.documents import Document
 import xgboost as xgb
@@ -14,16 +16,17 @@ from denser_retriever.keyword import (
     ElasticKeywordSearch,
     create_elasticsearch_client,
 )
-from denser_retriever.reranker import HFReranker
+from denser_retriever.reranker import HFReranker, CohereReranker
 from denser_retriever.retriever import DenserRetriever
 from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
-from denser_retriever.embeddings import VoyageAPIEmbeddings
+from denser_retriever.embeddings import SentenceTransformerEmbeddings, VoyageAPIEmbeddings, BGEEmbeddings
 from experiments.hf_data_loader import HFDataLoader
 from experiments.denser_data import DenserData
 from denser_retriever.utils import (
     evaluate,
     save_queries,
     save_qrels,
+    save_qrels_from_trec,
     load_qrels,
     docs_to_dict,
 )
@@ -43,37 +46,74 @@ config_to_features = {
     "es+vs+rr_n": ["1,2,3,4,5,6,7,8,9", "2,5,8"],
 }
 
+candidate_passage_paths = {
+    "lecardv1": "/home/ubuntu/lecardv1_data/candidates",
+    "lecardv2": "/home/ubuntu/lecardv2_data/candidate_55192",
+}
+# lecard v1: ajId is the ID of the case, ajName is the case name, ajjbqk is the basic facts of the case,
+# pjjg is the case judgment, qw is the full content, writId is the unique ID of this document,
+# and writName is the document name.
+# lecard v2: where pid is the ID of the case, qw is the full content, fact is the basic facts of the case,
+# reason is the analysis process of judges, result is the case judgment, charge is the criminal charge(s) of the case,
+# article is the criminal law article of this case document.
+passage_content_field = {
+    "lecardv1": "ajjbqk",
+    "lecardv2": "fact",
+}
 
 class Experiment:
     def __init__(self, dataset_name, drop_old):
         data_name = os.path.basename(dataset_name)
         self.output_prefix = os.path.join("exps", f"exp_{data_name}")
-        self.ingest_bs = 2000
+        self.ingest_bs = 100 # 2000
         index_name = data_name.replace("-", "_")
         self.retriever = DenserRetriever(
             index_name=index_name,
             keyword_search=ElasticKeywordSearch(
                 top_k=100,
-                es_connection=create_elasticsearch_client(url="http://localhost:9200"),
-                drop_old=drop_old
+                es_connection=create_elasticsearch_client(url="http://35.161.137.119:9200",
+                                                          username="elastic",
+                                                          password="+elwyyp0XWfDqIjhSvHP",
+                                                          ),
+                drop_old=drop_old,
+                analysis="default" # default or ik
             ),
             vector_db=MilvusDenserVectorDB(
                 top_k=100,
-                connection_args={"uri": "http://localhost:19530"},
+                connection_args={"uri": "http://44.242.11.63:19530",
+                                 "user": "root",
+                                 "password": "Milvus"},
                 auto_id=True,
                 drop_old=drop_old
             ),
-            reranker=HFReranker(model_name="jinaai/jina-reranker-v2-base-multilingual", top_k=100,
-                                automodel_args={"torch_dtype": "float32"}, trust_remote_code=True),
-            embeddings=VoyageAPIEmbeddings(api_key="YOUR_API_KEY",
-                                           model_name="voyage-2", embedding_size=1024),
+            # vector_db=None,
+            # reranker=HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2", top_k=100),
+            # reranker=HFReranker(model_name="jinaai/jina-reranker-v2-base-multilingual", top_k=100,
+            #                     automodel_args={"torch_dtype": "float32"}, trust_remote_code=True),
+            # reranker=HFReranker(model_name="BAAI/bge-reranker-v2-m3", top_k=100),
+            # reranker=HFReranker(model_name="BAAI/bge-reranker-base", top_k=80),
+            # reranker=HFReranker(model_name="BAAI/bge-reranker-large", top_k=100),
+            reranker=CohereReranker(api_key="vlHZEff43B6rZBCSuUOupiMSq95t5VkbymFLQygg", model_name="rerank-english-v3.0"),
+            # embeddings=SentenceTransformerEmbeddings(
+            #     "Snowflake/snowflake-arctic-embed-m", 768, False
+            # ),
+            embeddings=VoyageAPIEmbeddings(api_key="pa-b76ti3S2pWuSl0go1S7f8-x150YAXUoh6UANO2LpHbI", model_name="voyage-2", embedding_size=1024),
+            # embeddings=VoyageAPIEmbeddings(api_key="pa-b76ti3S2pWuSl0go1S7f8-x150YAXUoh6UANO2LpHbI", model_name="voyage-law-2", embedding_size=1024),
+            # embeddings=SentenceTransformerEmbeddings(
+            #     "chestnutlzj/ChatLaw-Text2Vec", 768, True
+            # ),
+            # embeddings=SentenceTransformerEmbeddings(
+            #     "TencentBAC/Conan-embedding-v1", 1792, True
+            # ),
+            # embeddings=BGEEmbeddings(model_name="BAAI/bge-en-icl", embedding_size=4096),
+            # embeddings=None,
             gradient_boost=None
         )
 
         self.max_query_size = 0
-        self.max_query_len = 2000
+        self.max_query_len = 4000
         self.max_doc_size = 0
-        self.max_doc_len = 8000
+        self.max_doc_len = 4000
 
     def ingest(self, dataset_name, split):
         exp_dir = os.path.join(self.output_prefix, split)
@@ -81,12 +121,34 @@ class Experiment:
             os.makedirs(exp_dir)
 
         passage_file = os.path.join(exp_dir, "passages.jsonl")
-        if dataset_name == 'anthropic_base':
-            copy_file('experiments/data/contextual-embeddings/data_base/passages.jsonl', passage_file,
-                      self.max_doc_size)
+        if dataset_name in ["lecardv1", "lecardv2"]:
+            path = candidate_passage_paths[dataset_name]
+            content_field = passage_content_field[dataset_name]
+
+            out = open(passage_file, "w")
+            num_docs = 0
+            num_trimmed_docs = 0
+            for root, dirs, files in os.walk(path):
+                for filename in files:
+                    if filename.endswith(".json"):
+                        filepath = os.path.join(root, filename)
+                        with open(filepath, 'r') as json_file:
+                            data = json.load(json_file)
+                            page_content = data.pop(content_field).strip()
+                            if self.max_doc_len > 0 and len(page_content) > self.max_doc_len:
+                                page_content = page_content[:self.max_doc_len]
+                                num_trimmed_docs += 1
+                            data["pid"] = filename.split(".")[0].strip()
+                            doc = Document(page_content=page_content, metadata=data)
+                            out.write(json.dumps(doc.dict(), ensure_ascii=False) + "\n")
+                            num_docs += 1
+                            if self.max_doc_size > 0 and num_docs >= self.max_doc_size:
+                                break
+            logger.info(f"Trimmed {num_trimmed_docs} from {num_docs} docs due to max_doc_len {self.max_doc_len}")
+        elif dataset_name == 'anthropic_base':
+            copy_file('experiments/data/contextual-embeddings/data_base/passages.jsonl', passage_file, self.max_doc_size)
         elif dataset_name == 'anthropic_context':
-            copy_file('experiments/data/contextual-embeddings/data_context/passages.jsonl', passage_file,
-                      self.max_doc_size)
+            copy_file('experiments/data/contextual-embeddings/data_context/passages.jsonl', passage_file, self.max_doc_size)
         else:
             corpus, _, _ = HFDataLoader(
                 hf_repo=dataset_name,
@@ -96,7 +158,7 @@ class Experiment:
             ).load(split=split)
 
             save_HF_corpus_as_docs(
-                corpus, passage_file, self.max_doc_size
+                corpus, passage_file, self.max_doc_size, self.max_doc_len
             )
 
         out = open(passage_file, "r")
@@ -120,7 +182,47 @@ class Experiment:
         query_file = os.path.join(exp_dir, "queries.jsonl")
         qrels_file = os.path.join(exp_dir, "qrels.jsonl")
 
-        if dataset_name in ["anthropic_base", "anthropic_context"]:
+        if dataset_name == "lecardv1":
+            original_query_file = os.path.join("experiments/data/lecardv1/query.json")
+            queries = []
+            num_trimmed_queries = 0
+            with open(original_query_file, "r") as file:
+                for line in file:
+                    query = json.loads(line)
+                    query_str = query["q"]
+                    if self.max_query_len > 0 and len(query_str) > self.max_query_len:
+                        num_trimmed_queries += 1
+                        query_str = query_str[:self.max_query_len]
+                    queries.append({"id": str(query["ridx"]), "text": query_str})
+            logger.info(
+                f"Trimmed {num_trimmed_queries} from {len(queries)} queries due to max_query_len {self.max_query_len}")
+            if self.max_query_size > 0:
+                queries = queries[:self.max_query_size]
+            save_queries(queries, query_file)
+            with open("experiments/data/lecardv1/label_top30_dict.json", 'r') as infile:
+                qrels = json.load(infile)
+            save_qrels(qrels, qrels_file)
+        elif dataset_name == "lecardv2":
+            original_query_file = os.path.join("experiments/data/lecardv2",
+                                               "train_query.json" if split == "train" else "test_query.json")
+            queries = []
+            num_trimmed_queries = 0
+            with open(original_query_file, "r") as file:
+                for line in file:
+                    query = json.loads(line)
+                    # query_str = query["query"]
+                    query_str = query["fact"]
+                    if self.max_query_len > 0 and len(query_str) > self.max_query_len:
+                        num_trimmed_queries += 1
+                        query_str = query_str[:self.max_query_len]
+                    queries.append({"id": str(query["id"]), "text": query_str, "fact": query["fact"]})
+            # TODO: use field "fact"
+            logger.info(f"Trimmed {num_trimmed_queries} from {len(queries)} queries due to max_query_len {self.max_query_len}")
+            if self.max_query_size > 0:
+                queries = queries[:self.max_query_size]
+            save_queries(queries, query_file)
+            qrels = save_qrels_from_trec("experiments/data/lecardv2/relevence.trec", qrels_file)
+        elif dataset_name in ["anthropic_base", "anthropic_context"]:
             shutil.copy('experiments/data/contextual-embeddings/data_context/queries.jsonl', query_file)
             shutil.copy('experiments/data/contextual-embeddings/data_context/qrels.jsonl', qrels_file)
             data = DenserData("experiments/data/contextual-embeddings/data_base")
@@ -143,12 +245,15 @@ class Experiment:
             if (self.max_query_size > 0 and i >= self.max_query_size):
                 break
             logger.info(f"Processing query {i}")
+            query_str = q["text"]
+            if (self.max_query_len > 0 and len(query_str) > self.max_query_len):
+                query_str = query_str[:self.max_query_len]
             qid = q["id"]
 
             ks_docs = self.retriever.keyword_search.retrieve(
-                q["text"], self.retriever.keyword_search.top_k)
+                query_str, self.retriever.keyword_search.top_k)
             vs_docs = self.retriever.vector_db.similarity_search_with_score(
-                q["text"], self.retriever.vector_db.top_k)
+                query_str, self.retriever.vector_db.top_k)
             combined = []
             seen = set()
 
@@ -161,7 +266,7 @@ class Experiment:
             reranked_docs = []
             # import pdb; pdb.set_trace()
             if self.retriever.reranker:
-                reranked_docs = self.retriever.reranker.rerank(combined_docs, q["text"])
+                reranked_docs = self.retriever.reranker.rerank(combined_docs, query_str)
 
 
             _, ks_score_dict, ks_rank_dict = docs_to_dict(ks_docs)
@@ -254,7 +359,7 @@ class Experiment:
         groups = np.array(groups)
 
         # Prepare GroupKFold cross-validation
-        gkf = GroupKFold(n_splits=3)
+        gkf = GroupKFold(n_splits=5)
 
         # Initialize an array to hold all predictions
         x_data, y_data = load_svmlight_file(os.path.join(test_dir, retriever_config))
@@ -502,6 +607,8 @@ if __name__ == "__main__":
     # dataset = ["mteb/scifact", "train", "test"]
     # dataset = ["mteb/touche2020", "test", "test"]
     # dataset = ["mteb/trec-covid", "test", "test"]
+    # dataset = ["lecardv1", "test", "test"]
+    # dataset = ["lecardv2", "train", "test"]
     # dataset_name, train_on, eval_on = dataset
     # model_dir = "/home/ubuntu/denser_output_retriever/exp_msmarco/models/"
 
@@ -514,14 +621,14 @@ if __name__ == "__main__":
     dataset_name = sys.argv[1]
     train_on = sys.argv[2]
     eval_on = sys.argv[3]
-    drop_old = True
+    drop_old = False
     experiment = Experiment(dataset_name, drop_old)
     if drop_old:
         experiment.ingest(dataset_name, train_on)
     # Generate retriever data, this takes time
-    experiment.generate_feature_data(dataset_name, train_on)
-    if eval_on != train_on:
-        experiment.generate_feature_data(dataset_name, eval_on)
+    # experiment.generate_feature_data(dataset_name, train_on)
+    # if eval_on != train_on:
+    #     experiment.generate_feature_data(dataset_name, eval_on)
     experiment.compute_baselines(eval_on)
     if train_on == eval_on:
         experiment.cross_validation(eval_on)

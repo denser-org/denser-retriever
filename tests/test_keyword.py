@@ -47,6 +47,3 @@ class TestElasticsearchKeywordStore:
         assert "field1" in mappings
         assert "field2" in mappings
 
-    def test_get_categories(self, keyword_search):
-        categories = keyword_search.get_categories("field2")
-        assert len(categories) == 0
