@@ -17,28 +17,13 @@ An enterprise-grade AI retriever designed to streamline AI integration into your
 
 </div>
 
-## 📝 Description
-
-Denser Retriever combines multiple search technologies into a single platform. It utilizes **gradient boosting (
-xgboost)** machine learning technique to combine:
-
-- **Keyword-based searches** that focus on fetching precisely what the query mentions.
-- **Vector databases** that are great for finding a wide range of potentially relevant answers.
-- **Machine Learning rerankers** that fine-tune the results to ensure the most relevant answers top the list.
-
-* Our experiments on MTEB datasets show that the combination of keyword search, vector search and a reranker via a xgboost model (denoted as ES+VS+RR_n) can significantly improve the vector search (VS) baseline.
-
-![mteb_ndcg_plot](https://github.com/denser-org/denser-retriever/blob/main/mteb_ndcg_plot.png?raw=true)
-
-* **Check out Denser Retriever experiments using the Anthropic Contextual Retrieval dataset at [here](https://github.com/denser-org/denser-retriever/tree/main/experiments/data/contextual-embeddings)**.
 ## 🚀 Features
-
-The initial release of Denser Retriever provides the following features.
 
 - Supporting heterogeneous retrievers such as **keyword search**, **vector search**, and **ML model reranking**
 - Leveraging **xgboost** ML technique to effectively combine heterogeneous retrievers
-- **State-of-the-art accuracy** on [MTEB](https://github.com/embeddings-benchmark/mteb) Retrieval benchmarking
+- **Comprehensive benchmark** on [MTEB](https://github.com/embeddings-benchmark/mteb) Retrieval dataset
 - Demonstrating how to use Denser retriever to power an **end-to-end applications** such as chatbot and semantic search
+![mteb_ndcg_plot](https://github.com/denser-org/denser-retriever/blob/main/mteb_ndcg_plot.png?raw=true)
 
 ## 📦 Installation
 
@@ -55,6 +40,14 @@ pip install denser-retriever
 ```bash
 poetry add denser-retriever
 ```
+
+## Quick Start
+
+## 📝 Experiments
+
+### [Anthropic Contextual Retrieval experiment](https://github.com/denser-org/denser-retriever/tree/main/experiments/data/contextual-embeddings)
+
+### [MTEB Retrieval experiment](https://retriever-docs.denser.ai/docs/core/experiments/mteb_retrieval)
 
 ## 📃 Documentation
 

@@ -79,9 +79,6 @@ class DenserKeywordSearch(ABC):
     def get_index_mappings(self) -> Dict[Any, Any]:
         raise NotImplementedError
 
-    @abstractmethod
-    def get_categories(self, field: str, k: int = 10) -> List[Any]:
-        raise NotImplementedError
 
     @abstractmethod
     def delete(
@@ -123,11 +120,12 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         self.analysis = analysis
         self.client = es_connection
 
-    def create_index(self, index_name: str, search_fields: List[str], **args: Any):
+    def create_index(self, index_name: str, search_fields: List[str], date_fields: List[str]=[], **args: Any):
 
         # Define the index settings and mappings
         self.index_name = index_name
         self.search_fields = FieldMapper(search_fields)
+        self.date_fields = date_fields
 
         logger.info("ES analysis %s", self.analysis)
         if self.analysis == "default":
@@ -238,14 +236,15 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 "source": metadata.get("source"),
                 "pid": metadata.get("pid"),
             }
-            for filter in self.search_fields.get_keys():
-                value = metadata.get(filter, "")
+            for filter_key in metadata.keys():
+                value = metadata.get(filter_key, "")
                 if isinstance(value, list):
-                    value = [v.strip() for v in value]
-                elif value is not None:
-                    value = value.strip()
+                    value = [str(v).strip() for v in value if v is not None]
+                else:
+                    if value is not None:
+                        value = str(value).strip()
                 if value:
-                    request[filter] = value
+                    request[filter_key] = value
             requests.append(request)
 
         if len(requests) > 0:
@@ -271,37 +270,48 @@ class ElasticKeywordSearch(DenserKeywordSearch):
             return []
 
     def retrieve(
-        self,
-        query: str,
-        k: int = 100,
-        filter: Dict[str, Any] = {},
-    ) -> List[Tuple[Document, float]]:
+            self,
+            query: str,
+            k: int = 100,
+            filter: Dict[str, Any] = {},
+            aggregation: bool = False, # Aggregate metadata
+    ) -> Tuple[List[Tuple[Document, float]], Dict]:
         assert self.client.indices.exists(index=self.index_name)
         start_time = time.time()
+
+        # Build the query with title and content matching and a minimum_should_match condition
         query_dict = {
             "query": {
                 "bool": {
-                    "should": [
+                    "must": [
                         {
-                            "match": {
-                                "title": {
-                                    "query": query,
-                                    "boost": 2.0,
-                                }
+                            "bool": {
+                                "should": [
+                                    {
+                                        "match": {
+                                            "title": {
+                                                "query": query,
+                                                "boost": 2.0,
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "match": {
+                                            "content": query,
+                                        }
+                                    }
+                                ],
+                                "minimum_should_match": 1  # Ensure at least one of the should conditions is matched
                             }
-                        },
-                        {
-                            "match": {
-                                "content": query,
-                            },
-                        },
-                    ],
-                    "must": [],
+                        }
+                    ]
                 }
             },
             "_source": True,
+            "aggs": {},  # This will be populated with aggregations for fields
         }
 
+        # Add filters if provided
         for field in filter:
             category_or_date = filter.get(field)
             if category_or_date:
@@ -313,7 +323,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                                     "gte": category_or_date[0],
                                     "lte": category_or_date[1]
                                     if len(category_or_date) > 1
-                                    else category_or_date[0],  # type: ignore
+                                    else category_or_date[0],
                                 }
                             }
                         }
@@ -323,32 +333,59 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                         {"term": {field: category_or_date}}
                     )
 
+        # Add aggregations for each field provided in 'fields' if aggregation is True
+        if aggregation:
+            for field in self.search_fields.get_keys():
+                query_dict["aggs"][f"{field}_aggregation"] = {
+                    "terms": {
+                        "field": f"{field}",  # Use keyword type for aggregations
+                        "size": 50  # Adjust size as needed
+                    }
+                }
+
+        # Execute search query
         res = self.client.search(
             index=self.index_name,
             body=query_dict,
             size=k,
         )
+
+        # Process search hits (documents)
         top_k_used = min(len(res["hits"]["hits"]), k)
         docs = []
         for id in range(top_k_used):
             _source = res["hits"]["hits"][id]["_source"]
             doc = Document(
-                page_content=_source["content"],
-                metadata={
-                    "source": _source["source"],
-                    "title": _source["title"],
-                    "pid": _source["pid"],
-                },
+                page_content=_source.pop("content"),
+                metadata=_source,
             )
             score = res["hits"]["hits"][id]["_score"]
-            for field in self.search_fields.get_keys():
-                if _source.get(field):
-                    doc.metadata[field] = _source.get(field)
+            # import pdb; pdb.set_trace()
+            # for field in self.search_fields.get_keys():
+            #     if _source.get(field):
+            #         doc.metadata[field] = _source.get(field)
             docs.append((doc, score))
+
+        # Process aggregations for the specified fields
+        aggregations = {}
+        for field in self.search_fields.get_keys():
+            field_agg = res.get("aggregations", {}).get(f"{field}_aggregation", {}).get("buckets", [])
+            cat_keys = [cat['key'] for cat in field_agg]
+            cat_counts = [cat['doc_count'] for cat in field_agg]
+            if len(cat_keys) > 0:
+                if field in self.date_fields:
+                    sorted_data = sorted(zip(cat_keys, cat_counts), key=lambda x: x[0], reverse=True)
+                    sorted_keys, sorted_counts = zip(*sorted_data)
+                    cat_keys = list(sorted_keys)
+                    cat_counts = list(sorted_counts)
+                aggregations[field] = (cat_keys, cat_counts)
+
         retrieve_time_sec = time.time() - start_time
         logger.info(f"Keyword retrieve time: {retrieve_time_sec:.3f} sec.")
         logger.info(f"Retrieved {len(docs)} documents.")
-        return docs
+
+        # Return both documents and aggregation results
+        return docs, aggregations
 
     def get_index_mappings(self):
         mapping = self.client.indices.get_mapping(index=self.index_name)
@@ -377,25 +414,6 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         all_fields = extract_fields(properties)
         return all_fields
 
-    def get_categories(self, field: str, k: int = 10):
-        query = {
-            "size": 0,  # No actual documents are needed, just the aggregation results
-            "aggs": {
-                "all_categories": {
-                    "terms": {
-                        "field": field,
-                        "size": 1000,  # Adjust this value based on the expected number of unique categories
-                    }
-                }
-            },
-        }
-        response = self.client.search(index=self.index_name, body=query)
-        # Extract the aggregation results
-        categories = response["aggregations"]["all_categories"]["buckets"]
-        if k > 0:
-            categories = categories[:k]
-        res = [category["key"] for category in categories]
-        return res
 
     def delete(
         self,

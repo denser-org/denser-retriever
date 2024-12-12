@@ -38,7 +38,7 @@ class TestRetriever:
         self.denser_retriever.ingest(docs)
         query = "content1"
         k = 2
-        results = self.denser_retriever.retrieve(query, k)
+        results, _ = self.denser_retriever.retrieve(query, k)
         assert len(results) == k
         assert results[0][0].page_content == "content1"
 
@@ -53,13 +53,6 @@ class TestRetriever:
             Document(page_content="content2", metadata={"title": "title2", "source": "source_test2"}),
         ]
         self.denser_retriever.ingest(docs)
-        field = "category_field"
-        k = 10
-        categories = self.denser_retriever.get_field_categories(field, k)
-        assert isinstance(categories, list)
-        assert len(categories) <= k
-        for category in categories:
-            assert isinstance(category, str)
 
     def test_get_metadata_fields(self):
         docs = [
@@ -77,7 +70,7 @@ class TestRetriever:
         ]
         ids = self.denser_retriever.ingest(docs)
         self.denser_retriever.delete(ids=[ids[0]])
-        results = self.denser_retriever.retrieve("content1", k=1)
+        results, _ = self.denser_retriever.retrieve("content1", k=1)
         assert len(results) == 1
 
     def test_delete_all(self):
@@ -96,7 +89,7 @@ class TestRetriever:
         ]
         self.denser_retriever.ingest(docs)
         self.denser_retriever.delete(source_id="source_test1")
-        results = self.denser_retriever.retrieve("content1", k=1)
+        results, _ = self.denser_retriever.retrieve("content1", k=1)
         # only content2 should be retrieved
         assert len(results) == 1
 
@@ -107,5 +100,5 @@ class TestRetriever:
         ]
         self.denser_retriever.ingest(docs)
         self.denser_retriever.delete(source_url="source_test1")
-        results = self.denser_retriever.retrieve("content1", k=1)
+        results, _ = self.denser_retriever.retrieve("content1", k=1)
         assert len(results) == 1

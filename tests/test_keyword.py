@@ -39,7 +39,8 @@ class TestElasticsearchKeywordStore:
             Document(page_content="content2", metadata={"title": "title2"}),
         ]
         keyword_search.add_documents(documents)
-        results = keyword_search.retrieve("content1", 1)
+        results, _ = keyword_search.retrieve("content1", 1)
+        # import pdb; pdb.set_trace()
         assert len(results) == 1
 
     def test_get_index_mappings(self, keyword_search):
@@ -47,6 +48,3 @@ class TestElasticsearchKeywordStore:
         assert "field1" in mappings
         assert "field2" in mappings
 
-    def test_get_categories(self, keyword_search):
-        categories = keyword_search.get_categories("field2")
-        assert len(categories) == 0

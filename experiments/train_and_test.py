@@ -3,6 +3,8 @@ import os
 import sys
 import json
 import shutil
+import pickle
+import time
 
 from langchain_core.documents import Document
 import xgboost as xgb
@@ -14,16 +16,17 @@ from denser_retriever.keyword import (
     ElasticKeywordSearch,
     create_elasticsearch_client,
 )
-from denser_retriever.reranker import HFReranker
+from denser_retriever.reranker import HFReranker, CohereReranker
 from denser_retriever.retriever import DenserRetriever
 from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
-from denser_retriever.embeddings import VoyageAPIEmbeddings
+from denser_retriever.embeddings import SentenceTransformerEmbeddings, VoyageAPIEmbeddings, BGEEmbeddings
 from experiments.hf_data_loader import HFDataLoader
 from experiments.denser_data import DenserData
 from denser_retriever.utils import (
     evaluate,
     save_queries,
     save_qrels,
+    save_qrels_from_trec,
     load_qrels,
     docs_to_dict,
 )
@@ -53,20 +56,36 @@ class Experiment:
         self.retriever = DenserRetriever(
             index_name=index_name,
             keyword_search=ElasticKeywordSearch(
-                top_k=100,
                 es_connection=create_elasticsearch_client(url="http://localhost:9200"),
-                drop_old=drop_old
+                drop_old=drop_old,
+                analysis="default"  # default or ik
             ),
             vector_db=MilvusDenserVectorDB(
-                top_k=100,
                 connection_args={"uri": "http://localhost:19530"},
                 auto_id=True,
                 drop_old=drop_old
             ),
-            reranker=HFReranker(model_name="jinaai/jina-reranker-v2-base-multilingual", top_k=100,
-                                automodel_args={"torch_dtype": "float32"}, trust_remote_code=True),
-            embeddings=VoyageAPIEmbeddings(api_key="YOUR_API_KEY",
-                                           model_name="voyage-2", embedding_size=1024),
+            reranker=HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2"),
+            embeddings=SentenceTransformerEmbeddings(
+                "Snowflake/snowflake-arctic-embed-m", 768, False
+            ),
+            # reranker=HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2", top_k=100),
+            # reranker=HFReranker(model_name="BAAI/bge-reranker-base", top_k=80),
+            # reranker=HFReranker(model_name="BAAI/bge-reranker-large", top_k=100),
+
+            # embeddings=SentenceTransformerEmbeddings(
+            #     "Snowflake/snowflake-arctic-embed-m", 768, False
+            # ),
+            # embeddings=VoyageAPIEmbeddings(api_key="pa-b76ti3S2pWuSl0go1S7f8-x150YAXUoh6UANO2LpHbI", model_name="voyage-2", embedding_size=1024),
+            # embeddings=VoyageAPIEmbeddings(api_key="pa-b76ti3S2pWuSl0go1S7f8-x150YAXUoh6UANO2LpHbI", model_name="voyage-law-2", embedding_size=1024),
+            # embeddings=SentenceTransformerEmbeddings(
+            #     "chestnutlzj/ChatLaw-Text2Vec", 768, True
+            # ),
+            # embeddings=SentenceTransformerEmbeddings(
+            #     "TencentBAC/Conan-embedding-v1", 1792, True
+            # ),
+            # embeddings=BGEEmbeddings(model_name="BAAI/bge-en-icl", embedding_size=4096),
+            # embeddings=None,
             gradient_boost=None
         )
 
@@ -74,6 +93,7 @@ class Experiment:
         self.max_query_len = 2000
         self.max_doc_size = 0
         self.max_doc_len = 8000
+        self.top_k = 100
 
     def ingest(self, dataset_name, split):
         exp_dir = os.path.join(self.output_prefix, split)
@@ -85,8 +105,7 @@ class Experiment:
             copy_file('experiments/data/contextual-embeddings/data_base/passages.jsonl', passage_file,
                       self.max_doc_size)
         elif dataset_name == 'anthropic_context':
-            copy_file('experiments/data/contextual-embeddings/data_context/passages.jsonl', passage_file,
-                      self.max_doc_size)
+            copy_file('experiments/data/contextual-embeddings/data_context/passages.jsonl', passage_file, self.max_doc_size)
         else:
             corpus, _, _ = HFDataLoader(
                 hf_repo=dataset_name,
@@ -96,7 +115,7 @@ class Experiment:
             ).load(split=split)
 
             save_HF_corpus_as_docs(
-                corpus, passage_file, self.max_doc_size
+                corpus, passage_file, self.max_doc_size, self.max_doc_len
             )
 
         out = open(passage_file, "r")
@@ -143,12 +162,15 @@ class Experiment:
             if (self.max_query_size > 0 and i >= self.max_query_size):
                 break
             logger.info(f"Processing query {i}")
+            query_str = q["text"]
+            if (self.max_query_len > 0 and len(query_str) > self.max_query_len):
+                query_str = query_str[:self.max_query_len]
             qid = q["id"]
 
-            ks_docs = self.retriever.keyword_search.retrieve(
-                q["text"], self.retriever.keyword_search.top_k)
+            ks_docs, ks_aggregations = self.retriever.keyword_search.retrieve(
+                query_str, self.top_k)
             vs_docs = self.retriever.vector_db.similarity_search_with_score(
-                q["text"], self.retriever.vector_db.top_k)
+                query_str, self.top_k)
             combined = []
             seen = set()
 
@@ -161,7 +183,7 @@ class Experiment:
             reranked_docs = []
             # import pdb; pdb.set_trace()
             if self.retriever.reranker:
-                reranked_docs = self.retriever.reranker.rerank(combined_docs, q["text"])
+                reranked_docs = self.retriever.reranker.rerank(combined_docs, query_str)
 
 
             _, ks_score_dict, ks_rank_dict = docs_to_dict(ks_docs)
@@ -514,14 +536,14 @@ if __name__ == "__main__":
     dataset_name = sys.argv[1]
     train_on = sys.argv[2]
     eval_on = sys.argv[3]
-    drop_old = True
+    drop_old = False
     experiment = Experiment(dataset_name, drop_old)
     if drop_old:
         experiment.ingest(dataset_name, train_on)
     # Generate retriever data, this takes time
-    experiment.generate_feature_data(dataset_name, train_on)
-    if eval_on != train_on:
-        experiment.generate_feature_data(dataset_name, eval_on)
+    # experiment.generate_feature_data(dataset_name, train_on)
+    # if eval_on != train_on:
+    #     experiment.generate_feature_data(dataset_name, eval_on)
     experiment.compute_baselines(eval_on)
     if train_on == eval_on:
         experiment.cross_validation(eval_on)
@@ -531,5 +553,5 @@ if __name__ == "__main__":
     logger.info(
         f"train: {train_on}, eval: {eval_on}, cross-validation: {train_on == eval_on}"
     )
-    experiment.report(eval_on, "NDCG@20")
-    experiment.report(eval_on, "Recall@20")
+    experiment.report(eval_on, "NDCG@10")
+    experiment.report(eval_on, "Recall@10")

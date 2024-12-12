@@ -44,6 +44,7 @@ def evaluate(
     evaluator = pytrec_eval.RelevanceEvaluator(
         qrels, {map_string, ndcg_string, recall_string, precision_string}
     )
+    # evaluator = None
     scores = evaluator.evaluate(results)
 
     for query_id in scores.keys():
