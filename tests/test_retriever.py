@@ -1,7 +1,7 @@
 from langchain_core.documents import Document
 
-from denser_retriever.gradient_boost import XGradientBoost
-from denser_retriever.retriever import DenserRetriever
+from denser_retriever.core.gradient_boost import XGradientBoost
+from denser_retriever.core.retriever import DenserRetriever
 
 from tests.utils import elasticsearch, milvus, reranker, embeddings
 

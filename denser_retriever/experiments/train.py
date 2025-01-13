@@ -3,8 +3,6 @@ import os
 import sys
 import json
 import shutil
-import pickle
-import time
 
 from langchain_core.documents import Document
 import xgboost as xgb
@@ -12,25 +10,17 @@ from sklearn.datasets import load_svmlight_file
 import numpy as np
 from sklearn.model_selection import GroupKFold
 
-from denser_retriever.keyword import (
-    ElasticKeywordSearch,
-    create_elasticsearch_client,
-)
-from denser_retriever.reranker import HFReranker, CohereReranker
-from denser_retriever.retriever import DenserRetriever
-from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
-from denser_retriever.embeddings import SentenceTransformerEmbeddings, VoyageAPIEmbeddings, BGEEmbeddings
-from experiments.hf_data_loader import HFDataLoader
-from experiments.denser_data import DenserData
-from denser_retriever.utils import (
+from denser_retriever.core.retriever import DenserRetriever
+from denser_retriever.config import load_train_config
+from denser_retriever.experiments.hf_data_loader import HFDataLoader
+from denser_retriever.core.utils import (
     evaluate,
     save_queries,
     save_qrels,
-    save_qrels_from_trec,
     load_qrels,
     docs_to_dict,
 )
-from utils import prepare_xgbdata, save_HF_corpus_as_docs, copy_file
+from denser_retriever.experiments.utils import prepare_xgbdata, save_HF_corpus_as_docs, copy_file
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -46,54 +36,41 @@ config_to_features = {
     "es+vs+rr_n": ["1,2,3,4,5,6,7,8,9", "2,5,8"],
 }
 
+class DenserData:
+    def __init__(self, dir_path):
+        self.data_dir = dir_path
+
+    def load_queries(self):
+        queries = load_queries(os.path.join(self.data_dir, 'queries.jsonl'))
+        return queries
+
+    def load_qrels(self):
+        qrels = load_qrels(os.path.join(self.data_dir, 'qrels.jsonl'))
+        return qrels
+
+
 
 class Experiment:
-    def __init__(self, dataset_name, drop_old):
+    def __init__(self, dataset_name, drop_old, config):
         data_name = os.path.basename(dataset_name)
         self.output_prefix = os.path.join("exps", f"exp_{data_name}")
-        self.ingest_bs = 2000
+
+        # Set experiment parameters from config
+        self.ingest_bs = config.ingest_bs
+        self.max_query_size = config.max_query_size
+        self.max_query_len = config.max_query_len
+        self.max_doc_size = config.max_doc_size
+        self.max_doc_len = config.max_doc_len
+        self.es_top_k = config.fusion_config.keyword.top_k
+        self.vector_top_k = config.fusion_config.vector.top_k
+        self.reranker_top_k = config.fusion_config.reranker.top_k
+
+        # Initialize retriever with config
         index_name = data_name.replace("-", "_")
-        self.retriever = DenserRetriever(
-            index_name=index_name,
-            keyword_search=ElasticKeywordSearch(
-                es_connection=create_elasticsearch_client(url="http://localhost:9200"),
-                drop_old=drop_old,
-                analysis="default"  # default or ik
-            ),
-            vector_db=MilvusDenserVectorDB(
-                connection_args={"uri": "http://localhost:19530"},
-                auto_id=True,
-                drop_old=drop_old
-            ),
-            reranker=HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2"),
-            embeddings=SentenceTransformerEmbeddings(
-                "Snowflake/snowflake-arctic-embed-m", 768, False
-            ),
-            # reranker=HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2", top_k=100),
-            # reranker=HFReranker(model_name="BAAI/bge-reranker-base", top_k=80),
-            # reranker=HFReranker(model_name="BAAI/bge-reranker-large", top_k=100),
+        retriever_config = config.get_retriever_config(index_name, drop_old)
+        # import pdb; pdb.set_trace()
+        self.retriever = DenserRetriever(**retriever_config)
 
-            # embeddings=SentenceTransformerEmbeddings(
-            #     "Snowflake/snowflake-arctic-embed-m", 768, False
-            # ),
-            # embeddings=VoyageAPIEmbeddings(api_key="pa-b76ti3S2pWuSl0go1S7f8-x150YAXUoh6UANO2LpHbI", model_name="voyage-2", embedding_size=1024),
-            # embeddings=VoyageAPIEmbeddings(api_key="pa-b76ti3S2pWuSl0go1S7f8-x150YAXUoh6UANO2LpHbI", model_name="voyage-law-2", embedding_size=1024),
-            # embeddings=SentenceTransformerEmbeddings(
-            #     "chestnutlzj/ChatLaw-Text2Vec", 768, True
-            # ),
-            # embeddings=SentenceTransformerEmbeddings(
-            #     "TencentBAC/Conan-embedding-v1", 1792, True
-            # ),
-            # embeddings=BGEEmbeddings(model_name="BAAI/bge-en-icl", embedding_size=4096),
-            # embeddings=None,
-            gradient_boost=None
-        )
-
-        self.max_query_size = 0
-        self.max_query_len = 2000
-        self.max_doc_size = 0
-        self.max_doc_len = 8000
-        self.top_k = 100
 
     def ingest(self, dataset_name, split):
         exp_dir = os.path.join(self.output_prefix, split)
@@ -105,7 +82,8 @@ class Experiment:
             copy_file('experiments/data/contextual-embeddings/data_base/passages.jsonl', passage_file,
                       self.max_doc_size)
         elif dataset_name == 'anthropic_context':
-            copy_file('experiments/data/contextual-embeddings/data_context/passages.jsonl', passage_file, self.max_doc_size)
+            copy_file('experiments/data/contextual-embeddings/data_context/passages.jsonl', passage_file,
+                      self.max_doc_size)
         else:
             corpus, _, _ = HFDataLoader(
                 hf_repo=dataset_name,
@@ -168,9 +146,9 @@ class Experiment:
             qid = q["id"]
 
             ks_docs, ks_aggregations = self.retriever.keyword_search.retrieve(
-                query_str, self.top_k)
+                query_str, self.es_top_k)
             vs_docs = self.retriever.vector_db.similarity_search_with_score(
-                query_str, self.top_k)
+                query_str, self.vector_top_k)
             combined = []
             seen = set()
 
@@ -185,7 +163,6 @@ class Experiment:
             if self.retriever.reranker:
                 reranked_docs = self.retriever.reranker.rerank(combined_docs, query_str)
 
-
             _, ks_score_dict, ks_rank_dict = docs_to_dict(ks_docs)
             _, vs_score_dict, vs_rank_dict = docs_to_dict(vs_docs)
             reranked_docs_dict, reranked_score_dict, reranked_rank_dict = docs_to_dict(
@@ -194,7 +171,6 @@ class Experiment:
 
             labels = qrels[qid]
             for pid in reranked_docs_dict.keys():
-
                 features = []
                 label = labels.get(pid, 0)
                 features.append(str(label))
@@ -217,12 +193,13 @@ class Experiment:
                 features.append(f"# {pid}")
                 feature_out.write(" ".join(map(str, features)) + "\n")
 
-    def generate_score_dict(self, qid, pid, rank_pair, score_pair, score_dict):
+    def generate_score_dict(self, qid, pid, rank_pair, score_pair, score_dict, pred_out):
         if rank_pair.split(":")[1] != "-1":
             score = float(score_pair.split(":")[1])
             if qid not in score_dict:
                 score_dict[qid] = {}
             score_dict[qid][pid] = score
+            pred_out.write(f"{qid} {pid} {score_dict[qid][pid]}\n")
 
     # compute elastic search, vector search, and reranker baselines
     def compute_baselines(self, eval_on):
@@ -232,6 +209,9 @@ class Experiment:
         scores_keyword = {}
         scores_vector = {}
         scores_reranker = {}
+        keyword_out = open(os.path.join(output_prefix, "keyword.pred"), "w")
+        vector_out = open(os.path.join(output_prefix, "vector.pred"), "w")
+        reranker_out = open(os.path.join(output_prefix, "reranker.pred"), "w")
         for line in open(feature_file, "r"):
             pos = line.index("#")
             assert pos != -1
@@ -239,9 +219,9 @@ class Experiment:
             line = line[:pos]
             comps = line.strip().split(" ")
             qid = comps[1].split(":")[1].strip()
-            self.generate_score_dict(qid, pid, comps[2], comps[3], scores_keyword)
-            self.generate_score_dict(qid, pid, comps[5], comps[6], scores_vector)
-            self.generate_score_dict(qid, pid, comps[8], comps[9], scores_reranker)
+            self.generate_score_dict(qid, pid, comps[2], comps[3], scores_keyword, keyword_out)
+            self.generate_score_dict(qid, pid, comps[5], comps[6], scores_vector, vector_out)
+            self.generate_score_dict(qid, pid, comps[8], comps[9], scores_reranker, reranker_out)
 
         qrels_file = os.path.join(output_prefix, "qrels.jsonl")
         qrels = load_qrels(qrels_file)
@@ -324,6 +304,7 @@ class Experiment:
             predictions[valid_index] = pred
 
         svmlight_file = os.path.join(test_dir, "features.svmlight")
+        pred_file = open(os.path.join(test_dir, f"{retriever_config}.pred"), "w")
         res = {}
         id = 0
         for line in open(svmlight_file, "r"):
@@ -337,6 +318,7 @@ class Experiment:
                 res[qid] = {}
 
             res[qid][pid] = predictions[id]
+            pred_file.write(f"{qid} {pid} {res[qid][pid]}\n")
             id += 1
         assert id == len(predictions)
         logger.info("Evaluate passage results")
@@ -392,6 +374,7 @@ class Experiment:
         pred = xgb_model.predict(test_dmatrix)
 
         test_svmlight_file = os.path.join(test_dir, "features.svmlight")
+        pred_file = open(os.path.join(test_dir, f"{retriever_config}.pred"), "w")
         res = {}
         id = 0
         for line in open(test_svmlight_file, "r"):
@@ -405,6 +388,7 @@ class Experiment:
                 res[qid] = {}
 
             res[qid][pid] = pred[id].item()
+            pred_file.write(f"{qid} {pid} {res[qid][pid]}\n")
             id += 1
         assert id == len(pred)
         logger.info("Evaluate passage results")
@@ -509,41 +493,31 @@ class Experiment:
 
 
 if __name__ == "__main__":
-    # dataset = ["mteb/arguana", "test", "test"]
-    # dataset = ["mteb/climate-fever", "test", "test"]
-    # dataset = ["mteb/cqadupstack-all", "test", "test"]
-    # dataset = ["mteb/dbpedia", "dev", "test"]
-    # dataset = ["mteb/fever", "train", "test"]
-    # dataset = ["mteb/fiqa", "train", "test"]
-    # dataset = ["mteb/hotpotqa", "train", "test"]
-    # dataset = ["mteb/msmarco", "train", "dev"]
-    # dataset = ["mteb/nfcorpus", "train", "test"]
-    # dataset = ["mteb/nq", "test", "test"]
-    # dataset = ["mteb/quora", "dev", "test"]
-    # dataset = ["mteb/scidocs", "test", "test"]
-    # dataset = ["mteb/scifact", "train", "test"]
-    # dataset = ["mteb/touche2020", "test", "test"]
-    # dataset = ["mteb/trec-covid", "test", "test"]
-    # dataset_name, train_on, eval_on = dataset
-    # model_dir = "/home/ubuntu/denser_output_retriever/exp_msmarco/models/"
-
-    if len(sys.argv) != 4:
+    if len(sys.argv) < 4:
         print(
-            "Usage: python train_and_test.py [dataset_name] [train] [test]"
+            "Usage: python train_and_test.py [dataset_name] [train] [test] [config_file (optional)]"
         )
         sys.exit(0)
 
     dataset_name = sys.argv[1]
     train_on = sys.argv[2]
     eval_on = sys.argv[3]
-    drop_old = False
-    experiment = Experiment(dataset_name, drop_old)
+
+    # Load config if provided
+    config = None
+    if len(sys.argv) > 4:
+        config_file = sys.argv[4]
+        config = load_train_config(config_file)
+
+
+    drop_old = True
+    experiment = Experiment(dataset_name, drop_old, config)
+
     if drop_old:
         experiment.ingest(dataset_name, train_on)
-    # Generate retriever data, this takes time
-    # experiment.generate_feature_data(dataset_name, train_on)
-    # if eval_on != train_on:
-    #     experiment.generate_feature_data(dataset_name, eval_on)
+    experiment.generate_feature_data(dataset_name, train_on)
+    if eval_on != train_on:
+        experiment.generate_feature_data(dataset_name, eval_on)
     experiment.compute_baselines(eval_on)
     if train_on == eval_on:
         experiment.cross_validation(eval_on)

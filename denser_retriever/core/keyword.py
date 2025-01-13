@@ -7,7 +7,8 @@ import time
 from elasticsearch import Elasticsearch
 
 from langchain_core.documents import Document
-from denser_retriever.filter import FieldMapper
+from denser_retriever.core.filter import FieldMapper
+from denser_retriever.core.utils import sigmoid
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +276,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
             k: int = 100,
             filter: Dict[str, Any] = {},
             aggregation: bool = False, # Aggregate metadata
+            apply_sigmoid: bool = True, # Apply sigmoid to scores
     ) -> Tuple[List[Tuple[Document, float]], Dict]:
         assert self.client.indices.exists(index=self.index_name)
         start_time = time.time()
@@ -364,7 +366,8 @@ class ElasticKeywordSearch(DenserKeywordSearch):
             # for field in self.search_fields.get_keys():
             #     if _source.get(field):
             #         doc.metadata[field] = _source.get(field)
-            docs.append((doc, score))
+            # import pdb; pdb.set_trace()
+            docs.append((doc, sigmoid(score) if apply_sigmoid else score))
 
         # Process aggregations for the specified fields
         aggregations = {}

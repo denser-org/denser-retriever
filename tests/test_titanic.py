@@ -2,8 +2,9 @@ import pytest
 from langchain_community.document_loaders.csv_loader import CSVLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from denser_retriever.embeddings import SentenceTransformerEmbeddings
-from denser_retriever.retriever import DenserRetriever, RetrievalParams
+from denser_retriever.core.embeddings import SentenceTransformerEmbeddings
+from denser_retriever.core.retriever import DenserRetriever
+from denser_retriever.retriever_config import default_config
 from tests.utils import milvus, reranker, elasticsearch
 
 
@@ -69,7 +70,9 @@ class TestTitanic:
         query = "Cumings"
         k = 2
         filter = {"Sex": "female"}
-        retrieval_params = RetrievalParams(aggregation=True)
-        results, aggregations = self.denser_retriever.retrieve(query, k, filter=filter, retrieval_params=retrieval_params)
+        # Zhiheng NOT sure if this works
+        fusion_config = default_config()
+        # retrieval_params = RetrievalParams(aggregation=True)
+        results, aggregations = self.denser_retriever.retrieve(query, k, filter=filter, fusion_config=fusion_config)
         import pdb; pdb.set_trace()
         assert abs(results[0][1] - 3.6725) < 0.01

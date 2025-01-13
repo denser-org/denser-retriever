@@ -5,7 +5,7 @@ import time
 import openai
 import streamlit as st
 
-from denser_retriever.retriever import DenserRetriever
+from denser_retriever.core.retriever import DenserRetriever
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
 
@@ -54,7 +54,7 @@ def denser_chat():
             st.markdown(query)
 
         start_time = time.time()
-        passages = retriever.retrieve(query)
+        passages = retriever.fusion_config(query)
         # 取出document
         docs = [passage[0] for passage in passages]
         retrieve_time_sec = time.time() - start_time

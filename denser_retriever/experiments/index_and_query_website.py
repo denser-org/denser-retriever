@@ -1,17 +1,17 @@
 import textwrap
 
 from langchain_community.document_loaders import WebBaseLoader
-from denser_retriever.embeddings import SentenceTransformerEmbeddings
+from denser_retriever.core.embeddings import SentenceTransformerEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from denser_retriever.gradient_boost import XGradientBoost
-from denser_retriever.keyword import (
+from denser_retriever.core.gradient_boost import XGradientBoost
+from denser_retriever.core.keyword import (
     ElasticKeywordSearch,
     create_elasticsearch_client,
 )
 from denser_retriever.reranker import HFReranker
-from denser_retriever.retriever import DenserRetriever
-from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
+from denser_retriever.core.retriever import DenserRetriever
+from denser_retriever.core.vectordb.milvus import MilvusDenserVectorDB
 
 web_site = "https://denser.ai"
 loader = WebBaseLoader(web_site)
@@ -23,19 +23,18 @@ texts = text_splitter.split_documents(docs)
 retriever = DenserRetriever(
     index_name="agent_webpage",
     vector_db=MilvusDenserVectorDB(
-        collection_name="agent_webpage",
         connection_args={"uri": "http://localhost:19530"},
+        drop_old=True,
     ),
     keyword_search=ElasticKeywordSearch(
-        index_name="agent_webpage",
-        field_types={"title": {"type": "keyword"}},
         es_connection=create_elasticsearch_client(url="http://localhost:9200"),
+        drop_old=True,
     ),
     embeddings=SentenceTransformerEmbeddings(
-        "sentence-transformers/all-MiniLM-L6-v2", 384, True
+        "Snowflake/snowflake-arctic-embed-m", 768, False
     ),
     reranker=HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2"),
-    gradient_boost=XGradientBoost("experiments/models/scifact_xgb_es+vs+rr_n.json"),
+    gradient_boost=XGradientBoost("../models/scifact_xgb_es+vs+rr_n.json"),
     combine_mode="model",
     xgb_model_features="es+vs+rr_n",
 )

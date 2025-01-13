@@ -1,5 +1,5 @@
 import pytest
-from denser_retriever.keyword import (
+from denser_retriever.core.keyword import (
     DenserKeywordSearch,
     ElasticKeywordSearch,
     create_elasticsearch_client,

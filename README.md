@@ -27,21 +27,68 @@ An enterprise-grade AI retriever designed to streamline AI integration into your
 
 ## 📦 Installation
 
-We recommend installing Python via [Anaconda](https://www.anaconda.com/download), as we have received feedback about issues with Numpy installation when using the installer from https://www.python.org/downloads/. We are working on providing a solution to this problem. To install Denser Retriever, you can run:
+Download the source code with the following command:
 
-### Pip
+```bash
+git clone git@github.com:denser-org/denser-retriever.git
+cd denser-retriever
+```
+
+To install Denser Retriever, you can run:
 
 ```bash
 pip install denser-retriever
 ```
-
-### Poetry
-
+or
 ```bash
 poetry add denser-retriever
 ```
 
 ## Quick Start
+
+Go to directory `experiments` and run the following experiments.
+
+### Build a retriever on a file
+
+Run the following command to build a retriever on a file `tests/tests_data/state_of_the_union.txt`.
+
+```bash
+python index_and_query_local_file.py
+```
+
+### Build a retriever on a webpage
+
+Run the following command to build a retriever on webpage `https://denser.ai`.
+
+```bash
+python index_and_query_webiste.py
+```
+
+### Build a retriever on `mteb/scifact` dataset
+
+Run the following command to build a retriever on `mteb/scifact` dataset.
+
+```bash
+python train_and_test.py mteb/scifact train test configs/default.json
+```
+which trains a retriever on `mteb/scifact` dataset and tests the retriever on the test set. After training, we can run the following command to test the retriever with a query.
+
+```bash
+python retrieve.py scifact "1/2000 in UK have abnormal PrP positivity." --config configs/default.json
+```
+
+### Build a retriever on `mteb/lecardv2` dataset
+
+Run the following command to build a retriever on `mteb/lecardv2` dataset.
+
+```bash
+python train_and_test.py mteb/lecardv2 test test configs/lecardv2.json
+```
+which trains a retriever on `mteb/lecardv2` dataset and tests the retriever on the test set. After training, we can run the following command to test the retriever with a query.
+
+```bash
+python retrieve.py lecardv2 "黎红春抢劫、潘某1窝藏一审刑事判决书上海市黄浦区人民法院刑事判决书（2019）沪0101刑初808号：上海市黄浦区人民检察院以沪黄检一>部刑诉〔2019〕1589号起诉书指控被告人黎红春犯抢劫罪、被告人潘某1犯窝藏罪，于2019年8月23日向本院提起公诉。" --config configs/lecardv2.json
+```
 
 ## 📝 Experiments
 

@@ -6,7 +6,7 @@ import requests
 import json
 from bs4 import BeautifulSoup
 from langchain_community.document_loaders import WebBaseLoader, TextLoader, PyPDFLoader
-from denser_retriever.utils import standardize_normalize, min_max_normalize
+from denser_retriever.core.utils import standardize_normalize, min_max_normalize
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -1,10 +1,10 @@
-from denser_retriever.embeddings import SentenceTransformerEmbeddings
-from denser_retriever.keyword import (
+from denser_retriever.core.embeddings import SentenceTransformerEmbeddings
+from denser_retriever.core.keyword import (
     ElasticKeywordSearch,
     create_elasticsearch_client,
 )
 from denser_retriever.reranker import HFReranker
-from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
+from denser_retriever.core.vectordb.milvus import MilvusDenserVectorDB
 
 index_name = "unit_test_retriever"
 

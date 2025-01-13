@@ -8,6 +8,10 @@ from scipy.sparse import csr_matrix
 from collections import defaultdict
 from langchain_core.documents import Document
 
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
 def evaluate(
     qrels: Dict[str, Dict[str, int]],
     results: Dict[str, Dict[str, float]],

@@ -2,16 +2,16 @@
 """Enterprise-grade AI retriever solution that seamlessly integrates to enhance your AI applications."""
 
 import sys
-from .embeddings import (
+from denser_retriever.core.embeddings import (
     DenserEmbeddings,
     SentenceTransformerEmbeddings,
     VoyageAPIEmbeddings,
 )
-from .keyword import DenserKeywordSearch, ElasticKeywordSearch
-from .reranker import DenserReranker, HFReranker, CohereReranker
-from .retriever import DenserRetriever
-from .vectordb.base import DenserVectorDB
-from .vectordb.milvus import MilvusDenserVectorDB
+from denser_retriever.core.keyword import DenserKeywordSearch, ElasticKeywordSearch
+from denser_retriever.core.reranker import DenserReranker, HFReranker, CohereReranker
+from denser_retriever.core.retriever import DenserRetriever
+from denser_retriever.core.vectordb.base import DenserVectorDB
+from denser_retriever.core.vectordb import MilvusDenserVectorDB
 
 if sys.version_info >= (3, 8):
     from importlib import metadata as importlib_metadata

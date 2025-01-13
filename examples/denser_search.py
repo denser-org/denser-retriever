@@ -6,7 +6,7 @@ import streamlit as st
 from langchain_community.document_loaders import CSVLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from denser_retriever.retriever import DenserRetriever
+from denser_retriever.core.retriever import DenserRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ def denser_search():
             )
         else:
             # categories = retriever.get_field_categories(field, 10)
-            _, categories = retriever.retrieve("", 0, {}, True) ## TODO
+            _, categories = retriever.fusion_config("", 0, {}, True) ## TODO
             option = st.sidebar.selectbox(
                 field,
                 tuple(categories),
@@ -80,7 +80,7 @@ def denser_search():
         st.write(f"Metadata: {meta_data}")
 
         start_time = time.time()
-        res = retriever.retrieve(
+        res = retriever.fusion_config(
             query,
             filter=meta_data,
         )

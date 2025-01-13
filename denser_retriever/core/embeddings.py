@@ -50,7 +50,7 @@ class BGEEmbeddings(DenserEmbeddings):
             ) from exc
 
         self.client = FlagICLModel(model_name,
-                                   query_instruction_for_retrieval="Given a web search query, retrieve relevant passages that answer the query.",
+                                   query_instruction_for_retrieval="Represent this sentence for searching relevant passages:",
                                    examples_for_task=None,  # set `examples_for_task=None` to use model without examples
                                    use_fp16=True)  # Setting use_fp16 to True speeds up computation with a slight performance degradation
         self.embedding_size = embedding_size

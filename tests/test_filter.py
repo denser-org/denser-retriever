@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from denser_retriever.filter import generate_milvus_expr
+from denser_retriever.core.filter import generate_milvus_expr
 
 
 def test_generate_milvus_expr_with_none_values() -> None:

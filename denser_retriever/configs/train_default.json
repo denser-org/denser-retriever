@@ -1,0 +1,34 @@
+{
+  "ingest_bs": 2000,
+  "max_query_size": 0,
+  "max_query_len": 2000,
+  "max_doc_size": 0,
+  "max_doc_len": 8000,
+  "es": {
+    "url": "http://localhost:9200",
+    "analysis": "default"
+  },
+  "milvus": {
+    "uri": "http://localhost:19530"
+  },
+  "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+  "embedding": {
+    "type": "sentence_transformer",
+    "model": "Snowflake/snowflake-arctic-embed-m",
+    "size": 768,
+    "one_model": false
+  },
+  "fusion_config": {
+    "mode": "model",
+    "vector": {
+      "top_k": 100
+    },
+    "keyword": {
+      "top_k": 100
+    },
+    "reranker": {
+      "top_k": 100
+    }
+  },
+  "aggregation": false
+}

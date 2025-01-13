@@ -16,9 +16,10 @@ from pymilvus import (
     utility,
 )
 
-from denser_retriever.embeddings import DenserEmbeddings
-from denser_retriever.filter import FieldMapper
-from denser_retriever.vectordb.base import DenserVectorDB
+from denser_retriever.core.embeddings import DenserEmbeddings
+from denser_retriever.core.filter import FieldMapper
+from denser_retriever.core.vectordb.base import DenserVectorDB
+from denser_retriever.core.utils import sigmoid
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +32,11 @@ class MilvusDenserVectorDB(DenserVectorDB):
     def __init__(
         self,
         drop_old: Optional[bool] = False,
-        auto_id: bool = False,
         connection_args: Optional[dict] = None,
         **args: Any,
     ):
         super().__init__(**args)
         self.drop_old = drop_old
-        self.auto_id = auto_id
         self.connection_args = connection_args
 
     def _create_connection_alias(self, connection_args: dict) -> str:
@@ -287,7 +286,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
         query: str,
         k: int = 100,
         filter: Dict[str, Any] = {},
-        **kwargs: Any,
+        apply_sigmoid: bool = True
     ) -> List[Tuple[Document, float]]:
         """Search for similar documents to the query.
 
@@ -319,12 +318,12 @@ class MilvusDenserVectorDB(DenserVectorDB):
             if type == "date":
                 if len(original_key) == 2:
                     start_unix_time = int(
-                        datetime.combine(
+                        datetime.fusion_config(
                             original_key[0], datetime.min.time()
                         ).timestamp()
                     )
                     end_unix_time = int(
-                        datetime.combine(
+                        datetime.fusion_config(
                             original_key[1], datetime.min.time()
                         ).timestamp()
                     )
@@ -332,7 +331,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
                     exprs.append(f"{key} <= {end_unix_time}")
                 else:
                     unix_time = int(
-                        datetime.combine(
+                        datetime.fusion_config(
                             original_key[0], datetime.min.time()
                         ).timestamp()
                     )
@@ -397,7 +396,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
             #         doc.metadata[field] = date
             #     else:
             #         doc.metadata[field] = cat_id_or_unix_time
-            pair = (doc, score)
+            pair = (doc, sigmoid(score) if apply_sigmoid else score)
             ret.append(pair)
         return ret
 

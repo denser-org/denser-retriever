@@ -6,6 +6,7 @@ import logging
 import cohere
 from sentence_transformers import CrossEncoder
 from langchain_core.documents import Document
+from denser_retriever.core.utils import sigmoid
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +26,13 @@ class HFReranker(DenserReranker):
 
     def __init__(self, model_name: str, **kwargs):
         super().__init__()
-        self.model = CrossEncoder(model_name, **kwargs)
+        self.model = CrossEncoder(model_name, trust_remote_code=True, **kwargs)
 
     def rerank(
         self,
         documents: Sequence[Document],
         query: str,
+        apply_sigmoid: bool = True
     ) -> List[Tuple[Document, float]]:
         """
         Rerank documents using CrossEncoder.
@@ -46,8 +48,10 @@ class HFReranker(DenserReranker):
             return []
         start_time = time.time()
         scores = self.model.predict(
-            [(query, doc.page_content) for doc in documents], convert_to_tensor=True
+            [(query, doc.page_content) for doc in documents], convert_to_tensor=False
         )
+        if apply_sigmoid:
+            scores = sigmoid(scores)
         docs_with_scores = list(zip(documents, scores))
         result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
         rerank_time_sec = time.time() - start_time
@@ -75,6 +79,7 @@ class CohereReranker(DenserReranker):
         self,
         documents: Sequence[Document],
         query: str,
+        apply_sigmoid: bool = True
     ) -> List[Tuple[Document, float]]:
         """
         Rerank documents using Cohere's reranking model.
@@ -98,7 +103,7 @@ class CohereReranker(DenserReranker):
         )
         # Combine documents with scores from the rerank response
         docs_with_scores = [
-            (documents[result.index], result.relevance_score)
+            (documents[result.index], sigmoid(result.relevance_score) if apply_sigmoid else result.relevance_score)
             for result in response.results
         ]
 

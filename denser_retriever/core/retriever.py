@@ -6,11 +6,11 @@ import time
 from langchain_core.documents import Document
 from pydantic import BaseModel
 
-from denser_retriever.embeddings import DenserEmbeddings
-from denser_retriever.gradient_boost import DenserGradientBoost
-from denser_retriever.keyword import DenserKeywordSearch
-from denser_retriever.reranker import DenserReranker
-from denser_retriever.utils import (
+from denser_retriever.core.embeddings import DenserEmbeddings
+from denser_retriever.core.gradient_boost import XGradientBoost
+from denser_retriever.core.keyword import DenserKeywordSearch
+from denser_retriever.core.reranker import DenserReranker
+from denser_retriever.core.utils import (
     docs_to_dict,
     merge_results,
     min_max_normalize,
@@ -18,7 +18,8 @@ from denser_retriever.utils import (
     scale_results,
     standardize_normalize,
 )
-from denser_retriever.vectordb.base import DenserVectorDB
+from denser_retriever.core.vectordb.base import DenserVectorDB
+from denser_retriever.config import FusionConfig
 
 config_to_features = {
     "es+vs": ["1,2,3,4,5,6", None],
@@ -31,19 +32,6 @@ config_to_features = {
     "es+vs+rr_n": ["1,2,3,4,5,6,7,8,9", "2,5,8"],
 }
 
-
-class RetrievalConfig(BaseModel):
-    top_k: int = 100
-    weight: float = 0.5
-
-
-class RetrievalParams(BaseModel):
-    vector_db: RetrievalConfig = RetrievalConfig()
-    keyword: RetrievalConfig = RetrievalConfig()
-    reranker: RetrievalConfig = RetrievalConfig(top_k=50)
-    aggregation: bool = False
-
-
 class DenserRetriever:
     def __init__(
             self,
@@ -52,20 +40,21 @@ class DenserRetriever:
             vector_db: Optional[DenserVectorDB],
             reranker: Optional[DenserReranker],
             embeddings: DenserEmbeddings,
-            gradient_boost: Optional[DenserGradientBoost],
-            combine_mode: str = "linear",
-            xgb_model_features: str = "es+vs+rr_n",
+            fusion_config: FusionConfig,
             search_fields: List[str] = [],
             date_fields: List[str] = [],
     ):
         # config parameters
         self.index_name = index_name
-        self.combine_mode = combine_mode
-        self.xgb_model_features = config_to_features[xgb_model_features]
-
+        self.fusion_mode = fusion_config.mode
         # models
         self.embeddings = embeddings
-        self.gradient_boost = gradient_boost
+        if fusion_config.xgb_config:
+            self.gradient_boost = XGradientBoost(fusion_config.xgb_config.xgb_model)
+            self.xgb_model_features = config_to_features[fusion_config.xgb_config.xgb_model_features]
+        else:
+            self.gradient_boost = None
+            self.xgb_model_features = None
         self.keyword_search = keyword_search
         self.vector_db = vector_db
         self.reranker = reranker
@@ -96,62 +85,63 @@ class DenserRetriever:
     def retrieve(
             self,
             query: str,
-            k: int = 100,
+            k: int,
+            fusion_config: FusionConfig,
             filter: Dict[str, Any] = {},
-            retrieval_params: RetrievalParams = RetrievalParams(),
-            **kwargs: Any,
+            aggregation: bool = False
     ):
         logger.info(f"Retrieve query: {query} top_k: {k}")
-        if self.combine_mode in ["linear", "rank"]:
+        if self.fusion_mode in ["linear", "rank"]:
             return self._retrieve_by_linear_or_rank(
-                query, k, filter, retrieval_params, **kwargs
+                query, k, fusion_config, filter, aggregation
             )
         else:
-            return self._retrieve_by_model(query, k, filter, retrieval_params, **kwargs)
+            return self._retrieve_by_model(query, k, fusion_config, filter)
 
     def _retrieve_by_linear_or_rank(
             self,
             query: str,
-            k: int = 100,
+            k: int,
+            fusion_config: FusionConfig,
             filter: Dict[str, Any] = {},
-            retrieval_params: RetrievalParams = RetrievalParams(),
-            **kwargs: Any,
+            aggregation: bool = False
     ):
         passages = []
         aggregations = None
 
         if self.keyword_search:
             es_docs, aggregations = self.keyword_search.retrieve(
-                query, retrieval_params.keyword.top_k, filter=filter, aggregation=retrieval_params.aggregation, **kwargs
+                query, fusion_config.keyword.top_k, filter=filter, aggregation=aggregation
             )
-            es_passages = scale_results(es_docs, retrieval_params.keyword.weight)
+            es_passages = scale_results(es_docs, fusion_config.keyword.weight)
             logger.info(f"Keyword search: {len(es_passages)}")
             passages.extend(es_passages)
 
         if self.vector_db:
             vector_docs = self.vector_db.similarity_search_with_score(
-                query, retrieval_params.vector_db.top_k, filter, **kwargs
+                query, fusion_config.vector.top_k, filter
             )
             logger.info(f"Vector search: {len(vector_docs)}")
             passages = merge_results(
                 passages,
                 vector_docs,
                 1.0,
-                retrieval_params.vector_db.weight,
-                self.combine_mode,
+                fusion_config.vector.weight,
+                self.fusion_mode,
             )
-
+        # import pdb; pdb.set_trace()
         if self.reranker:
             start_time = time.time()
-            docs = [doc for doc, _ in passages[: retrieval_params.reranker.top_k]]
+            docs = [doc for doc, _ in passages[: fusion_config.reranker.top_k]]
             reranked_docs = self.reranker.rerank(docs, query)
-
+            # import pdb;
+            # pdb.set_trace()
             passages = merge_results(
                 passages,
                 reranked_docs,
                 1.0,
-                retrieval_params.reranker.weight,
-                self.combine_mode,
+                fusion_config.reranker.weight,
+                self.fusion_mode,
             )
             rerank_time_sec = time.time() - start_time
             logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
@@ -161,14 +151,12 @@ class DenserRetriever:
     def _retrieve_by_model(
             self,
             query: str,
-            k: int = 100,
+            k: int,
+            fusion_config: FusionConfig,
             filter: Dict[str, Any] = {},
-            retrieval_params: RetrievalParams = RetrievalParams(),
-            aggregation: bool = False,
-            **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
-        docs, doc_features = self._retrieve_with_features(
-            query, filter, retrieval_params, **kwargs
+        docs, doc_features, aggregations = self._retrieve_with_features(
+            query, fusion_config, filter
         )
 
         if not self.gradient_boost:
@@ -183,24 +171,25 @@ class DenserRetriever:
         reranked_docs = list(zip(docs, scores))
         reranked_docs.sort(key=lambda x: x[1], reverse=True)
 
-        return reranked_docs[:k]
+        return reranked_docs[:k], aggregations
 
     def _retrieve_with_features(
             self,
             query: str,
-            filter: Dict[str, Any] = {},
-            retrieval_params: RetrievalParams = RetrievalParams(),
-            **kwargs: Any,
+            fusion_config: FusionConfig,
+            filter: Dict[str, Any] = {}
     ) -> Tuple[List[Document], List[List[str]]]:
         ks_docs = []
+        aggregations = None
+
         if self.keyword_search:
-            ks_docs = self.keyword_search.retrieve(
-                query, retrieval_params.keyword.top_k, filter=filter, **kwargs
+            ks_docs, aggregations = self.keyword_search.retrieve(
+                query, fusion_config.keyword.top_k, filter=filter
             )
         vs_docs = []
         if self.vector_db:
             vs_docs = self.vector_db.similarity_search_with_score(
-                query, retrieval_params.vector_db.top_k, filter=filter, **kwargs
+                query, fusion_config.vector.top_k, filter=filter
             )
 
         combined = []
@@ -289,7 +278,7 @@ class DenserRetriever:
             else:
                 non_zero_normalized_features.append([data[0]] + features)
 
-        return docs, non_zero_normalized_features
+        return docs, non_zero_normalized_features, aggregations
 
     def delete(
             self,

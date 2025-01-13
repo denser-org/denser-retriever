@@ -2,7 +2,7 @@ from abc import ABC
 from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_core.documents import Document
-from denser_retriever.embeddings import DenserEmbeddings
+from denser_retriever.core.embeddings import DenserEmbeddings
 
 
 class DenserVectorDB(ABC):
