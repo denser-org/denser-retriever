@@ -32,7 +32,7 @@ class HFReranker(DenserReranker):
         self,
         documents: Sequence[Document],
         query: str,
-        apply_sigmoid: bool = True
+        apply_sigmoid: bool = False
     ) -> List[Tuple[Document, float]]:
         """
         Rerank documents using CrossEncoder.
@@ -79,7 +79,7 @@ class CohereReranker(DenserReranker):
         self,
         documents: Sequence[Document],
         query: str,
-        apply_sigmoid: bool = True
+        apply_sigmoid: bool = False
     ) -> List[Tuple[Document, float]]:
         """
         Rerank documents using Cohere's reranking model.

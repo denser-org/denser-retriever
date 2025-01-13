@@ -276,7 +276,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
             k: int = 100,
             filter: Dict[str, Any] = {},
             aggregation: bool = False, # Aggregate metadata
-            apply_sigmoid: bool = True, # Apply sigmoid to scores
+            apply_sigmoid: bool = False, # Apply sigmoid to scores
     ) -> Tuple[List[Tuple[Document, float]], Dict]:
         assert self.client.indices.exists(index=self.index_name)
         start_time = time.time()

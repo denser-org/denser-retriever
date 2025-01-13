@@ -92,8 +92,6 @@ python retrieve.py lecardv2 "黎红春抢劫、潘某1窝藏一审刑事判决�
 
 ## 📝 Experiments
 
-### [Anthropic Contextual Retrieval experiment](https://github.com/denser-org/denser-retriever/tree/main/experiments/data/contextual-embeddings)
-
 ### [MTEB Retrieval experiment](https://retriever-docs.denser.ai/docs/core/experiments/mteb_retrieval)
 
 ## 📃 Documentation

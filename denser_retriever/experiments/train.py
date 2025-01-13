@@ -78,23 +78,16 @@ class Experiment:
             os.makedirs(exp_dir)
 
         passage_file = os.path.join(exp_dir, "passages.jsonl")
-        if dataset_name == 'anthropic_base':
-            copy_file('experiments/data/contextual-embeddings/data_base/passages.jsonl', passage_file,
-                      self.max_doc_size)
-        elif dataset_name == 'anthropic_context':
-            copy_file('experiments/data/contextual-embeddings/data_context/passages.jsonl', passage_file,
-                      self.max_doc_size)
-        else:
-            corpus, _, _ = HFDataLoader(
-                hf_repo=dataset_name,
-                hf_repo_qrels=None,
-                streaming=False,
-                keep_in_memory=False,
-            ).load(split=split)
+        corpus, _, _ = HFDataLoader(
+            hf_repo=dataset_name,
+            hf_repo_qrels=None,
+            streaming=False,
+            keep_in_memory=False,
+        ).load(split=split)
 
-            save_HF_corpus_as_docs(
-                corpus, passage_file, self.max_doc_size, self.max_doc_len
-            )
+        save_HF_corpus_as_docs(
+            corpus, passage_file, self.max_doc_size, self.max_doc_len
+        )
 
         out = open(passage_file, "r")
         docs = []
@@ -117,21 +110,14 @@ class Experiment:
         query_file = os.path.join(exp_dir, "queries.jsonl")
         qrels_file = os.path.join(exp_dir, "qrels.jsonl")
 
-        if dataset_name in ["anthropic_base", "anthropic_context"]:
-            shutil.copy('experiments/data/contextual-embeddings/data_context/queries.jsonl', query_file)
-            shutil.copy('experiments/data/contextual-embeddings/data_context/qrels.jsonl', qrels_file)
-            data = DenserData("experiments/data/contextual-embeddings/data_base")
-            queries = data.load_queries()
-            qrels = data.load_qrels()
-        else:  # assume HF datasets
-            _, queries, qrels = HFDataLoader(
-                hf_repo=dataset_name,
-                hf_repo_qrels=None,
-                streaming=False,
-                keep_in_memory=False,
-            ).load(split=split)
-            save_queries(queries, query_file)
-            save_qrels(qrels, qrels_file)
+        _, queries, qrels = HFDataLoader(
+            hf_repo=dataset_name,
+            hf_repo_qrels=None,
+            streaming=False,
+            keep_in_memory=False,
+        ).load(split=split)
+        save_queries(queries, query_file)
+        save_qrels(qrels, qrels_file)
 
         feature_file = os.path.join(exp_dir, "features.svmlight")
         feature_out = open(feature_file, "w")

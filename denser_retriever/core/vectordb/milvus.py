@@ -286,7 +286,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
         query: str,
         k: int = 100,
         filter: Dict[str, Any] = {},
-        apply_sigmoid: bool = True
+        apply_sigmoid: bool = False
     ) -> List[Tuple[Document, float]]:
         """Search for similar documents to the query.
 
