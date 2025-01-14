@@ -20,15 +20,9 @@
   "voyage_api_key": "pa-b76ti3S2pWuSl0go1S7f8-x150YAXUoh6UANO2LpHbI",
   "fusion_config": {
     "mode": "model",
-    "vector": {
-      "top_k": 100
-    },
-    "keyword": {
-      "top_k": 100
-    },
-    "reranker": {
-      "top_k": 100
-    }
+    "keyword-top-k":100,
+    "vector-top-k":100,
+    "reranker-top-k":100
   },
   "aggregation": false
 }

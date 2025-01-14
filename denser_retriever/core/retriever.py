@@ -1,36 +1,19 @@
 from asyncio.log import logger
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
-import time
 
 from langchain_core.documents import Document
-from pydantic import BaseModel
 
 from denser_retriever.core.embeddings import DenserEmbeddings
-from denser_retriever.core.gradient_boost import XGradientBoost
 from denser_retriever.core.keyword import DenserKeywordSearch
 from denser_retriever.core.reranker import DenserReranker
-from denser_retriever.core.utils import (
-    docs_to_dict,
-    merge_results,
-    min_max_normalize,
-    parse_features,
-    scale_results,
-    standardize_normalize,
-)
+from denser_retriever.core.utils import docs_to_dict
 from denser_retriever.core.vectordb.base import DenserVectorDB
 from denser_retriever.config import FusionConfig
+from denser_retriever.core.logistic_regression import LogisticRegression
+from denser_retriever.core.utils import config_to_features
 
-config_to_features = {
-    "es+vs": ["1,2,3,4,5,6", None],
-    "es+rr": ["1,2,3,7,8,9", None],
-    "vs+rr": ["4,5,6,7,8,9", None],
-    "es+vs+rr": ["1,2,3,4,5,6,7,8,9", None],
-    "es+vs_n": ["1,2,3,4,5,6", "2,5"],
-    "es+rr_n": ["1,2,3,7,8,9", "2,8"],
-    "vs+rr_n": ["4,5,6,7,8,9", "5,8"],
-    "es+vs+rr_n": ["1,2,3,4,5,6,7,8,9", "2,5,8"],
-}
+
 
 class DenserRetriever:
     def __init__(
@@ -49,12 +32,12 @@ class DenserRetriever:
         self.fusion_mode = fusion_config.mode
         # models
         self.embeddings = embeddings
-        if fusion_config.xgb_config:
-            self.gradient_boost = XGradientBoost(fusion_config.xgb_config.xgb_model)
-            self.xgb_model_features = config_to_features[fusion_config.xgb_config.xgb_model_features]
+        if fusion_config.lr_config:
+            self.lr_model = LogisticRegression(fusion_config.lr_config.lr_model)
+            self.lr_features = config_to_features[fusion_config.lr_config.lr_features]
         else:
-            self.gradient_boost = None
-            self.xgb_model_features = None
+            self.lr_model = None
+            self.lr_features = None
         self.keyword_search = keyword_search
         self.vector_db = vector_db
         self.reranker = reranker
@@ -90,106 +73,133 @@ class DenserRetriever:
             filter: Dict[str, Any] = {},
             aggregation: bool = False
     ):
+        """Updated retrieve method to support new fusion modes."""
         logger.info(f"Retrieve query: {query} top_k: {k}")
-        if self.fusion_mode in ["linear", "rank"]:
-            return self._retrieve_by_linear_or_rank(
-                query, k, fusion_config, filter, aggregation
-            )
+        if self.fusion_mode == "hybrid":
+            return self.retrieve_by_hybrid(query, k, fusion_config, filter, aggregation)
+        elif self.fusion_mode == "reranker":
+            return self.retrieve_by_reranker(query, k, fusion_config, filter, aggregation)
+        elif self.fusion_mode == "model":
+            return self.retrieve_by_model(query, k, fusion_config, filter, aggregation)
         else:
-            return self._retrieve_by_model(query, k, fusion_config, filter)
+            raise ValueError(f"Unknown fusion mode: {self.fusion_mode}")
 
-    def _retrieve_by_linear_or_rank(
+    def retrieve_by_hybrid(
             self,
             query: str,
             k: int,
             fusion_config: FusionConfig,
             filter: Dict[str, Any] = {},
             aggregation: bool = False
-    ):
-        passages = []
-        aggregations = None
+    ) -> List[Tuple[Document, float]]:
+        """Hybrid search using keyword and vector positions."""
+        # Get keyword search results
+        ks_docs, aggregations = self.keyword_search.retrieve(
+            query, fusion_config.keyword_top_k, filter=filter, aggregation=aggregation
+        )
+        # Get vector search results
+        vs_docs = self.vector_db.similarity_search_with_score(
+            query, fusion_config.vector_top_k, filter=filter
+        )
 
-        if self.keyword_search:
-            es_docs, aggregations = self.keyword_search.retrieve(
-                query, fusion_config.keyword.top_k, filter=filter, aggregation=aggregation
-            )
-            es_passages = scale_results(es_docs, fusion_config.keyword.weight)
-            logger.info(f"Keyword search: {len(es_passages)}")
-            passages.extend(es_passages)
+        # Extract position information
+        _, _, ks_rank_dict = docs_to_dict(ks_docs)
+        _, _, vs_rank_dict = docs_to_dict(vs_docs)
 
-        if self.vector_db:
-            vector_docs = self.vector_db.similarity_search_with_score(
-                query, fusion_config.vector.top_k, filter
-            )
-            logger.info(f"Vector search: {len(vector_docs)}")
-            passages = merge_results(
-                passages,
-                vector_docs,
-                1.0,
-                fusion_config.vector.weight,
-                self.fusion_mode,
-            )
-        # import pdb; pdb.set_trace()
-        if self.reranker:
-            start_time = time.time()
-            docs = [doc for doc, _ in passages[: fusion_config.reranker.top_k]]
-            reranked_docs = self.reranker.rerank(docs, query)
-            # import pdb;
-            # pdb.set_trace()
-            passages = merge_results(
-                passages,
-                reranked_docs,
-                1.0,
-                fusion_config.reranker.weight,
-                self.fusion_mode,
-            )
-            rerank_time_sec = time.time() - start_time
-            logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
+        # Combine all documents
+        all_docs = {}
+        for doc, _ in ks_docs + vs_docs:
+            pid = doc.metadata["pid"]
+            if pid not in all_docs:
+                all_docs[pid] = doc
 
-        return passages[:k], aggregations
+        # Calculate hybrid scores
+        hybrid_scores = {}
+        max_rank = max(fusion_config.keyword_top_k, fusion_config.vector_top_k)
 
-    def _retrieve_by_model(
+        for pid, doc in all_docs.items():
+            # Get ranks (default to max_rank + 1 if not found)
+            ks_rank = ks_rank_dict.get(pid, max_rank + 1)
+            vs_rank = vs_rank_dict.get(pid, max_rank + 1)
+
+            # Calculate reciprocal rank fusion score
+            hybrid_scores[pid] = 0.0
+            if ks_rank <= max_rank:
+                hybrid_scores[pid] += 1.0 / (ks_rank + 60)  # constant from paper
+            if vs_rank <= max_rank:
+                hybrid_scores[pid] += 1.0 / (vs_rank + 60)
+
+        # Create final scored list
+        scored_docs = [(all_docs[pid], score) for pid, score in hybrid_scores.items()]
+        scored_docs.sort(key=lambda x: x[1], reverse=True)
+
+        return scored_docs[:k], aggregations
+
+    def retrieve_by_reranker(
             self,
             query: str,
             k: int,
             fusion_config: FusionConfig,
             filter: Dict[str, Any] = {},
+            aggregation: bool = False
     ) -> List[Tuple[Document, float]]:
-        docs, doc_features, aggregations = self._retrieve_with_features(
-            query, fusion_config, filter
+        """Two-stage retrieval: keyword search followed by reranking."""
+        # First stage: keyword search
+        ks_docs, aggregations = self.keyword_search.retrieve(
+            query, fusion_config.keyword_top_k, filter=filter, aggregation=aggregation
         )
 
-        if not self.gradient_boost:
-            raise ValueError("Gradient Boost model not provided")
+        # Extract documents for reranking
+        docs_to_rerank = [doc for doc, _ in ks_docs]
 
-        csr_data = parse_features(doc_features)
-        pred = self.gradient_boost.predict(csr_data)
+        # Second stage: reranking
+        if self.reranker and docs_to_rerank:
+            reranked_docs = self.reranker.rerank(docs_to_rerank, query)
+            return reranked_docs[:k], aggregations
 
-        assert len(pred) == len(docs)
-        scores = pred.tolist()
-        logger.info(f"xgb prediction scores: {scores}")
-        reranked_docs = list(zip(docs, scores))
-        reranked_docs.sort(key=lambda x: x[1], reverse=True)
+        return ks_docs[:k], aggregations
 
-        return reranked_docs[:k], aggregations
+    def retrieve_by_model(
+            self,
+            query: str,
+            k: int,
+            fusion_config: FusionConfig,
+            filter: Dict[str, Any] = {},
+            aggregation: bool = False
+    ) -> List[Tuple[Document, float]]:
+        """Retrieve using logistic regression model for fusion."""
+        docs, doc_features, aggregations = self._retrieve_with_features(
+            query, fusion_config, filter, aggregation
+        )
+        scores = []
+
+        for feature_list in doc_features:
+            scores.append(self.lr_model.predict(feature_list))
+
+        # Combine with documents
+        scored_docs = list(zip(docs, scores))
+        scored_docs.sort(key=lambda x: x[1], reverse=True)
+
+        return scored_docs[:k], aggregations
 
     def _retrieve_with_features(
             self,
             query: str,
             fusion_config: FusionConfig,
-            filter: Dict[str, Any] = {}
+            filter: Dict[str, Any] = {},
+            aggregation: bool = False
     ) -> Tuple[List[Document], List[List[str]]]:
         ks_docs = []
         aggregations = None
 
         if self.keyword_search:
             ks_docs, aggregations = self.keyword_search.retrieve(
-                query, fusion_config.keyword.top_k, filter=filter
+                query, fusion_config.keyword_top_k, filter=filter, aggregation=aggregation
             )
         vs_docs = []
         if self.vector_db:
             vs_docs = self.vector_db.similarity_search_with_score(
-                query, fusion_config.vector.top_k, filter=filter
+                query, fusion_config.vector_top_k, filter=filter
             )
 
         combined = []
@@ -218,12 +228,12 @@ class DenserRetriever:
             features = []
             features.append(0)  # placeholder
             features.append(ks_rank_dict.get(pid, -1))  # 1. keyword rank
-            features.append(ks_score_dict.get(pid, -1000))  # 2. keyword score
+            features.append(ks_score_dict.get(pid, 0))  # 2. keyword score
             miss = 1 if ks_rank_dict.get(pid, -1) == -1 else 0
             features.append(miss)  # 3. keyword miss
 
             features.append(vs_rank_dict.get(pid, -1))  # 4. vector rank
-            features.append(vs_score_dict.get(pid, -1000))  # 5. vector score
+            features.append(vs_score_dict.get(pid, 0))  # 5. vector score
             miss = 1 if vs_rank_dict.get(pid, -1) == -1 else 0
             features.append(miss)  # 6. vector miss
 
@@ -233,26 +243,9 @@ class DenserRetriever:
             features.append(0)  # 9. placeholder
             doc_features.append(features)
 
-        features_to_use, features_to_normalize = self.xgb_model_features
-        features_to_use = features_to_use.split(",")
-        features_to_normalize = features_to_normalize.split(",")
+        features_to_use = self.lr_features
 
-        if features_to_normalize:
-            features_raw = {f: [] for f in features_to_normalize}
-            for data in doc_features:
-                for f_name in features_to_normalize:
-                    features_raw[f_name].append(float(data[int(f_name)]))
-
-            # normalize features_raw
-            standardized_features = {}
-            min_max_features = {}
-            for f_name in features_to_normalize:
-                standardized_features[f_name] = standardize_normalize(
-                    features_raw[f_name]
-                )
-                min_max_features[f_name] = min_max_normalize(features_raw[f_name])
-
-        non_zero_normalized_features = []
+        non_zero_features = []
         for i, data in enumerate(doc_features):
             features = []
             for f_id in features_to_use:
@@ -260,25 +253,9 @@ class DenserRetriever:
                 if f_value != 0.0:
                     features.append(f"{f_id}:{f_value}")
 
-            if features_to_normalize:
-                f_id = len(data[1:]) + 1
-                normalized_features = []
-                for j, f in enumerate(features_to_normalize):
-                    if standardized_features[f][i] != 0.0:
-                        normalized_features.append(
-                            f"{f_id + 2 * j}:{standardized_features[f][i]}"
-                        )
-                    if min_max_features[f][i] != 0.0:
-                        normalized_features.append(
-                            f"{f_id + 2 * j + 1}:{min_max_features[f][i]}"
-                        )
-                non_zero_normalized_features.append(
-                    [data[0]] + features + normalized_features
-                )
-            else:
-                non_zero_normalized_features.append([data[0]] + features)
+            non_zero_features.append([str(data[0])] + features)
 
-        return docs, non_zero_normalized_features, aggregations
+        return docs, non_zero_features, aggregations
 
     def delete(
             self,

@@ -318,12 +318,12 @@ class MilvusDenserVectorDB(DenserVectorDB):
             if type == "date":
                 if len(original_key) == 2:
                     start_unix_time = int(
-                        datetime.fusion_config(
+                        datetime.combine(
                             original_key[0], datetime.min.time()
                         ).timestamp()
                     )
                     end_unix_time = int(
-                        datetime.fusion_config(
+                        datetime.combine(
                             original_key[1], datetime.min.time()
                         ).timestamp()
                     )
@@ -331,7 +331,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
                     exprs.append(f"{key} <= {end_unix_time}")
                 else:
                     unix_time = int(
-                        datetime.fusion_config(
+                        datetime.combine(
                             original_key[0], datetime.min.time()
                         ).timestamp()
                     )

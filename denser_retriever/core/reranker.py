@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import operator
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, Dict
 import time
 import logging
 import cohere
@@ -14,25 +14,45 @@ logger = logging.getLogger(__name__)
 class DenserReranker(ABC):
     @abstractmethod
     def rerank(
-        self,
-        documents: Sequence[Document],
-        query: str,
+            self,
+            documents: Sequence[Document],
+            query: str,
     ) -> List[Tuple[Document, float]]:
         pass
 
 
 class HFReranker(DenserReranker):
-    """Rerank documents using a HuggingFaceCrossEncoder model."""
+    """Rerank documents using a HuggingFaceCrossEncoder model with singleton pattern."""
+
+    _instances: Dict[str, 'HFReranker'] = {}  # Store instances by model name
+
+    def __new__(cls, model_name: str, **kwargs):
+        # If an instance with this model_name exists, return it
+        if model_name in cls._instances:
+            return cls._instances[model_name]
+
+        # Create new instance
+        instance = super(HFReranker, cls).__new__(cls)
+        cls._instances[model_name] = instance
+
+        # Initialize the instance
+        instance.__initialized = False
+        return instance
 
     def __init__(self, model_name: str, **kwargs):
+        # Skip initialization if already initialized
+        if hasattr(self, '__initialized') and self.__initialized:
+            return
+
         super().__init__()
         self.model = CrossEncoder(model_name, trust_remote_code=True, **kwargs)
+        self.__initialized = True
 
     def rerank(
-        self,
-        documents: Sequence[Document],
-        query: str,
-        apply_sigmoid: bool = False
+            self,
+            documents: Sequence[Document],
+            query: str,
+            apply_sigmoid: bool = False
     ) -> List[Tuple[Document, float]]:
         """
         Rerank documents using CrossEncoder.
@@ -52,6 +72,7 @@ class HFReranker(DenserReranker):
         )
         if apply_sigmoid:
             scores = sigmoid(scores)
+        scores = [float(score) for score in scores]
         docs_with_scores = list(zip(documents, scores))
         result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
         rerank_time_sec = time.time() - start_time
@@ -76,10 +97,10 @@ class CohereReranker(DenserReranker):
         self.model_name = model_name
 
     def rerank(
-        self,
-        documents: Sequence[Document],
-        query: str,
-        apply_sigmoid: bool = False
+            self,
+            documents: Sequence[Document],
+            query: str,
+            apply_sigmoid: bool = False
     ) -> List[Tuple[Document, float]]:
         """
         Rerank documents using Cohere's reranking model.
@@ -114,3 +135,12 @@ class CohereReranker(DenserReranker):
         logger.info(f"Cohere Rerank time: {rerank_time_sec:.3f} sec.")
         logger.info(f"Reranked {len(result)} documents.")
         return result
+
+
+if __name__ == '__main__':
+    reranker1 = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    reranker2 = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    print(reranker1 is reranker2)  # True - same instance
+
+    reranker3 = HFReranker(model_name="cross-encoder/ms-marco-TinyBERT-L-4")
+    print(reranker1 is reranker3)  # False - different instance

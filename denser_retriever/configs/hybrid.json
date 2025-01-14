@@ -7,7 +7,6 @@
   "milvus": {
     "uri": "http://localhost:19530"
   },
-  "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
   "embedding": {
     "type": "sentence_transformer",
     "model": "Snowflake/snowflake-arctic-embed-m",
@@ -15,19 +14,9 @@
     "one_model": false
   },
   "fusion_config": {
-    "mode": "linear",
-    "vector": {
-      "top_k": 100,
-      "weight": 1
-    },
-    "keyword": {
-      "top_k": 100,
-      "weight": 1
-    },
-    "reranker": {
-      "top_k": 100,
-      "weight": 10
-    }
+    "mode": "hybrid",
+    "keyword-top-k":100,
+    "vector-top-k":100
   },
   "aggregation": false
 }

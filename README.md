@@ -20,7 +20,7 @@ An enterprise-grade AI retriever designed to streamline AI integration into your
 ## 🚀 Features
 
 - Supporting heterogeneous retrievers such as **keyword search**, **vector search**, and **ML model reranking**
-- Leveraging **xgboost** ML technique to effectively combine heterogeneous retrievers
+- Leveraging ML technique to effectively combine heterogeneous retrievers
 - **Comprehensive benchmark** on [MTEB](https://github.com/embeddings-benchmark/mteb) Retrieval dataset
 - Demonstrating how to use Denser retriever to power an **end-to-end applications** such as chatbot and semantic search
 ![mteb_ndcg_plot](https://github.com/denser-org/denser-retriever/blob/main/mteb_ndcg_plot.png?raw=true)

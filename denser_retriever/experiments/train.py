@@ -2,13 +2,11 @@ import logging
 import os
 import sys
 import json
-import shutil
 
 from langchain_core.documents import Document
-import xgboost as xgb
 from sklearn.datasets import load_svmlight_file
-import numpy as np
-from sklearn.model_selection import GroupKFold
+from sklearn.linear_model import LogisticRegression
+import joblib  # for saving/loading the model
 
 from denser_retriever.core.retriever import DenserRetriever
 from denser_retriever.config import load_train_config
@@ -20,21 +18,12 @@ from denser_retriever.core.utils import (
     load_qrels,
     docs_to_dict,
 )
-from denser_retriever.experiments.utils import prepare_xgbdata, save_HF_corpus_as_docs, copy_file
+from denser_retriever.experiments.utils import prepare_features, save_HF_corpus_as_docs
+from denser_retriever.core.utils import config_to_features
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-config_to_features = {
-    "es+vs": ["1,2,3,4,5,6", None],
-    "es+rr": ["1,2,3,7,8,9", None],
-    "vs+rr": ["4,5,6,7,8,9", None],
-    "es+vs+rr": ["1,2,3,4,5,6,7,8,9", None],
-    "es+vs_n": ["1,2,3,4,5,6", "2,5"],
-    "es+rr_n": ["1,2,3,7,8,9", "2,8"],
-    "vs+rr_n": ["4,5,6,7,8,9", "5,8"],
-    "es+vs+rr_n": ["1,2,3,4,5,6,7,8,9", "2,5,8"],
-}
 
 class DenserData:
     def __init__(self, dir_path):
@@ -49,7 +38,6 @@ class DenserData:
         return qrels
 
 
-
 class Experiment:
     def __init__(self, dataset_name, drop_old, config):
         data_name = os.path.basename(dataset_name)
@@ -61,16 +49,15 @@ class Experiment:
         self.max_query_len = config.max_query_len
         self.max_doc_size = config.max_doc_size
         self.max_doc_len = config.max_doc_len
-        self.es_top_k = config.fusion_config.keyword.top_k
-        self.vector_top_k = config.fusion_config.vector.top_k
-        self.reranker_top_k = config.fusion_config.reranker.top_k
+        self.es_top_k = config.fusion_config.keyword_top_k
+        self.vector_top_k = config.fusion_config.vector_top_k
+        self.reranker_top_k = config.fusion_config.reranker_top_k
 
         # Initialize retriever with config
         index_name = data_name.replace("-", "_")
         retriever_config = config.get_retriever_config(index_name, drop_old)
         # import pdb; pdb.set_trace()
         self.retriever = DenserRetriever(**retriever_config)
-
 
     def ingest(self, dataset_name, split):
         exp_dir = os.path.join(self.output_prefix, split)
@@ -145,7 +132,6 @@ class Experiment:
 
             combined_docs = [doc for doc, _ in combined]
             reranked_docs = []
-            # import pdb; pdb.set_trace()
             if self.retriever.reranker:
                 reranked_docs = self.retriever.reranker.rerank(combined_docs, query_str)
 
@@ -162,12 +148,12 @@ class Experiment:
                 features.append(str(label))
                 features.append(f"qid:{qid}")
                 features.append(f"1:{ks_rank_dict.get(pid, -1)}")  # 1. keyword rank
-                features.append(f"2:{ks_score_dict.get(pid, -1000)}")  # 2. keyword score
+                features.append(f"2:{ks_score_dict.get(pid, 0)}")  # 2. keyword score
                 miss = 0 if pid in ks_rank_dict else 1
                 features.append(f"3:{miss}")  # 3. keyword miss
 
                 features.append(f"4:{vs_rank_dict.get(pid, -1)}")  # 4. vector rank
-                features.append(f"5:{vs_score_dict.get(pid, -1000)}")  # 5. vector score
+                features.append(f"5:{vs_score_dict.get(pid, 0)}")  # 5. vector score
                 miss = 0 if pid in vs_rank_dict else 1
                 features.append(f"6:{miss}")  # 6. vector miss
 
@@ -234,149 +220,74 @@ class Experiment:
                 group.append(int(line.split("\n")[0]))
         return group
 
-    def cross_validation_xgb(self, test_dir, retriever_config):
-        group_sizes = self.read_group(test_dir, retriever_config)
-        groups = []
-        for i, size in enumerate(group_sizes):
-            groups.extend([i] * size)
-        groups = np.array(groups)
-
-        # Prepare GroupKFold cross-validation
-        gkf = GroupKFold(n_splits=3)
-
-        # Initialize an array to hold all predictions
-        x_data, y_data = load_svmlight_file(os.path.join(test_dir, retriever_config))
-        predictions = np.zeros(x_data.shape[0])
-
-        # Perform cross-validation
-        for train_index, valid_index in gkf.split(x_data, y_data, groups):
-            x_train, x_valid = x_data[train_index], x_data[valid_index]
-            y_train, y_valid = y_data[train_index], y_data[valid_index]
-
-            group_train = groups[train_index]
-            group_valid = groups[valid_index]
-
-            # Determine group sizes for training and validation sets
-            train_group_sizes = np.diff(
-                np.where(np.diff(np.concatenate(([-1], group_train, [-1]))))[0]
-            )
-            valid_group_sizes = np.diff(
-                np.where(np.diff(np.concatenate(([-1], group_valid, [-1]))))[0]
-            )
-
-            train_dmatrix = xgb.DMatrix(x_train, y_train)
-            valid_dmatrix = xgb.DMatrix(x_valid, y_valid)
-
-            train_dmatrix.set_group(train_group_sizes)
-            valid_dmatrix.set_group(valid_group_sizes)
-
-            params = {
-                "objective": "rank:ndcg",
-                "eta": 0.1,
-                "gamma": 1.0,
-                "min_child_weight": 0.1,
-                "max_depth": 6,
-                "eval_metric": "ndcg@10",
-            }
-            xgb_model = xgb.train(
-                params,
-                train_dmatrix,
-                num_boost_round=100,
-                evals=[(valid_dmatrix, "validation")],
-            )
-            print(xgb_model.get_score(importance_type="gain"))
-
-            pred = xgb_model.predict(valid_dmatrix)
-            predictions[valid_index] = pred
-
-        svmlight_file = os.path.join(test_dir, "features.svmlight")
-        pred_file = open(os.path.join(test_dir, f"{retriever_config}.pred"), "w")
-        res = {}
-        id = 0
-        for line in open(svmlight_file, "r"):
-            pos = line.index("#")
-            assert pos != -1
-            pid = line[pos + 1:].strip()
-            line = line[:pos]
-            comps = line.strip().split(" ")
-            qid = comps[1].split(":")[1].strip()
-            if qid not in res:
-                res[qid] = {}
-
-            res[qid][pid] = predictions[id]
-            pred_file.write(f"{qid} {pid} {res[qid][pid]}\n")
-            id += 1
-        assert id == len(predictions)
-        logger.info("Evaluate passage results")
-        metric_file = os.path.join(test_dir, f"metric_{retriever_config}.json")
-        qrels_file = os.path.join(test_dir, "qrels.jsonl")
-        qrels = load_qrels(qrels_file)
-        metric = evaluate(qrels, res, metric_file)
-        ndcg_passage = metric[0]["NDCG@10"]
-        logger.info(f"NDCG@10: {ndcg_passage}")
-
-    def train_xgb(self, train_dir, dev_dir, mode_dir, retriever_config):
+    def train_logistic(self, train_dir, dev_dir, model_dir, retriever_config):
+        """Train logistic regression model"""
+        # Load training data
         x_train, y_train = load_svmlight_file(os.path.join(train_dir, retriever_config))
         x_valid, y_valid = load_svmlight_file(os.path.join(dev_dir, retriever_config))
 
-        group_train = self.read_group(train_dir, retriever_config)
-        group_valid = self.read_group(dev_dir, retriever_config)
-        train_dmatrix = xgb.DMatrix(x_train, y_train)
-        valid_dmatrix = xgb.DMatrix(x_valid, y_valid)
+        # Train logistic regression
+        model = LogisticRegression(max_iter=1000, class_weight='balanced')
+        model.fit(x_train.toarray(), y_train)
 
-        train_dmatrix.set_group(group_train)
-        valid_dmatrix.set_group(group_valid)
+        # Save feature importance scores
+        importance = dict(zip(range(1, x_train.shape[1] + 1),
+                              abs(model.coef_[0])))
+        print("Feature importance:", importance)
 
-        params = {
-            "objective": "rank:ndcg",
-            "eta": 0.1,
-            "gamma": 1.0,
-            "min_child_weight": 0.1,
-            "max_depth": 6,
-            "eval_metric": "ndcg@10",
+        # Save model weights in readable format
+        feature_names = [
+            "keyword_rank", "keyword_score", "keyword_miss",
+            "vector_rank", "vector_score", "vector_miss",
+            "reranker_rank", "reranker_score", "placeholder"
+        ]
+
+        weights_dict = {
+            'features': feature_names,
+            'weights': model.coef_[0].tolist(),
+            'intercept': model.intercept_[0],
+            'feature_importance': dict(zip(feature_names, abs(model.coef_[0])))
         }
-        xgb_model = xgb.train(
-            params,
-            train_dmatrix,
-            num_boost_round=55,
-            evals=[(valid_dmatrix, "validation")],
-        )
-        print(xgb_model.get_score(importance_type="gain"))
 
-        if not os.path.exists(mode_dir):
-            os.makedirs(mode_dir)
-        model_name = os.path.join(mode_dir, f"xgb_{retriever_config}.json")
-        xgb_model.save_model(model_name)
+        # Save readable weights
+        weights_path = os.path.join(model_dir, f"weights_{retriever_config}.json")
+        with open(weights_path, 'w') as f:
+            json.dump(weights_dict, f, indent=2)
 
-        return model_name
+        # Save model
+        model_path = os.path.join(model_dir, f"logistic_{retriever_config}.joblib")
+        joblib.dump(model, model_path)
+        return model_path
 
-    def test_xgb(self, model_file, test_dir, retriever_config):
+    def test_logistic(self, model_file, test_dir, retriever_config):
+        """Test logistic regression model"""
+        # Load test data and model
         x_test, y_test = load_svmlight_file(os.path.join(test_dir, retriever_config))
-        test_dmatrix = xgb.DMatrix(x_test)
-        xgb_model = xgb.Booster()
-        xgb_model.load_model(model_file)
+        model = joblib.load(model_file)
 
-        print(xgb_model.get_score(importance_type="gain"))
-        pred = xgb_model.predict(test_dmatrix)
+        # Get predictions
+        pred_proba = model.predict_proba(x_test.toarray())[:, 1]  # Get probability of positive class
 
+        # Save predictions and evaluate
         test_svmlight_file = os.path.join(test_dir, "features.svmlight")
         pred_file = open(os.path.join(test_dir, f"{retriever_config}.pred"), "w")
         res = {}
         id = 0
         for line in open(test_svmlight_file, "r"):
             pos = line.index("#")
-            assert pos != -1
             pid = line[pos + 1:].strip()
             line = line[:pos]
             comps = line.strip().split(" ")
             qid = comps[1].split(":")[1].strip()
+
             if qid not in res:
                 res[qid] = {}
 
-            res[qid][pid] = pred[id].item()
+            res[qid][pid] = pred_proba[id]
             pred_file.write(f"{qid} {pid} {res[qid][pid]}\n")
             id += 1
-        assert id == len(pred)
+
+        # Evaluate results
         logger.info("Evaluate passage results")
         metric_file = os.path.join(test_dir, f"metric_{retriever_config}.json")
         qrels_file = os.path.join(test_dir, "qrels.jsonl")
@@ -385,46 +296,27 @@ class Experiment:
         ndcg_passage = metric[0]["NDCG@10"]
         logger.info(f"NDCG@10: {ndcg_passage}")
 
-    def cross_validation(self, eval_on):
-        for retriever_config in config_to_features.keys():
-            logger.info(f"*** Train retrievers: {retriever_config}")
-            features_to_use, features_to_normalize = config_to_features[
-                retriever_config
-            ]
-
-            prepare_xgbdata(
-                os.path.join(self.output_prefix, eval_on),
-                retriever_config,
-                retriever_config + ".group",
-                features_to_use,
-                features_to_normalize,
-            )
-
-            self.cross_validation_xgb(
-                os.path.join(self.output_prefix, eval_on),
-                retriever_config,
-            )
-
     def train(self, train_on, eval_on):
-        splits = [train_on, eval_on]
+        """Train logistic regression models for different feature combinations"""
         for retriever_config in config_to_features.keys():
             logger.info(f"*** Train retrievers: {retriever_config}")
-            features_to_use, features_to_normalize = config_to_features[
-                retriever_config
-            ]
-
-            for split in splits:
-                prepare_xgbdata(
+            features_to_use = config_to_features[retriever_config]
+            # import pdb; pdb.set_trace()
+            # Prepare data for both splits
+            for split in [train_on, eval_on]:
+                prepare_features(
                     os.path.join(self.output_prefix, split),
                     retriever_config,
                     retriever_config + ".group",
-                    features_to_use,
-                    features_to_normalize,
+                    features_to_use
                 )
 
-            # run xgboost training and prediction, print each retriever's ndcg@5 and the combined ndcg@5
+            # Train logistic regression
             model_dir = os.path.join(self.output_prefix, "models")
-            self.train_xgb(
+            if not os.path.exists(model_dir):
+                os.makedirs(model_dir)
+
+            self.train_logistic(
                 os.path.join(self.output_prefix, train_on),
                 os.path.join(self.output_prefix, eval_on),
                 model_dir,
@@ -433,24 +325,20 @@ class Experiment:
         return model_dir
 
     def test(self, eval_on, model_dir):
+        """Test logistic regression models"""
         for retriever_config in config_to_features.keys():
             logger.info(f"*** Test retrievers: {retriever_config}")
-            features_to_use, features_to_normalize = config_to_features[
-                retriever_config
-            ]
+            features_to_use = config_to_features[retriever_config]
 
-            # for split in splits:
-            prepare_xgbdata(
+            prepare_features(
                 os.path.join(self.output_prefix, eval_on),
                 retriever_config,
                 retriever_config + ".group",
-                features_to_use,
-                features_to_normalize,
+                features_to_use
             )
 
-            # run xgboost training and prediction, print each retriever's ndcg@5 and the combined ndcg@5
-            self.test_xgb(
-                os.path.join(model_dir, f"xgb_{retriever_config}.json"),
+            self.test_logistic(
+                os.path.join(model_dir, f"logistic_{retriever_config}.joblib"),
                 os.path.join(self.output_prefix, eval_on),
                 retriever_config,
             )
@@ -464,11 +352,7 @@ class Experiment:
             "metric_es+vs.json",
             "metric_es+rr.json",
             "metric_vs+rr.json",
-            "metric_es+vs+rr.json",
-            "metric_es+vs_n.json",
-            "metric_es+rr_n.json",
-            "metric_vs+rr_n.json",
-            "metric_es+vs+rr_n.json",
+            "metric_es+vs+rr.json"
         ]:
             file = os.path.join(self.output_prefix, eval_on, metric_file)
             for line in open(file, "r"):
@@ -495,7 +379,6 @@ if __name__ == "__main__":
         config_file = sys.argv[4]
         config = load_train_config(config_file)
 
-
     drop_old = True
     experiment = Experiment(dataset_name, drop_old, config)
 
@@ -505,13 +388,9 @@ if __name__ == "__main__":
     if eval_on != train_on:
         experiment.generate_feature_data(dataset_name, eval_on)
     experiment.compute_baselines(eval_on)
-    if train_on == eval_on:
-        experiment.cross_validation(eval_on)
-    else:
-        model_dir = experiment.train(train_on, eval_on)
-        experiment.test(eval_on, model_dir)
-    logger.info(
-        f"train: {train_on}, eval: {eval_on}, cross-validation: {train_on == eval_on}"
-    )
+
+    model_dir = experiment.train(train_on, eval_on)
+    experiment.test(eval_on, model_dir)
+
+    logger.info(f"train: {train_on}, eval: {eval_on}")
     experiment.report(eval_on, "NDCG@10")
-    experiment.report(eval_on, "Recall@10")

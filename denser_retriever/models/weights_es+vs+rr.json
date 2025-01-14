@@ -1,0 +1,34 @@
+{
+  "features": [
+    "keyword_rank",
+    "keyword_score",
+    "keyword_miss",
+    "vector_rank",
+    "vector_score",
+    "vector_miss",
+    "reranker_rank",
+    "reranker_score",
+    "placeholder"
+  ],
+  "weights": [
+    -0.005687755453616642,
+    0.0002516730714261873,
+    -0.8999889115535255,
+    -0.04092359241726139,
+    4.207454726244431,
+    -9.667881613381608,
+    -0.01749689854764054,
+    0.07694720378320911
+  ],
+  "intercept": 7.9827481403858185,
+  "feature_importance": {
+    "keyword_rank": 0.005687755453616642,
+    "keyword_score": 0.0002516730714261873,
+    "keyword_miss": 0.8999889115535255,
+    "vector_rank": 0.04092359241726139,
+    "vector_score": 4.207454726244431,
+    "vector_miss": 9.667881613381608,
+    "reranker_rank": 0.01749689854764054,
+    "reranker_score": 0.07694720378320911
+  }
+}

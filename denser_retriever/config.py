@@ -11,7 +11,7 @@ from denser_retriever.core.embeddings import (
 )
 
 # Define the fusion mode type
-FusionMode = Literal["linear", "rank", "model"]
+FusionMode = Literal["hybrid", "reranker", "model"]
 
 
 class ESConfig(BaseModel):
@@ -30,35 +30,26 @@ class EmbeddingConfig(BaseModel):
     one_model: bool = False
 
 
-class LinearConfig(BaseModel):
-    top_k: int = 100
-    weight: float = 1.0
-
-
-class RankConfig(BaseModel):
-    top_k: int = 100
-
-
-class XGBConfig(BaseModel):
-    xgb_model_features: str
-    xgb_model: str
+class LRConfig(BaseModel):
+    lr_features: str
+    lr_model: str
 
 
 class FusionConfig(BaseModel):
     mode: FusionMode = None
-    vector: LinearConfig | RankConfig = None
-    keyword: LinearConfig | RankConfig = None
-    reranker: LinearConfig | RankConfig = None
-    xgb_config: Optional[XGBConfig] = None
+    keyword_top_k: int = 100
+    vector_top_k: int = 100
+    reranker_top_k: int = 100
+    lr_config: Optional[LRConfig] = None
 
 
 class RetrieverConfig(BaseModel):
     max_query_len: int = 2000
     es: ESConfig = ESConfig()
     milvus: MilvusConfig = None
-    reranker_model: str = None # "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    embedding: EmbeddingConfig = None # EmbeddingConfig()
-    fusion_config: FusionConfig = None # FusionConfig()
+    reranker_model: str = None
+    embedding: EmbeddingConfig = None
+    fusion_config: FusionConfig = None
     voyage_api_key: Optional[str] = None
     is_retriever: bool = True
     aggregation: bool = False
@@ -165,7 +156,7 @@ def default_train_config() -> TrainConfig:
 
 # Example usage
 if __name__ == '__main__':
-    retriever_config = 'denser_retriever/configs/tri-force-linear.json'
+    retriever_config = 'denser_retriever/configs/fused.json'
     print(f"{retriever_config}\n{load_retriever_config(retriever_config)}")
 
     train_config = 'denser_retriever/configs/default.json'
