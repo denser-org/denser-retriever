@@ -1,9 +1,5 @@
 {
   "max_query_len": 2000,
-  "es": {
-    "url": "http://localhost:9200",
-    "analysis": "default"
-  },
   "milvus": {
     "uri": "http://localhost:19530"
   },
@@ -14,8 +10,7 @@
     "one_model": false
   },
   "combine_config": {
-    "method": "hybrid",
-    "keyword-top-k":100,
+    "method": "vector",
     "vector-top-k":100
   },
   "aggregation": false

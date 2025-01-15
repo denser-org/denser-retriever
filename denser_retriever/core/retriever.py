@@ -9,10 +9,9 @@ from denser_retriever.core.keyword import DenserKeywordSearch
 from denser_retriever.core.reranker import DenserReranker
 from denser_retriever.core.utils import docs_to_dict
 from denser_retriever.core.vectordb.base import DenserVectorDB
-from denser_retriever.config import FusionConfig
+from denser_retriever.config import CombineConfig
 from denser_retriever.core.logistic_regression import LogisticRegression
 from denser_retriever.core.utils import config_to_features
-
 
 
 class DenserRetriever:
@@ -23,18 +22,18 @@ class DenserRetriever:
             vector_db: Optional[DenserVectorDB],
             reranker: Optional[DenserReranker],
             embeddings: DenserEmbeddings,
-            fusion_config: FusionConfig,
+            combine_config: CombineConfig,
             search_fields: List[str] = [],
             date_fields: List[str] = [],
     ):
         # config parameters
         self.index_name = index_name
-        self.fusion_mode = fusion_config.mode
+        self.combine_method = combine_config.method
         # models
         self.embeddings = embeddings
-        if fusion_config.lr_config:
-            self.lr_model = LogisticRegression(fusion_config.lr_config.lr_model)
-            self.lr_features = config_to_features[fusion_config.lr_config.lr_features]
+        if combine_config.lr_config:
+            self.lr_model = LogisticRegression(combine_config.lr_config.lr_model)
+            self.lr_features = config_to_features[combine_config.lr_config.lr_features]
         else:
             self.lr_model = None
             self.lr_features = None
@@ -69,37 +68,61 @@ class DenserRetriever:
             self,
             query: str,
             k: int,
-            fusion_config: FusionConfig,
+            combine_config: CombineConfig,
             filter: Dict[str, Any] = {},
             aggregation: bool = False
     ):
-        """Updated retrieve method to support new fusion modes."""
         logger.info(f"Retrieve query: {query} top_k: {k}")
-        if self.fusion_mode == "hybrid":
-            return self.retrieve_by_hybrid(query, k, fusion_config, filter, aggregation)
-        elif self.fusion_mode == "reranker":
-            return self.retrieve_by_reranker(query, k, fusion_config, filter, aggregation)
-        elif self.fusion_mode == "model":
-            return self.retrieve_by_model(query, k, fusion_config, filter, aggregation)
+        if self.combine_method == "vector":
+            return self.retrieve_by_vector(query, k, combine_config, filter, aggregation)
+        elif self.combine_method == "hybrid":
+            return self.retrieve_by_hybrid(query, k, combine_config, filter, aggregation)
+        elif self.combine_method == "reranker":
+            return self.retrieve_by_reranker(query, k, combine_config, filter, aggregation)
+        elif self.combine_method == "model":
+            return self.retrieve_by_fusion(query, k, combine_config, filter, aggregation)
         else:
-            raise ValueError(f"Unknown fusion mode: {self.fusion_mode}")
+            raise ValueError(f"Unknown combine method {self.combine_method}")
+
+    def retrieve_by_vector(
+            self,
+            query: str,
+            k: int,
+            combine_config: CombineConfig,
+            filter: Dict[str, Any] = {},
+            aggregation: bool = False
+    ) -> List[Tuple[Document, float]]:
+        """Vector-only search using the vector database.
+        """
+        if not self.vector_db:
+            raise ValueError("Vector database not initialized")
+
+        # Get vector search results
+        vs_docs = self.vector_db.similarity_search_with_score(
+            query,
+            k,  # Use k directly since we're only doing vector search
+            filter=filter
+        )
+
+        # Return results and None for aggregations since vector search doesn't support them
+        return vs_docs, None
 
     def retrieve_by_hybrid(
             self,
             query: str,
             k: int,
-            fusion_config: FusionConfig,
+            combine_config: CombineConfig,
             filter: Dict[str, Any] = {},
             aggregation: bool = False
     ) -> List[Tuple[Document, float]]:
         """Hybrid search using keyword and vector positions."""
         # Get keyword search results
         ks_docs, aggregations = self.keyword_search.retrieve(
-            query, fusion_config.keyword_top_k, filter=filter, aggregation=aggregation
+            query, combine_config.keyword_top_k, filter=filter, aggregation=aggregation
         )
         # Get vector search results
         vs_docs = self.vector_db.similarity_search_with_score(
-            query, fusion_config.vector_top_k, filter=filter
+            query, combine_config.vector_top_k, filter=filter
         )
 
         # Extract position information
@@ -115,7 +138,7 @@ class DenserRetriever:
 
         # Calculate hybrid scores
         hybrid_scores = {}
-        max_rank = max(fusion_config.keyword_top_k, fusion_config.vector_top_k)
+        max_rank = max(combine_config.keyword_top_k, combine_config.vector_top_k)
 
         for pid, doc in all_docs.items():
             # Get ranks (default to max_rank + 1 if not found)
@@ -139,14 +162,14 @@ class DenserRetriever:
             self,
             query: str,
             k: int,
-            fusion_config: FusionConfig,
+            combine_config: CombineConfig,
             filter: Dict[str, Any] = {},
             aggregation: bool = False
     ) -> List[Tuple[Document, float]]:
         """Two-stage retrieval: keyword search followed by reranking."""
         # First stage: keyword search
         ks_docs, aggregations = self.keyword_search.retrieve(
-            query, fusion_config.keyword_top_k, filter=filter, aggregation=aggregation
+            query, combine_config.keyword_top_k, filter=filter, aggregation=aggregation
         )
 
         # Extract documents for reranking
@@ -159,17 +182,17 @@ class DenserRetriever:
 
         return ks_docs[:k], aggregations
 
-    def retrieve_by_model(
+    def retrieve_by_fusion(
             self,
             query: str,
             k: int,
-            fusion_config: FusionConfig,
+            combine_config: CombineConfig,
             filter: Dict[str, Any] = {},
             aggregation: bool = False
     ) -> List[Tuple[Document, float]]:
         """Retrieve using logistic regression model for fusion."""
         docs, doc_features, aggregations = self._retrieve_with_features(
-            query, fusion_config, filter, aggregation
+            query, combine_config, filter, aggregation
         )
         scores = []
 
@@ -185,7 +208,7 @@ class DenserRetriever:
     def _retrieve_with_features(
             self,
             query: str,
-            fusion_config: FusionConfig,
+            combine_config: CombineConfig,
             filter: Dict[str, Any] = {},
             aggregation: bool = False
     ) -> Tuple[List[Document], List[List[str]]]:
@@ -194,12 +217,12 @@ class DenserRetriever:
 
         if self.keyword_search:
             ks_docs, aggregations = self.keyword_search.retrieve(
-                query, fusion_config.keyword_top_k, filter=filter, aggregation=aggregation
+                query, combine_config.keyword_top_k, filter=filter, aggregation=aggregation
             )
         vs_docs = []
         if self.vector_db:
             vs_docs = self.vector_db.similarity_search_with_score(
-                query, fusion_config.vector_top_k, filter=filter
+                query, combine_config.vector_top_k, filter=filter
             )
 
         combined = []

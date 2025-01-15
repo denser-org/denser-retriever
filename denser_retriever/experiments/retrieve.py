@@ -1,11 +1,10 @@
 import argparse
 import json
 import logging
-from typing import Optional
 
 from denser_retriever.core.retriever import DenserRetriever
-from denser_retriever.config import RetrieverConfig, FusionConfig, ESConfig, MilvusConfig, EmbeddingConfig, LinearConfig
-from denser_retriever.experiments.hf_data_loader import HFDataLoader
+from denser_retriever.config import RetrieverConfig, CombineConfig, ESConfig, MilvusConfig, EmbeddingConfig, \
+    load_retriever_config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,7 +16,6 @@ def format_results(results, aggregations):
         "results": [],
         "aggregations": aggregations
     }
-    pid_to_score = {}
 
     for doc, score in results:
         formatted["results"].append({
@@ -25,25 +23,8 @@ def format_results(results, aggregations):
             "metadata": doc.metadata,
             "score": score
         })
-        pid_to_score[doc.metadata["pid"]] = score
 
-    return formatted, pid_to_score
-
-
-# Read offline scores of the first query from file
-def read_offline_scores(file_path: str) -> Optional[dict]:
-    out = open(file_path, "r")
-    prev_query_id = None
-    offline_pid_to_score = {}
-    for line in out:
-        comps = line.strip().split()
-        assert len(comps) == 3
-        query_id, doc_id, score = comps
-        offline_pid_to_score[doc_id] = float(score)
-        if prev_query_id and prev_query_id != query_id:
-            break
-        prev_query_id = query_id
-    return offline_pid_to_score
+    return formatted
 
 
 def create_parser():
@@ -51,18 +32,17 @@ def create_parser():
     parser = argparse.ArgumentParser(description="Retrieve relevant passages for a query")
 
     # Required arguments
-    parser.add_argument("dataset_name", help="Name of the dataset/index to search")
+    parser.add_argument("index_name", help="Name of the index to search")
     parser.add_argument("query", help="Search query")
 
     # Optional config file
     parser.add_argument("--config", help="Path to config JSON file (overrides other arguments)")
 
     # General settings
-    parser.add_argument("--max-query-len", type=int, default=2000, help="Maximum query length")
-    parser.add_argument("--top-k", type=int, default=10, help="Number of final results to return")
-    parser.add_argument("--aggregation", action="store_true", help="Enable aggregation")
     parser.add_argument("--output", help="Output JSON file path")
-    parser.add_argument("--offline_scores", help="Path to offline scores file")
+    parser.add_argument("--top-k", type=int, default=10, help="Number of results to return")
+    parser.add_argument("--max-query-len", type=int, default=2000, help="Maximum query length")
+    parser.add_argument("--aggregation", action="store_true", help="Enable aggregation")
 
     # Elasticsearch settings
     parser.add_argument("--es-url", default="http://localhost:9200", help="Elasticsearch URL")
@@ -81,19 +61,25 @@ def create_parser():
     parser.add_argument("--embedding-one-model", action="store_true", help="Use one model for embedding")
 
     # Fusion settings
-    parser.add_argument("--fusion-mode", default="linear", choices=["linear", "rank", "model"], help="Fusion mode")
-    parser.add_argument("--vector-top-k", type=int, default=100, help="Vector search top K")
-    parser.add_argument("--vector-weight", type=float, default=1.0, help="Vector search weight")
+    parser.add_argument("--combine-method", default="fusion", help="Combine method type")
     parser.add_argument("--keyword-top-k", type=int, default=100, help="Keyword search top K")
-    parser.add_argument("--keyword-weight", type=float, default=1.0, help="Keyword search weight")
-    parser.add_argument("--reranker-top-k", type=int, default=50, help="Reranker top K")
-    parser.add_argument("--reranker-weight", type=float, default=1.0, help="Reranker weight")
+    parser.add_argument("--vector-top-k", type=int, default=100, help="Vector search top K")
+    parser.add_argument("--reranker-top-k", type=int, default=100, help="Reranker top K")
+    parser.add_argument("--lr-features", default="es+vs+rr", help="LR features for model fusion")
+    parser.add_argument("--lr-model", default="denser_retriever/models/weights_es+vs+rr.json", help="Path to LR model weights")
 
     return parser
 
 
 def create_config_from_args(args):
     """Create RetrieverConfig from command line arguments."""
+    lr_config = None
+    if args.combine_method == "fusion":
+        lr_config = {
+            "lr_features": args.lr_features,
+            "lr_model": args.lr_model
+        }
+
     config = RetrieverConfig(
         max_query_len=args.max_query_len,
         es=ESConfig(
@@ -110,24 +96,32 @@ def create_config_from_args(args):
             size=args.embedding_size,
             one_model=args.embedding_one_model
         ),
-        fusion_config=FusionConfig(
-            mode=args.fusion_mode,
-            vector=LinearConfig(
-                top_k=args.vector_top_k,
-                weight=args.vector_weight
-            ),
-            keyword=LinearConfig(
-                top_k=args.keyword_top_k,
-                weight=args.keyword_weight
-            ),
-            reranker=LinearConfig(
-                top_k=args.reranker_top_k,
-                weight=args.reranker_weight
-            )
+        combine_config=CombineConfig(
+            method=args.combine_method,
+            keyword_top_k=args.keyword_top_k,
+            vector_top_k=args.vector_top_k,
+            reranker_top_k=args.reranker_top_k,
+            lr_config=lr_config
         ),
         aggregation=args.aggregation
     )
     return config
+
+
+def get_retrieval_method(retriever: DenserRetriever, method: str):
+    """Get the appropriate retrieval method from the retriever."""
+    available_methods = {
+        'vector': retriever.retrieve_by_vector,
+        'hybrid': retriever.retrieve_by_hybrid,
+        'reranker': retriever.retrieve_by_reranker,
+        'fusion': retriever.retrieve_by_fusion
+    }
+
+    if method not in available_methods:
+        raise ValueError(f"Invalid method: {method}. "
+                         f"Available methods are: {list(available_methods.keys())}")
+
+    return available_methods[method]
 
 
 def main():
@@ -136,25 +130,35 @@ def main():
 
     # Load config from file if provided, otherwise create from arguments
     if args.config:
-        from denser_retriever.config import load_retriever_config
         config = load_retriever_config(args.config)
     else:
         config = create_config_from_args(args)
 
     # Initialize retriever
-    retriever_config = config.get_retriever_config(args.dataset_name, False)
+    retriever_config = config.get_retriever_config(args.index_name, False)
     retriever = DenserRetriever(**retriever_config)
 
-    # Perform retrieval
-    results, aggregations = retriever.retrieve(args.query, args.top_k, retriever_config["fusion_config"])
-    formatted_results, pid_to_score = format_results(results, aggregations)
+    # Get the specified retrieval method
+    retrieve_method = get_retrieval_method(retriever, config.combine_config.method)
+
+    # Perform retrieval using the selected method
+    results, aggregations = retrieve_method(
+        query=args.query,
+        k=args.top_k,
+        combine_config=retriever_config["combine_config"],
+        filter={},
+        aggregation=config.aggregation
+    )
+
+    formatted_results = format_results(results, aggregations)
 
     # Output results
     if args.output:
         with open(args.output, 'w') as f:
             json.dump(formatted_results, f, indent=2)
     else:
-        print("\nTop", len(results), "results for query:", args.query)
+        print(f"\nTop {len(results)} results for query: {args.query}")
+        print(f"Using method: {retriever_config['combine_config'].method}")
         print("-" * 80)
         for i, result in enumerate(formatted_results["results"], 1):
             print(f"\n{i}. Score: {result['score']:.4f}")
@@ -162,15 +166,6 @@ def main():
             if result['metadata']:
                 print("Metadata:", json.dumps(result['metadata'], indent=2, ensure_ascii=False))
             print("-" * 80)
-
-    # Verify online scores against offline scores
-    if args.offline_scores:
-        offline_pid_to_score = read_offline_scores(args.offline_scores)
-        import pdb; pdb.set_trace()
-        for pid, score in pid_to_score.items():
-            if pid in offline_pid_to_score:
-                assert abs(score - offline_pid_to_score[pid]) < 1e-4
-        print("Online scores match offline scores.")
 
 
 if __name__ == "__main__":

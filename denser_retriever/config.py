@@ -10,8 +10,8 @@ from denser_retriever.core.embeddings import (
     BGEEmbeddings
 )
 
-# Define the fusion mode type
-FusionMode = Literal["hybrid", "reranker", "model"]
+# Define the combine method type
+CombineMethod = Literal["vector", "hybrid", "reranker", "fusion"]
 
 
 class ESConfig(BaseModel):
@@ -35,8 +35,8 @@ class LRConfig(BaseModel):
     lr_model: str
 
 
-class FusionConfig(BaseModel):
-    mode: FusionMode = None
+class CombineConfig(BaseModel):
+    method: CombineMethod = None
     keyword_top_k: int = 100
     vector_top_k: int = 100
     reranker_top_k: int = 100
@@ -49,7 +49,7 @@ class RetrieverConfig(BaseModel):
     milvus: MilvusConfig = None
     reranker_model: str = None
     embedding: EmbeddingConfig = None
-    fusion_config: FusionConfig = None
+    combine_config: CombineConfig = None
     voyage_api_key: Optional[str] = None
     is_retriever: bool = True
     aggregation: bool = False
@@ -111,7 +111,7 @@ class RetrieverConfig(BaseModel):
             "vector_db": vector_db,
             "reranker": reranker,
             "embeddings": embeddings,
-            "fusion_config": self.fusion_config
+            "combine_config": self.combine_config
         }
 
 
@@ -156,7 +156,7 @@ def default_train_config() -> TrainConfig:
 
 # Example usage
 if __name__ == '__main__':
-    retriever_config = 'denser_retriever/configs/fused.json'
+    retriever_config = 'denser_retriever/configs/fusion.json'
     print(f"{retriever_config}\n{load_retriever_config(retriever_config)}")
 
     train_config = 'denser_retriever/configs/default.json'

@@ -4,66 +4,92 @@ A command-line interface for retrieving and training.
 
 ## Retrieving
 
-There are three ways to use the retriever:
+Denser retriever consists of three components: keyword search, vector search, and reranker. We provide the following
+methods to combine these components:
 
-1. Using a configuration file:
+1. `vector`: Use the vector db search results directly.
+2. `hybrid`: Use the rank positions of keyword search and vector db search results to combine the final results.
+3. `reranker`: Use keyword search followed by a reranker to get the final results.
+4. `fusion`: Use a logistic regression model to fuse keyword search, vector search and reranker.
 
-```bash
-python -m denser_retriever.experiments.retrieve scifact "What causes cancer?" --config denser_retriever/configs/tri-force-linear.json
-```
-
-The config files `tri-force-linear.json`, `tri-force-rank.json`, `tri-force-model` are provided in the `configs` directory, which uses a `linear`, `rank` and `model` fusion mode respectively to retrieve passages. 
-
-To use a trained xgboost model to fuse passages we use `tri-force-model` config file
-
-```bash
-python -m denser_retriever.experiments.retrieve scifact "What causes cancer?" --config denser_retriever/configs/tri-force-model.json
-```
-
-`tri-force-model.json` includes the path to a xgboost model: 
-```json
-"xgb_model": "/home/ubuntu/denser-retriever/exps/exp_scifact/models/xgb_es+vs+rr_n.json"
-```
-
-See Training section below to see how to train a xgboost model.
-
-2. Using command-line arguments:
+To retrieve passages for a given question with the `fusion` method, use the following command. The first argument is the
+retriever index name, the second argument is the question, and the third argument is the path to the configuration file.
+The retriever index is generated in the Training section below.
+Replace `fusion.json` with `vector.json`, `hybrid.json`, `reranker.json` to use the corresponding method.
 
 ```bash
-python -m denser_retriever.experiments.retrieve scifact "What causes cancer?" \
-    --fusion-mode linear \
-    --vector-top-k 100 \
-    --keyword-top-k 100 \
-    --reranker-top-k 50
-    ...
+python -m denser_retriever.experiments.retrieve scifact "0-dimensional biomaterials show inductive properties." --config denser_retriever/configs/fusion.json
 ```
 
-3. Using a config file with command line overrides:
+Instead of using a configuration file, you can also use command-line arguments. Replace `fusion`
+with `vector`, `hybrid`, `reranker` to use the corresponding method.
 
 ```bash
-python -m denser_retriever.experiments.retrieve scifact "What causes cancer?" \
-    --config denser_retriever/configs/tri-force-linear.json \
-    --vector-top-k 150  # Override just this parameter
-   ```
+python -m denser_retriever.experiments.retrieve scifact "0-dimensional biomaterials show inductive properties." --combine-method fusion
+```
+
+Either of the above commands leads to the following results:
+
+```text
+Top 10 results for query: 0-dimensional biomaterials show inductive properties.
+Using method: fusion
+--------------------------------------------------------------------------------
+
+1. Score: 0.5843
+Content: Life forms that have low body mass can hunt for food on the undersurface of branches or along shear cliff faces quite unperturbed by gravity. For larger animals, the hunt for dinner and the struggle t...
+Metadata: {
+  "title": "Periosteal bone formation--a neglected determinant of bone strength.",
+  "source": null,
+  "pid": "40212412"
+}
+--------------------------------------------------------------------------------
+
+2. Score: 0.5039
+Content: BACKGROUND Carbon nanotubes (CNT) hold great promise to create new and better products for commercial and biomedical applications, but their long-term adverse health effects are a major concern. The o...
+Metadata: {
+  "title": "Induction of stem-like cells with malignant properties by chronic exposure of human lung epithelial cells to single-walled carbon nanotubes",
+  "source": null,
+  "pid": "16532419"
+}
+--------------------------------------------------------------------------------
+```
 
 ## Training (Optional)
 
-Train a denser retriever is optional. The purpose of training is to train a xgboost model which intelligently fuses keyword search, vector search and reranker model to improve retrieve accuracy. Without training, we can still use `linear` or `rank` fusion mode to fuse keyword search, vector search and reranker. 
+Training refers to train a logistic regression model to fuse keyword search, vector search and rerank. The trained
+logistic regression model is used in the `fusion` combine method. Without training, we can still use `vector`, `hybrid`,
+and `reranker` methods to retrieve passages.
 
-The following command shows a training example, where `mteb/scifact` is the dataset name, `train` and `test` are the splits to use, and `default.json` is the training configuration file.
+The following command shows a training example, where `mteb/scifact` is the dataset name, `train` and `test` are the
+splits to use, and `train_default.json` is the training configuration file.
 
 ```bash
-python -m denser_retriever.experiments.train mteb/scifact train test denser_retriever/configs/default.json
+python -m denser_retriever.experiments.train mteb/scifact train test denser_retriever/configs/train_default.json
 ```
 
 The training process:
 
 1. Ingests documents from the dataset
-2. Generates training features for each split
+2. Generates features for each split
 3. Computes baseline performance metrics
-4. Trains the model using cross-validation or train/test splits
-5. Reports final performance metrics
+4. Trains the model using train split
+5. Reports final performance metrics on test split
 
-After training, the following models are saved to the `exps/exp_scifact/models` directory: xgb_es+rr.json  xgb_es+rr_n.json  xgb_es+vs+rr.json  xgb_es+vs+rr_n.json  xgb_es+vs.json  xgb_es+vs_n.json  xgb_vs+rr.json  xgb_vs+rr_n.json. We can use one of the trained models to retrieve passages.
+After training, we get the following accuracy report. The `es+vs+rr` config corresponds to the logistic regression
+model. It outperforms the other methods including the keyword search and vector search.
+
+```commandline
+== NDCG@10
+metric_keyword.json: "NDCG@10": 0.58425,
+metric_vector.json: "NDCG@10": 0.73167,
+metric_reranker.json: "NDCG@10": 0.67021,
+metric_es+vs.json: "NDCG@10": 0.73476,
+metric_es+rr.json: "NDCG@10": 0.68317,
+metric_vs+rr.json: "NDCG@10": 0.73946,
+metric_es+vs+rr.json: "NDCG@10": 0.74344,
+```
+
+In addition, the model `weights_es+vs+rr.json` is saved to the `exps/exp_scifact/models` directory. We can use this
+trained model in `fusion` combine method to retrieve passages.
 
 

@@ -34,7 +34,7 @@ retriever = DenserRetriever(
         "Snowflake/snowflake-arctic-embed-m", 768, False
     ),
     reranker=HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2"),
-    fusion_config=None
+    combine_config=None
 )
 retriever.ingest(texts)
 

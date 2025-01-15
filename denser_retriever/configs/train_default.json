@@ -18,8 +18,8 @@
     "size": 768,
     "one_model": false
   },
-  "fusion_config": {
-    "mode": "model",
+  "combine_config": {
+    "method": "fusion",
     "keyword-top-k":100,
     "vector-top-k":100,
     "reranker-top-k":100

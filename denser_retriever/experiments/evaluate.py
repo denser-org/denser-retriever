@@ -1,10 +1,10 @@
 import argparse
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import os
 
 from denser_retriever.core.retriever import DenserRetriever
-from denser_retriever.config import RetrieverConfig, load_retriever_config, FusionConfig
+from denser_retriever.config import RetrieverConfig, load_retriever_config, CombineConfig
 from denser_retriever.experiments.hf_data_loader import HFDataLoader
 from denser_retriever.core.utils import evaluate
 
@@ -15,21 +15,32 @@ logger = logging.getLogger(__name__)
 def process_queries_all_methods(
         retriever: DenserRetriever,
         queries: list,
-        fusion_config: FusionConfig,
+        combine_config: CombineConfig,
         top_k: int,
+        methods: List[str] = None,
         max_query_len: int = 2000,
         num_queries: int = 0
 ) -> Dict[str, Dict[str, Dict[str, float]]]:
-    """Process all queries with different retrieval methods.
-
-    Returns:
-        Dictionary mapping method name to qid_to_pid_scores for each method
+    """Process queries with specified retrieval methods.
     """
-    results = {
-        'hybrid': {},
-        'reranker': {},
-        'model': {}
+    available_methods = {
+        'vector': retriever.retrieve_by_vector,
+        'hybrid': retriever.retrieve_by_hybrid,
+        'reranker': retriever.retrieve_by_reranker,
+        'fusion': retriever.retrieve_by_fusion
     }
+
+    # If no methods specified, use all available methods
+    if methods is None:
+        methods = list(available_methods.keys())
+    else:
+        # Validate methods
+        invalid_methods = [m for m in methods if m not in available_methods]
+        if invalid_methods:
+            raise ValueError(f"Invalid methods specified: {invalid_methods}. "
+                             f"Available methods are: {list(available_methods.keys())}")
+
+    results = {method: {} for method in methods}
 
     for i, query in enumerate(queries):
         if num_queries > 0 and i >= num_queries:
@@ -39,17 +50,15 @@ def process_queries_all_methods(
         query_str = query["text"][:max_query_len] if max_query_len > 0 else query["text"]
         qid = query["id"]
 
-        # Process all three methods
-        for method, method_name in [
-            (retriever.retrieve_by_hybrid, 'hybrid'),
-            (retriever.retrieve_by_reranker, 'reranker'),
-            (retriever.retrieve_by_model, 'model')
-        ]:
+        # Process selected methods
+        for method_name in methods:
+            method_func = available_methods[method_name]
+
             # Call retrieval method
-            results_method, _ = method(
+            results_method, _ = method_func(
                 query=query_str,
                 k=top_k,
-                fusion_config=fusion_config,
+                combine_config=combine_config,
                 filter={},
                 aggregation=False
             )
@@ -63,7 +72,6 @@ def process_queries_all_methods(
                 results[method_name][qid][doc.metadata["pid"]] = score
 
             logger.info(f"{method_name} returned {len(results_method)} results")
-
 
     return results
 
@@ -118,6 +126,8 @@ def main():
     parser.add_argument("--top-k", type=int, default=100, help="Number of results to return")
     parser.add_argument("--num-queries", type=int, default=0, help="Number of queries to process (0 for all)")
     parser.add_argument("--split", default="test", help="Dataset split")
+    parser.add_argument("--methods", nargs="+", choices=['vector', 'hybrid', 'reranker', 'fusion'],
+                        help="Specific methods to evaluate. If not specified, evaluates all methods.")
     args = parser.parse_args()
 
     # Load config and initialize retriever
@@ -133,12 +143,13 @@ def main():
         keep_in_memory=False,
     ).load(split=args.split)
 
-    # Process queries with all methods
+    # Process queries with specified methods
     results = process_queries_all_methods(
         retriever=retriever,
         queries=queries,
-        fusion_config=retriever_config["fusion_config"],
+        combine_config=retriever_config["combine_config"],
         top_k=args.top_k,
+        methods=args.methods,
         num_queries=args.num_queries
     )
 

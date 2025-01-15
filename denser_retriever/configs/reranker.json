@@ -5,8 +5,8 @@
     "analysis": "default"
   },
   "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-  "fusion_config": {
-    "mode": "reranker",
+  "combine_config": {
+    "method": "reranker",
     "keyword-top-k":100,
     "reranker-top-k":100
   },

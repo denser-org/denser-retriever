@@ -49,14 +49,13 @@ class Experiment:
         self.max_query_len = config.max_query_len
         self.max_doc_size = config.max_doc_size
         self.max_doc_len = config.max_doc_len
-        self.es_top_k = config.fusion_config.keyword_top_k
-        self.vector_top_k = config.fusion_config.vector_top_k
-        self.reranker_top_k = config.fusion_config.reranker_top_k
+        self.es_top_k = config.combine_config.keyword_top_k
+        self.vector_top_k = config.combine_config.vector_top_k
+        self.reranker_top_k = config.combine_config.reranker_top_k
 
         # Initialize retriever with config
         index_name = data_name.replace("-", "_")
         retriever_config = config.get_retriever_config(index_name, drop_old)
-        # import pdb; pdb.set_trace()
         self.retriever = DenserRetriever(**retriever_config)
 
     def ingest(self, dataset_name, split):
