@@ -54,7 +54,7 @@ Metadata: {
 --------------------------------------------------------------------------------
 ```
 
-## Training (Optional)
+## Training
 
 Training refers to train a logistic regression model to fuse keyword search, vector search and rerank. The trained
 logistic regression model is used in the `fusion` combine method. Without training, we can still use `vector`, `hybrid`,
@@ -78,7 +78,7 @@ The training process:
 After training, we get the following accuracy report. The `es+vs+rr` config corresponds to the logistic regression
 model. It outperforms the other methods including the keyword search and vector search.
 
-```commandline
+```text
 == NDCG@10
 metric_keyword.json: "NDCG@10": 0.58425,
 metric_vector.json: "NDCG@10": 0.73167,
@@ -92,4 +92,26 @@ metric_es+vs+rr.json: "NDCG@10": 0.74344,
 In addition, the model `weights_es+vs+rr.json` is saved to the `exps/exp_scifact/models` directory. We can use this
 trained model in `fusion` combine method to retrieve passages.
 
+## Evaluation
+
+Run the following command to evaluate the retrieval performance of different methods: `vector`, `hybrid`, `reranker`, and `fusion`. The first argument is the index name, the second argument is the dataset name, the third argument is the path to the `fusion` configuration file, the fourth argument is the output directory, the fifth argument is the number of top-k passages to retrieve, and the sixth argument is the number of queries to evaluate. 
+
+```bash
+python -m denser_retriever.experiments.evaluate \
+    scifact \
+    mteb/scifact \
+    --config denser_retriever/configs/fusion.json \
+    --output-dir exps/exp_scifact/pred \
+    --top-k 100 \
+    --num-queries 0
+```
+
+After running the evaluation, we get the following results. Note the `fusion` method ndcg@10 number matches the `es+vs+rr` ndcg@10 number during training. In addition, fusion method outperforms the other methods.
+
+```text
+vector: 0.7317
+hybrid: 0.6832
+reranker: 0.6759
+fusion: 0.7434
+```
 
