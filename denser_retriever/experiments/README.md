@@ -27,9 +27,11 @@ We note that the ingestion stops when it exceeds the following quotas specified
 in `denser_retriever/configs/cost_config.json`.
 
 ```json
-  "es_storage_quota_gb": 2.0,
-"vector_storage_quota_gb": 2.0,
-"vector_token_quota_million": 2.0
+{
+   "es_storage_quota_gb": 2.0,
+   "vector_storage_quota_gb": 2.0,
+   "vector_token_quota_million": 2.0
+}
 ```
 
 The ingestion storage and vector tokens and their costs are reported after the ingestion. If you run a large experiment,
@@ -37,10 +39,12 @@ make sure to set the quotas to a higher value. As a reference, the ingestion of 
 following ingestion stats:
 
 ```json
-'num_docs': 5183,
-'es_storage_gb': 0.03670822083950042,
-'vector_storage_gb': 0.014828681945800781,
-'vector_tokens': 1635249
+{
+  "num_docs": 5183,
+  "es_storage_gb": 0.03670822083950042,
+  "vector_storage_gb": 0.014828681945800781,
+  "vector_tokens": 1635249
+}
 ```
 
 ## Retrieving
