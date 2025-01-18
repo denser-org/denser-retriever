@@ -2,6 +2,8 @@ import logging
 import os
 import sys
 import json
+import argparse
+from typing import List, Dict, Tuple
 
 from langchain_core.documents import Document
 from sklearn.datasets import load_svmlight_file
@@ -58,36 +60,125 @@ class Experiment:
         retriever_config = config.get_retriever_config(index_name, drop_old)
         self.retriever = DenserRetriever(**retriever_config)
 
-    def ingest(self, dataset_name, split):
-        exp_dir = os.path.join(self.output_prefix, split)
-        if not os.path.exists(exp_dir):
-            os.makedirs(exp_dir)
+    def _process_batch(self, docs: List[Document],
+                       remain_es_storage_quota_gb: float,
+                       remain_vector_storage_quota_gb: float,
+                       remain_vector_token_quota: int) -> Tuple[Dict[str, float], float, float, int]:
+        """Process a batch of documents with quota limits.
 
+        Args:
+            docs: List of documents to process
+            remain_es_storage_quota_gb: Remaining ES storage quota in GB
+            remain_vector_storage_quota_gb: Remaining vector storage quota in GB
+            remain_vector_token_quota: Remaining vector token quota
+
+        Returns:
+            Tuple containing:
+            - Metrics dictionary
+            - Remaining ES storage quota
+            - Remaining vector storage quota
+            - Remaining vector token quota
+        """
+        if not docs:
+            return ({"es_storage_gb": 0.0, "vector_storage_gb": 0.0, "vector_tokens": 0},
+                    remain_es_storage_quota_gb,
+                    remain_vector_storage_quota_gb,
+                    remain_vector_token_quota)
+
+        # Process documents and get metrics
+        _, metrics = self.retriever.ingest(docs, overwrite_pid=False)
+
+        # Update remaining quotas
+        new_es_quota = remain_es_storage_quota_gb - metrics["es_storage_gb"]
+        new_vector_quota = remain_vector_storage_quota_gb - metrics["vector_storage_gb"]
+        new_token_quota = remain_vector_token_quota - metrics["vector_tokens"]
+
+        if any(quota < 0 for quota in [new_es_quota, new_vector_quota, new_token_quota]):
+            logger.warning(f"Quota exceeded during batch processing: "
+                           f"ES: {new_es_quota:.2f}GB, "
+                           f"Vector: {new_vector_quota:.2f}GB, "
+                           f"Tokens: {new_token_quota:,}")
+
+        return metrics, new_es_quota, new_vector_quota, new_token_quota
+
+    def _calculate_costs(self, total_metrics: Dict[str, float]) -> Dict[str, float]:
+        """Calculate costs based on resource usage."""
+        with open('denser_retriever/configs/cost_config.json', 'r') as f:
+            costs = json.load(f)
+
+        storage_cost = costs['storage_cost_per_gb'] * (
+                total_metrics['es_storage_gb'] + total_metrics['vector_storage_gb'])
+        token_cost = (total_metrics['vector_tokens'] * costs['vector_token_cost_per_million']) / 1_000_000
+
+        return {
+            **total_metrics,
+            "storage_cost": storage_cost,
+            "token_cost": token_cost,
+            "total_cost": storage_cost + token_cost
+        }
+
+    def ingest(self, dataset_name: str, split: str) -> Dict[str, float]:
+        """Ingest dataset and return cost metrics."""
+        # Create output directory
+        exp_dir = os.path.join(self.output_prefix, split)
+        os.makedirs(exp_dir, exist_ok=True)
+
+        # Load and save corpus
         passage_file = os.path.join(exp_dir, "passages.jsonl")
         corpus, _, _ = HFDataLoader(
             hf_repo=dataset_name,
             hf_repo_qrels=None,
             streaming=False,
-            keep_in_memory=False,
+            keep_in_memory=False
         ).load(split=split)
+        save_HF_corpus_as_docs(corpus, passage_file, self.max_doc_size, self.max_doc_len)
 
-        save_HF_corpus_as_docs(
-            corpus, passage_file, self.max_doc_size, self.max_doc_len
-        )
+        # Load quotas from cost config
+        costs = json.load(open('denser_retriever/configs/cost_config.json', 'r'))
+        remain_es_storage_quota_gb = costs["es_storage_quota_gb"]
+        remain_vector_storage_quota_gb = costs["vector_storage_quota_gb"]
+        remain_vector_token_quota = costs["vector_token_quota_million"] * 1_000_000
 
-        out = open(passage_file, "r")
+        # Initialize metrics tracking
+        total_metrics = {"es_storage_gb": 0.0, "vector_storage_gb": 0.0, "vector_tokens": 0}
         docs = []
         num_docs = 0
-        for line in out:
-            doc_dict = json.loads(line)
-            docs.append(Document(**doc_dict))
-            if len(docs) == self.ingest_bs:
-                self.retriever.ingest(docs, overwrite_pid=False)
-                docs = []
-                num_docs += self.ingest_bs
-                logger.info(f"Ingested {num_docs} documents")
-        if len(docs) > 0:
-            self.retriever.ingest(docs, overwrite_pid=False)
+
+        with open(passage_file, "r") as f:
+            for line in f:
+                docs.append(Document(**json.loads(line)))
+                num_docs += 1
+
+                if len(docs) == self.ingest_bs:
+                    # Process batch with quota limits
+                    batch_metrics, remain_es_storage_quota_gb, remain_vector_storage_quota_gb, remain_vector_token_quota = \
+                        self._process_batch(docs, remain_es_storage_quota_gb, remain_vector_storage_quota_gb,
+                                            remain_vector_token_quota)
+
+                    # Update total metrics
+                    for key in total_metrics:
+                        total_metrics[key] += batch_metrics[key]
+
+                    docs = []
+                    logger.info(f"Ingested {num_docs} documents. Remaining quotas - "
+                                f"ES: {remain_es_storage_quota_gb:.2f}GB, "
+                                f"Vector: {remain_vector_storage_quota_gb:.2f}GB, "
+                                f"Tokens: {remain_vector_token_quota:,}")
+
+                    # Check if we've hit any quota limits
+                    if remain_es_storage_quota_gb <= 0 or remain_vector_storage_quota_gb <= 0 or remain_vector_token_quota <= 0:
+                        logger.warning("Quota limit reached. Stopping ingestion.")
+                        break
+
+            # Process remaining documents if any quotas left
+            if docs and any(quota > 0 for quota in
+                            [remain_es_storage_quota_gb, remain_vector_storage_quota_gb, remain_vector_token_quota]):
+                batch_metrics, _, _, _ = self._process_batch(
+                    docs, remain_es_storage_quota_gb, remain_vector_storage_quota_gb, remain_vector_token_quota)
+                for key in total_metrics:
+                    total_metrics[key] += batch_metrics[key]
+
+        return self._calculate_costs({"num_docs": num_docs, **total_metrics})
 
     def generate_feature_data(self, dataset_name, split):
         exp_dir = os.path.join(self.output_prefix, split)
@@ -362,34 +453,40 @@ class Experiment:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print(
-            "Usage: python train_and_test.py [dataset_name] [train] [test] [config_file (optional)]"
-        )
-        sys.exit(0)
+    parser = argparse.ArgumentParser(description="Train and evaluate retriever methods")
+    parser.add_argument("dataset_name", help="Name of the dataset")
+    parser.add_argument("train", help="Training split name")
+    parser.add_argument("test", help="Test split name")
+    parser.add_argument("--config", help="Path to config file")
+    parser.add_argument("--ingest-only", action="store_true", help="Only perform data ingestion")
 
-    dataset_name = sys.argv[1]
-    train_on = sys.argv[2]
-    eval_on = sys.argv[3]
+    args = parser.parse_args()
 
     # Load config if provided
     config = None
-    if len(sys.argv) > 4:
-        config_file = sys.argv[4]
-        config = load_train_config(config_file)
+    if args.config:
+        config = load_train_config(args.config)
 
     drop_old = True
-    experiment = Experiment(dataset_name, drop_old, config)
-
+    experiment = Experiment(args.dataset_name, drop_old, config)
+    train_ingestion_cost = None
     if drop_old:
-        experiment.ingest(dataset_name, train_on)
-    experiment.generate_feature_data(dataset_name, train_on)
-    if eval_on != train_on:
-        experiment.generate_feature_data(dataset_name, eval_on)
-    experiment.compute_baselines(eval_on)
+        train_ingestion_cost = experiment.ingest(args.dataset_name, args.train)
+        logger.info(f"Training ingestion cost: {train_ingestion_cost}")
 
-    model_dir = experiment.train(train_on, eval_on)
-    experiment.test(eval_on, model_dir)
+    if args.ingest_only:
+        logger.info("Ingest-only mode. Stopping after data ingestion.")
+        sys.exit(0)
 
-    logger.info(f"train: {train_on}, eval: {eval_on}")
-    experiment.report(eval_on, "NDCG@10")
+    # Continue with feature generation and training if not ingest-only
+    experiment.generate_feature_data(args.dataset_name, args.train)
+    if args.test != args.train:
+        experiment.generate_feature_data(args.dataset_name, args.test)
+    experiment.compute_baselines(args.test)
+
+    model_dir = experiment.train(args.train, args.test)
+    experiment.test(args.test, model_dir)
+
+    logger.info(f"train: {args.train}, eval: {args.test}")
+    logger.info(f"Training ingestion cost: {train_ingestion_cost}")
+    experiment.report(args.test, "NDCG@10")

@@ -11,7 +11,7 @@
   },
   "combine_config": {
     "method": "vector",
-    "vector-top-k":100
+    "vector_top_k":100
   },
   "aggregation": false
 }

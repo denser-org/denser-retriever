@@ -10,11 +10,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def format_results(results, aggregations):
+def format_results(results, aggregations, token_metrics):
     """Format retrieval results for output."""
     formatted = {
         "results": [],
-        "aggregations": aggregations
+        "aggregations": aggregations,
+        "token_metrics":token_metrics
     }
 
     for doc, score in results:
@@ -43,6 +44,8 @@ def create_parser():
     parser.add_argument("--top-k", type=int, default=10, help="Number of results to return")
     parser.add_argument("--max-query-len", type=int, default=2000, help="Maximum query length")
     parser.add_argument("--aggregation", action="store_true", help="Enable aggregation")
+    parser.add_argument("--no-usage", action="store_false", dest="usage", default=True,
+                        help="Disable resource usage metrics tracking and reporting")
 
     # Elasticsearch settings
     parser.add_argument("--es-url", default="http://localhost:9200", help="Elasticsearch URL")
@@ -62,9 +65,9 @@ def create_parser():
 
     # Fusion settings
     parser.add_argument("--combine-method", default="fusion", help="Combine method type")
-    parser.add_argument("--keyword-top-k", type=int, default=100, help="Keyword search top K")
-    parser.add_argument("--vector-top-k", type=int, default=100, help="Vector search top K")
-    parser.add_argument("--reranker-top-k", type=int, default=100, help="Reranker top K")
+    parser.add_argument("--keyword_top_k", type=int, default=100, help="Keyword search top K")
+    parser.add_argument("--vector_top_k", type=int, default=100, help="Vector search top K")
+    parser.add_argument("--reranker_top_k", type=int, default=100, help="Reranker top K")
     parser.add_argument("--lr-features", default="es+vs+rr", help="LR features for model fusion")
     parser.add_argument("--lr-model", default="denser_retriever/models/weights_es+vs+rr.json", help="Path to LR model weights")
 
@@ -142,15 +145,16 @@ def main():
     retrieve_method = get_retrieval_method(retriever, config.combine_config.method)
 
     # Perform retrieval using the selected method
-    results, aggregations = retrieve_method(
+    results, aggregations, token_metrics = retrieve_method(
         query=args.query,
         k=args.top_k,
         combine_config=retriever_config["combine_config"],
         filter={},
-        aggregation=config.aggregation
+        aggregation=config.aggregation,
+        usage=args.usage
     )
 
-    formatted_results = format_results(results, aggregations)
+    formatted_results = format_results(results, aggregations, token_metrics)
 
     # Output results
     if args.output:
@@ -159,6 +163,8 @@ def main():
     else:
         print(f"\nTop {len(results)} results for query: {args.query}")
         print(f"Using method: {retriever_config['combine_config'].method}")
+        if args.usage and token_metrics:
+            print(f"Usage: {formatted_results['token_metrics']}")
         print("-" * 80)
         for i, result in enumerate(formatted_results["results"], 1):
             print(f"\n{i}. Score: {result['score']:.4f}")

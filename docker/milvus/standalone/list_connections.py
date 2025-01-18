@@ -13,6 +13,6 @@ connections.connect(
 )
 print(f"All Milvus collections: {utility.list_collections()}")
 
-index = "nq"
+index = "scifact"
 collection = Collection(index)  # Get an existing collection.
 print(f"{index} collection.num_entities: {collection.num_entities}")

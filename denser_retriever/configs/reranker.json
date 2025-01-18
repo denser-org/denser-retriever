@@ -7,8 +7,8 @@
   "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
   "combine_config": {
     "method": "reranker",
-    "keyword-top-k":100,
-    "reranker-top-k":100
+    "keyword_top_k":100,
+    "reranker_top_k":100
   },
   "aggregation": false
 }

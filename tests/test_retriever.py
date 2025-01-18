@@ -38,7 +38,7 @@ class TestRetriever:
         self.denser_retriever.ingest(docs)
         query = "content1"
         k = 2
-        results, _ = self.denser_retriever.retrieve(query, k)
+        results, _, _ = self.denser_retriever.retrieve(query, k)
         assert len(results) == k
         assert results[0][0].page_content == "content1"
 
@@ -70,7 +70,7 @@ class TestRetriever:
         ]
         ids = self.denser_retriever.ingest(docs)
         self.denser_retriever.delete(ids=[ids[0]])
-        results, _ = self.denser_retriever.retrieve("content1", k=1)
+        results, _, _ = self.denser_retriever.retrieve("content1", k=1)
         assert len(results) == 1
 
     def test_delete_all(self):
@@ -89,7 +89,7 @@ class TestRetriever:
         ]
         self.denser_retriever.ingest(docs)
         self.denser_retriever.delete(source_id="source_test1")
-        results, _ = self.denser_retriever.retrieve("content1", k=1)
+        results, _, _ = self.denser_retriever.retrieve("content1", k=1)
         # only content2 should be retrieved
         assert len(results) == 1
 
@@ -100,5 +100,5 @@ class TestRetriever:
         ]
         self.denser_retriever.ingest(docs)
         self.denser_retriever.delete(source_url="source_test1")
-        results, _ = self.denser_retriever.retrieve("content1", k=1)
+        results, _, _ = self.denser_retriever.retrieve("content1", k=1)
         assert len(results) == 1
