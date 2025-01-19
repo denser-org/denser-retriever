@@ -1,6 +1,6 @@
 {
   "ingest_bs": 2000,
-  "max_query_size": 0,
+  "max_query_size": 10000,
   "max_query_len": 2000,
   "max_doc_size": 0,
   "max_doc_len": 8000,

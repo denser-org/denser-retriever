@@ -86,7 +86,9 @@ class Experiment:
                     remain_vector_token_quota)
 
         # Process documents and get metrics
-        _, metrics = self.retriever.ingest(docs, overwrite_pid=False)
+        _, metrics = self.retriever.ingest(docs, overwrite_pid=False, es_storage_quota_gb=remain_es_storage_quota_gb,
+                                           vector_storage_quota_gb=remain_vector_storage_quota_gb,
+                                           vector_token_quota=remain_vector_token_quota)
 
         # Update remaining quotas
         new_es_quota = remain_es_storage_quota_gb - metrics["es_storage_gb"]
@@ -135,12 +137,16 @@ class Experiment:
 
         # Load quotas from cost config
         costs = json.load(open('denser_retriever/configs/cost_config.json', 'r'))
-        remain_es_storage_quota_gb = costs["es_storage_quota_gb"]
-        remain_vector_storage_quota_gb = costs["vector_storage_quota_gb"]
-        remain_vector_token_quota = costs["vector_token_quota_million"] * 1_000_000
+        remain_es_storage_quota_gb = float('inf') if str(
+            costs.get("es_storage_quota_gb", 'inf')).lower() == "inf" else float(costs["es_storage_quota_gb"])
+        remain_vector_storage_quota_gb = float('inf') if str(
+            costs.get("vector_storage_quota_gb", 'inf')).lower() == "inf" else float(costs["vector_storage_quota_gb"])
+        remain_vector_token_quota = float('inf') if str(
+            costs.get("vector_token_quota_million", 'inf')).lower() == "inf" else float(costs["vector_token_quota_million"]) * 1_000_000
 
         # Initialize metrics tracking
-        total_metrics = {"es_storage_gb": 0.0, "vector_storage_gb": 0.0, "vector_tokens": 0}
+        total_metrics = {"es_docs": 0, "vector_docs": 0, "es_storage_gb": 0.0, "vector_storage_gb": 0.0,
+                         "vector_tokens": 0}
         docs = []
         num_docs = 0
 
@@ -178,7 +184,10 @@ class Experiment:
                 for key in total_metrics:
                     total_metrics[key] += batch_metrics[key]
 
-        return self._calculate_costs({"num_docs": num_docs, **total_metrics})
+        res =  self._calculate_costs(total_metrics)
+        usage_out = open(os.path.join(exp_dir, "usage.jsonl"), "w")
+        json.dump(res, usage_out, indent=4, ensure_ascii=False)
+        return res
 
     def generate_feature_data(self, dataset_name, split):
         exp_dir = os.path.join(self.output_prefix, split)

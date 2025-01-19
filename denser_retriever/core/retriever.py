@@ -131,6 +131,8 @@ class DenserRetriever:
         max_docs_processed = max(es_docs_allowed, vector_docs_allowed)
 
         metrics = {
+            "es_docs": es_docs_allowed,
+            "vector_docs": vector_docs_allowed,
             "es_storage_gb": es_size_gb,
             "vector_storage_gb": vector_size_gb,
             "vector_tokens": token_count

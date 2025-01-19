@@ -35,7 +35,7 @@ in `denser_retriever/configs/cost_config.json`.
 ```
 
 The ingestion storage and vector tokens and their costs are reported after the ingestion. If you run a large experiment,
-make sure to set the quotas to a higher value. As a reference, the ingestion of scifact dataset (5183 documents) has the
+make sure to set the quotas to `inf` so you have infinite budget to run experiments. As a reference, the ingestion of scifact dataset (5183 documents) has the
 following ingestion stats:
 
 ```json

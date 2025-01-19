@@ -3,7 +3,7 @@
   "es_query_cost": 0.001,
   "vector_token_cost_per_million": 0.08,
   "reranker_token_cost_per_million": 0.05,
-  "es_storage_quota_gb": 2.0,
-  "vector_storage_quota_gb": 2.0,
-  "vector_token_quota_million": 2.0
+  "es_storage_quota_gb": "inf",
+  "vector_storage_quota_gb": "inf",
+  "vector_token_quota_million": "inf"
 }
