@@ -28,9 +28,6 @@ from denser_retriever.core.utils import config_to_features, load_queries
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-os.environ["http_proxy"] = "http://127.0.0.1:7890"
-os.environ["https_proxy"] = "http://127.0.0.1:7890"
-
 
 class DenserData:
     def __init__(self, dir_path):
