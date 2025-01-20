@@ -7,22 +7,23 @@ import pytrec_eval
 from langchain_core.documents import Document
 
 config_to_features = {
-    "es+vs": [1,2,3,4,5,6],
-    "es+rr": [1,2,3,7,8,9],
-    "vs+rr": [4,5,6,7,8,9],
-    "es+vs+rr": [1,2,3,4,5,6,7,8,9]
+    "es+vs": [1, 2, 3, 4, 5, 6],
+    "es+rr": [1, 2, 3, 7, 8, 9],
+    "vs+rr": [4, 5, 6, 7, 8, 9],
+    "es+vs+rr": [1, 2, 3, 4, 5, 6, 7, 8, 9],
 }
+
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 
 def evaluate(
-        qrels: Dict[str, Dict[str, int]],
-        results: Dict[str, Dict[str, float]],
-        metric_file: Optional[str] = None,
-        k_values: List[int] = [1, 3, 5, 10, 20, 100, 1000],
-        ignore_identical_ids: bool = True,
+    qrels: Dict[str, Dict[str, int]],
+    results: Dict[str, Dict[str, float]],
+    metric_file: Optional[str] = None,
+    k_values: List[int] = [1, 3, 5, 10, 20, 100, 1000],
+    ignore_identical_ids: bool = True,
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float], Dict[str, float]]:
     if ignore_identical_ids:
         print(
@@ -113,7 +114,7 @@ def load_qrels(in_file: str):
 
 
 def docs_to_dict(
-        doc: List[Tuple[Document, float]],
+    doc: List[Tuple[Document, float]],
 ) -> Tuple[Dict[str, Document], Dict[str, float], Dict[str, int]]:
     """Convert a list of documents and scores to dictionaries."""
     doc_dict, score_dict, rank_dict = {}, {}, {}

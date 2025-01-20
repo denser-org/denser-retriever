@@ -1,13 +1,16 @@
 from typing import Optional, Literal, Dict, Any
 from pydantic import BaseModel
 
-from denser_retriever.core.keyword import ElasticKeywordSearch, create_elasticsearch_client
+from denser_retriever.core.keyword import (
+    ElasticKeywordSearch,
+    create_elasticsearch_client,
+)
 from denser_retriever.core.reranker import HFReranker
 from denser_retriever.core.vectordb.milvus import MilvusDenserVectorDB
 from denser_retriever.core.embeddings import (
     VoyageAPIEmbeddings,
     SentenceTransformerEmbeddings,
-    BGEEmbeddings
+    BGEEmbeddings,
 )
 
 # Define the combine method type
@@ -36,7 +39,7 @@ class LRConfig(BaseModel):
 
 
 class CombineConfig(BaseModel):
-    method: CombineMethod = None
+    method: CombineMethod = "reranker"
     keyword_top_k: int = 100
     vector_top_k: int = 100
     reranker_top_k: int = 100
@@ -46,29 +49,30 @@ class CombineConfig(BaseModel):
 class RetrieverConfig(BaseModel):
     max_query_len: int = 2000
     es: ESConfig = ESConfig()
-    milvus: MilvusConfig = None
-    reranker_model: str = None
-    embedding: EmbeddingConfig = None
-    combine_config: CombineConfig = None
+    milvus: Optional[MilvusConfig] = None
+    reranker_model: Optional[str] = None
+    embedding: Optional[EmbeddingConfig] = None
+    combine_config: CombineConfig = CombineConfig()
     voyage_api_key: Optional[str] = None
     is_retriever: bool = True
     aggregation: bool = False
 
-    def get_retriever_config(self, index_name: str, drop_old: bool = False) -> Dict[str, Any]:
+    def get_retriever_config(
+        self, index_name: str, drop_old: bool = False
+    ) -> Dict[str, Any]:
         """Generate inference configuration dictionary"""
 
         # Configure keyword search
         keyword_search = ElasticKeywordSearch(
             es_connection=create_elasticsearch_client(url=self.es.url),
             drop_old=drop_old,
-            analysis=self.es.analysis
+            analysis=self.es.analysis,
         )
 
         # Configure vector database
         if self.milvus:
             vector_db = MilvusDenserVectorDB(
-                connection_args={"uri": self.milvus.uri},
-                drop_old=drop_old
+                connection_args={"uri": self.milvus.uri}, drop_old=drop_old
             )
         else:
             vector_db = None
@@ -83,9 +87,7 @@ class RetrieverConfig(BaseModel):
         if self.embedding:
             if self.embedding.type == "sentence_transformer":
                 embeddings = SentenceTransformerEmbeddings(
-                    self.embedding.model,
-                    self.embedding.size,
-                    self.embedding.one_model
+                    self.embedding.model, self.embedding.size, self.embedding.one_model
                 )
             elif self.embedding.type == "voyage":
                 if not self.voyage_api_key:
@@ -93,12 +95,11 @@ class RetrieverConfig(BaseModel):
                 embeddings = VoyageAPIEmbeddings(
                     api_key=self.voyage_api_key,
                     model_name=self.embedding.model,
-                    embedding_size=self.embedding.size
+                    embedding_size=self.embedding.size,
                 )
             elif self.embedding.type == "bge":
                 embeddings = BGEEmbeddings(
-                    model_name=self.embedding.model,
-                    embedding_size=self.embedding.size
+                    model_name=self.embedding.model, embedding_size=self.embedding.size
                 )
             else:
                 raise ValueError(f"Unknown embedding type: {self.embedding.type}")
@@ -111,7 +112,7 @@ class RetrieverConfig(BaseModel):
             "vector_db": vector_db,
             "reranker": reranker,
             "embeddings": embeddings,
-            "combine_config": self.combine_config
+            "combine_config": self.combine_config,
         }
 
 
@@ -131,7 +132,8 @@ class TrainConfig(RetrieverConfig):
 def load_train_config(config_path: str) -> TrainConfig:
     """Load training configuration from JSON file"""
     import json
-    with open(config_path, 'r') as f:
+
+    with open(config_path, "r") as f:
         config_dict = json.load(f)
     return TrainConfig(**config_dict)
 
@@ -139,7 +141,8 @@ def load_train_config(config_path: str) -> TrainConfig:
 def load_retriever_config(config_path: str) -> RetrieverConfig:
     """Load configuration from JSON file"""
     import json
-    with open(config_path, 'r') as f:
+
+    with open(config_path, "r") as f:
         config_dict = json.load(f)
     return RetrieverConfig(**config_dict)
 
@@ -155,11 +158,11 @@ def default_train_config() -> TrainConfig:
 
 
 # Example usage
-if __name__ == '__main__':
-    retriever_config = 'denser_retriever/configs/fusion.json'
+if __name__ == "__main__":
+    retriever_config = "denser_retriever/configs/fusion.json"
     print(f"{retriever_config}\n{load_retriever_config(retriever_config)}")
 
-    train_config = 'denser_retriever/configs/default.json'
+    train_config = "denser_retriever/configs/default.json"
     print(f"{train_config}\n{load_train_config(train_config)}")
 
     print(f"Default Retriever Config:\n{default_retriever_config()}")

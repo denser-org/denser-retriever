@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 from transformers import AutoTokenizer
 from langchain_core.documents import Document
 
@@ -8,11 +8,17 @@ logger = logging.getLogger(__name__)
 
 class ResourceTracker:
     # Initialize tokenizers as class variables
-    vector_tokenizer = AutoTokenizer.from_pretrained("Snowflake/snowflake-arctic-embed-m")
-    reranker_tokenizer = AutoTokenizer.from_pretrained("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    vector_tokenizer = AutoTokenizer.from_pretrained(
+        "Snowflake/snowflake-arctic-embed-m"
+    )
+    reranker_tokenizer = AutoTokenizer.from_pretrained(
+        "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    )
 
     @classmethod
-    def estimate_es_storage_gb(cls, texts: list, metadata_fields: Dict[str, int] = None) -> float:
+    def estimate_es_storage_gb(
+        cls, texts: list, metadata_fields: Optional[Dict[str, int]] = None
+    ) -> float:
         """
         Estimate Elasticsearch storage size in GB
         """
@@ -30,7 +36,7 @@ class ResourceTracker:
         total_storage_bytes = (text_storage_bytes + metadata_storage_bytes) * 1.2
 
         # Convert to GB
-        return total_storage_bytes / (1024 ** 3)
+        return total_storage_bytes / (1024**3)
 
     @classmethod
     def estimate_vector_storage_gb(cls, texts: list) -> float:
@@ -41,7 +47,7 @@ class ResourceTracker:
         vector_storage_bytes = len(texts) * 768 * 4
 
         # Convert to GB
-        return vector_storage_bytes / (1024 ** 3)
+        return vector_storage_bytes / (1024**3)
 
     @classmethod
     def calculate_vector_token_count(cls, texts: List[str]) -> int:
@@ -49,14 +55,17 @@ class ResourceTracker:
         return sum(len(cls.vector_tokenizer.encode(text)) for text in texts)
 
     @classmethod
-    def calculate_vector_search_token_count(cls, query: str, results: List[Document]) -> int:
+    def calculate_vector_search_token_count(
+        cls, query: str, results: List[Document]
+    ) -> int:
         """Calculate token count for vector search operation"""
         # Count query tokens
         query_tokens = len(cls.vector_tokenizer.encode(query))
 
         # Count result tokens
-        result_tokens = sum(len(cls.vector_tokenizer.encode(doc.page_content))
-                            for doc in results)
+        result_tokens = sum(
+            len(cls.vector_tokenizer.encode(doc.page_content)) for doc in results
+        )
 
         return query_tokens + result_tokens
 
@@ -68,7 +77,8 @@ class ResourceTracker:
         total_query_tokens = query_tokens * len(results)
 
         # Add tokens for each passage
-        passage_tokens = sum(len(cls.reranker_tokenizer.encode(doc.page_content))
-                             for doc in results)
+        passage_tokens = sum(
+            len(cls.reranker_tokenizer.encode(doc.page_content)) for doc in results
+        )
 
         return total_query_tokens + passage_tokens

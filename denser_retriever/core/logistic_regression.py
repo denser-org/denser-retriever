@@ -16,7 +16,7 @@ class DenserFusionModel(ABC):
 
 
 class LogisticRegression(DenserFusionModel):
-    _instances: Dict[str, 'LogisticRegression'] = {}
+    _instances: Dict[str, "LogisticRegression"] = {}
 
     def __new__(cls, model_path: str):
         # If an instance with this model_path exists, return it
@@ -36,7 +36,7 @@ class LogisticRegression(DenserFusionModel):
             model_path: Path to the JSON file containing model weights
         """
         # Skip initialization if already initialized
-        if hasattr(self, '__initialized') and self.__initialized:
+        if hasattr(self, "__initialized") and self.__initialized:
             return
 
         self.model_path = model_path
@@ -48,11 +48,11 @@ class LogisticRegression(DenserFusionModel):
 
     def load(self):
         """Load model weights from JSON file."""
-        with open(self.model_path, 'r') as f:
+        with open(self.model_path, "r") as f:
             model_data = json.load(f)
-            self.weights = np.array(model_data['weights'])
-            self.intercept = model_data['intercept']
-            self.feature_names = model_data['features']
+            self.weights = np.array(model_data["weights"])
+            self.intercept = model_data["intercept"]
+            self.feature_names = model_data["features"]
 
     def predict(self, features: list) -> ndarray:
         """Predict probabilities using logistic regression.
@@ -64,10 +64,11 @@ class LogisticRegression(DenserFusionModel):
             Array of prediction probabilities
         """
         # Convert feature strings to dense array
+        assert self.weights is not None
         feature_values = np.zeros(len(self.weights))
         for feature in features:
-            if ':' in feature:
-                idx, value = feature.split(':')
+            if ":" in feature:
+                idx, value = feature.split(":")
                 feature_values[int(idx) - 1] = float(value)
 
         # Apply logistic regression
@@ -82,13 +83,20 @@ class LogisticRegression(DenserFusionModel):
         Returns:
             Dictionary mapping feature names to their importance (absolute weight values)
         """
+        assert (
+            self.feature_names is not None and self.weights is not None
+        ), "Model not initialized"
         return dict(zip(self.feature_names, np.abs(self.weights)))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test LogisticRegression class singleton pattern
-    model1 = LogisticRegression("/home/ubuntu/denser-retriever/exps/exp_scifact/models/weights_es+vs+rr.json")
-    model2 = LogisticRegression("/home/ubuntu/denser-retriever/exps/exp_scifact/models/weights_es+vs+rr.json")
+    model1 = LogisticRegression(
+        "/home/ubuntu/denser-retriever/exps/exp_scifact/models/weights_es+vs+rr.json"
+    )
+    model2 = LogisticRegression(
+        "/home/ubuntu/denser-retriever/exps/exp_scifact/models/weights_es+vs+rr.json"
+    )
     print(f"Same instances: {model1 is model2}")  # Should print True
 
     features = ["1:0.5", "2:0.7", "3:0.2", "4:0.9"]

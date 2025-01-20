@@ -7,6 +7,7 @@ from langchain_core.documents import Document
 from denser_retriever.core.embeddings import DenserEmbeddings
 from denser_retriever.core.keyword import DenserKeywordSearch
 from denser_retriever.core.reranker import DenserReranker
+from denser_retriever.core.types import RetrievalResult, TokenMetrics
 from denser_retriever.core.utils import docs_to_dict
 from denser_retriever.core.vectordb.base import DenserVectorDB
 from denser_retriever.config import CombineConfig
@@ -17,15 +18,15 @@ from denser_retriever.core.resource_tracking import ResourceTracker
 
 class DenserRetriever:
     def __init__(
-            self,
-            index_name: str,
-            keyword_search: Optional[DenserKeywordSearch],
-            vector_db: Optional[DenserVectorDB],
-            reranker: Optional[DenserReranker],
-            embeddings: DenserEmbeddings,
-            combine_config: CombineConfig,
-            search_fields: List[str] = [],
-            date_fields: List[str] = [],
+        self,
+        index_name: str,
+        keyword_search: Optional[DenserKeywordSearch],
+        vector_db: Optional[DenserVectorDB],
+        reranker: Optional[DenserReranker],
+        embeddings: DenserEmbeddings,
+        combine_config: CombineConfig,
+        search_fields: List[str] = [],
+        date_fields: List[str] = [],
     ):
         # config parameters
         self.index_name = index_name
@@ -47,10 +48,18 @@ class DenserRetriever:
             assert embeddings
             self.vector_db.create_index(index_name, embeddings, search_fields)
         if self.keyword_search:
-            self.keyword_search.create_index(index_name, search_fields, date_fields)
+            self.keyword_search.create_index(
+                index_name=index_name,
+                search_fields=search_fields,
+                date_fields=date_fields,
+            )
 
-    def _ingest_elasticsearch(self, docs: List[Document], texts: List[str],
-                              es_storage_quota_gb: Optional[float]) -> Tuple[int, float]:
+    def _ingest_elasticsearch(
+        self,
+        docs: List[Document],
+        texts: List[str],
+        es_storage_quota_gb: Optional[float],
+    ) -> Tuple[int, float]:
         """Process Elasticsearch ingestion and return number of documents allowed and storage used."""
         if not self.keyword_search:
             return 0, 0.0
@@ -65,7 +74,9 @@ class DenserRetriever:
         num_docs = len(docs)
         if es_storage_quota_gb and es_size_gb > es_storage_quota_gb:
             docs_allowed = int(num_docs * (es_storage_quota_gb / es_size_gb))
-            logger.warning(f"ES storage quota would be exceeded. Limiting to {docs_allowed} documents")
+            logger.warning(
+                f"ES storage quota would be exceeded. Limiting to {docs_allowed} documents"
+            )
             es_size_gb = es_storage_quota_gb
         else:
             docs_allowed = num_docs
@@ -74,9 +85,13 @@ class DenserRetriever:
         self.keyword_search.add_documents(docs[:docs_allowed])
         return docs_allowed, es_size_gb
 
-    def _ingest_vector_db(self, docs: List[Document], texts: List[str],
-                          vector_storage_quota_gb: Optional[float],
-                          vector_token_quota: Optional[int]) -> Tuple[int, float, int]:
+    def _ingest_vector_db(
+        self,
+        docs: List[Document],
+        texts: List[str],
+        vector_storage_quota_gb: Optional[float],
+        vector_token_quota: Optional[int],
+    ) -> Tuple[int, float, int]:
         """Process Vector DB ingestion and return docs allowed, storage used, and tokens used."""
         if not self.vector_db:
             return 0, 0.0, 0
@@ -88,7 +103,9 @@ class DenserRetriever:
         if vector_storage_quota_gb and vector_size_gb > vector_storage_quota_gb:
             docs_allowed = int(num_docs * (vector_storage_quota_gb / vector_size_gb))
             vector_size_gb = vector_storage_quota_gb
-            logger.warning(f"Vector storage quota would be exceeded. Limiting to {docs_allowed} documents")
+            logger.warning(
+                f"Vector storage quota would be exceeded. Limiting to {docs_allowed} documents"
+            )
 
         # Check token quota
         token_count = ResourceTracker.calculate_vector_token_count(texts[:docs_allowed])
@@ -100,7 +117,9 @@ class DenserRetriever:
                 docs_allowed = token_limited_docs
                 token_count = int(docs_allowed * tokens_per_doc)
                 vector_size_gb *= docs_allowed / num_docs
-                logger.warning(f"Vector token quota would be exceeded. Limiting to {docs_allowed} documents")
+                logger.warning(
+                    f"Vector token quota would be exceeded. Limiting to {docs_allowed} documents"
+                )
 
         if docs_allowed > 0:
             self.vector_db.add_documents(documents=docs[:docs_allowed])
@@ -108,12 +127,12 @@ class DenserRetriever:
         return docs_allowed, vector_size_gb, token_count
 
     def ingest(
-            self,
-            docs: List[Document],
-            overwrite_pid: bool = True,
-            es_storage_quota_gb: Optional[float] = None,
-            vector_storage_quota_gb: Optional[float] = None,
-            vector_token_quota: Optional[int] = None
+        self,
+        docs: List[Document],
+        overwrite_pid: bool = True,
+        es_storage_quota_gb: Optional[float] = None,
+        vector_storage_quota_gb: Optional[float] = None,
+        vector_token_quota: Optional[int] = None,
     ) -> Tuple[List[str], Dict[str, float]]:
         """Ingest documents into elasticsearch and vector db with quota limits."""
         if overwrite_pid:
@@ -124,9 +143,11 @@ class DenserRetriever:
 
         # Process elasticsearch and vector db ingestion
         es_docs_allowed, es_size_gb = self._ingest_elasticsearch(
-            docs, texts, es_storage_quota_gb)
+            docs, texts, es_storage_quota_gb
+        )
         vector_docs_allowed, vector_size_gb, token_count = self._ingest_vector_db(
-            docs, texts, vector_storage_quota_gb, vector_token_quota)
+            docs, texts, vector_storage_quota_gb, vector_token_quota
+        )
         # Calculate max docs processed across both stores
         max_docs_processed = max(es_docs_allowed, vector_docs_allowed)
 
@@ -135,98 +156,113 @@ class DenserRetriever:
             "vector_docs": vector_docs_allowed,
             "es_storage_gb": es_size_gb,
             "vector_storage_gb": vector_size_gb,
-            "vector_tokens": token_count
+            "vector_tokens": token_count,
         }
         return [doc.metadata["pid"] for doc in docs[:max_docs_processed]], metrics
 
     def retrieve(
-            self,
-            query: str,
-            k: int,
-            combine_config: CombineConfig,
-            filter: Dict[str, Any] = {},
-            aggregation: bool = False,
-            usage: bool = False
-    ):
+        self,
+        query: str,
+        k: int,
+        combine_config: CombineConfig,
+        filter: Dict[str, Any] = {},
+        aggregation: bool = False,
+        usage: bool = False,
+    ) -> RetrievalResult:
         logger.info(f"Retrieve query: {query} top_k: {k}")
         if self.combine_method == "vector":
-            return self.retrieve_by_vector(query, k, combine_config, filter, aggregation, usage)
+            return self.retrieve_by_vector(
+                query, k, combine_config, filter, aggregation, usage
+            )
         elif self.combine_method == "hybrid":
-            return self.retrieve_by_hybrid(query, k, combine_config, filter, aggregation, usage)
+            return self.retrieve_by_hybrid(
+                query, k, combine_config, filter, aggregation, usage
+            )
         elif self.combine_method == "reranker":
-            return self.retrieve_by_reranker(query, k, combine_config, filter, aggregation, usage)
+            return self.retrieve_by_reranker(
+                query, k, combine_config, filter, aggregation, usage
+            )
         elif self.combine_method == "fusion":
-            return self.retrieve_by_fusion(query, k, combine_config, filter, aggregation, usage)
+            return self.retrieve_by_fusion(
+                query, k, combine_config, filter, aggregation, usage
+            )
         else:
             raise ValueError(f"Unknown combine method {self.combine_method}")
 
     def retrieve_by_vector(
-            self,
-            query: str,
-            k: int,
-            combine_config: CombineConfig,
-            filter: Dict[str, Any] = {},
-            aggregation: bool = False,
-            usage: bool = False
-    ) -> Tuple[List[Tuple[Document, float]], Optional[Dict], Dict[str, int]]:
-        """Vector-only search using the vector database.
-        """
+        self,
+        query: str,
+        k: int,
+        combine_config: CombineConfig,
+        filter: Dict[str, Any] = {},
+        aggregation: bool = False,
+        usage: bool = False,
+    ) -> RetrievalResult:
+        """Vector-only search using the vector database."""
         if not self.vector_db:
             raise ValueError("Vector database not initialized")
 
         # Get vector search results
-        vs_docs = self.vector_db.similarity_search_with_score(
-            query,
-            k,
-            filter=filter
-        )
+        vs_docs = self.vector_db.similarity_search_with_score(query, k, filter=filter)
 
         # Calculate token usage
-        token_metrics = None
+        metrics = None
         if usage:
-            token_metrics = {
-                "vector_tokens": ResourceTracker.calculate_vector_search_token_count(query,
-                                                                                     [doc for doc, _ in vs_docs]),
-                "reranker_tokens": 0  # No reranker used in vector-only search
-            }
+            embedding_tokens = ResourceTracker.calculate_vector_search_token_count(
+                query, [doc for doc, _ in vs_docs]
+            )
+            metrics = TokenMetrics(
+                vector_tokens=embedding_tokens, total_tokens=embedding_tokens
+            )
 
-        return vs_docs, None, token_metrics
+        return RetrievalResult(vs_docs, None, metrics)
 
     def retrieve_by_hybrid(
-            self,
-            query: str,
-            k: int,
-            combine_config: CombineConfig,
-            filter: Dict[str, Any] = {},
-            aggregation: bool = False,
-            usage: bool = False
-    ) -> Tuple[List[Tuple[Document, float]], Optional[Dict], Dict[str, int]]:
-        """Hybrid search using keyword and vector positions.
-        """
+        self,
+        query: str,
+        k: int,
+        combine_config: CombineConfig,
+        filter: Dict[str, Any] = {},
+        aggregation: bool = False,
+        usage: bool = False,
+    ) -> RetrievalResult:
+        """Hybrid search using keyword and vector positions."""
         # Get keyword search results
+        if not self.keyword_search:
+            raise ValueError("Keyword search not initialized")
         ks_docs, aggregations = self.keyword_search.retrieve(
-            query, combine_config.keyword_top_k, filter=filter, aggregation=aggregation
+            query,
+            combine_config.keyword_top_k,
+            filter=filter,
+            aggregation=aggregation,
+            apply_sigmoid=True,
         )
 
         # Get vector search results
+        if not self.vector_db:
+            raise ValueError("Vector database not initialized")
         vs_docs = self.vector_db.similarity_search_with_score(
             query, combine_config.vector_top_k, filter=filter
         )
 
         # Calculate token usage
-        token_metrics = None
+        metrics = None
         if usage:
-            token_metrics = {
-                "vector_tokens": ResourceTracker.calculate_vector_search_token_count(query,
-                                                                                     [doc for doc, _ in vs_docs]),
-                "reranker_tokens": 0  # No reranker used in hybrid search
-            }
+            vector_tokens = ResourceTracker.calculate_vector_search_token_count(
+                query, [doc for doc, _ in vs_docs]
+            )
+            keyword_tokens = len(query.split())
+            metrics = TokenMetrics(
+                vector_tokens=vector_tokens,
+                keyword_tokens=keyword_tokens,
+                total_tokens=vector_tokens + keyword_tokens,
+            )
 
         # Extract position information and combine results
         _, _, ks_rank_dict = docs_to_dict(ks_docs)
         _, _, vs_rank_dict = docs_to_dict(vs_docs)
 
-        # Rest of the hybrid search logic remains the same
+        # Combine results
         all_docs = {}
         for doc, _ in ks_docs + vs_docs:
             pid = doc.metadata["pid"]
@@ -249,20 +285,23 @@ class DenserRetriever:
         scored_docs = [(all_docs[pid], score) for pid, score in hybrid_scores.items()]
         scored_docs.sort(key=lambda x: x[1], reverse=True)
 
-        return scored_docs[:k], aggregations, token_metrics
+        return RetrievalResult(
+            documents=scored_docs[:k], aggregations=aggregations, token_metrics=metrics
+        )
 
     def retrieve_by_reranker(
-            self,
-            query: str,
-            k: int,
-            combine_config: CombineConfig,
-            filter: Dict[str, Any] = {},
-            aggregation: bool = False,
-            usage: bool = False
-    ) -> Tuple[List[Tuple[Document, float]], Optional[Dict], Dict[str, int]]:
-        """Two-stage retrieval: keyword search followed by reranking.
-        """
+        self,
+        query: str,
+        k: int,
+        combine_config: CombineConfig,
+        filter: Dict[str, Any] = {},
+        aggregation: bool = False,
+        usage: bool = False,
+    ) -> RetrievalResult:
+        """Two-stage retrieval: keyword search followed by reranking."""
         # First stage: keyword search
+        if not self.keyword_search:
+            raise ValueError("Keyword search not initialized")
         ks_docs, aggregations = self.keyword_search.retrieve(
             query, combine_config.keyword_top_k, filter=filter, aggregation=aggregation
         )
@@ -270,72 +309,90 @@ class DenserRetriever:
         # Extract documents for reranking
         docs_to_rerank = [doc for doc, _ in ks_docs]
 
-        token_metrics = None
+        metrics = None
         # Second stage: reranking
         if self.reranker and docs_to_rerank:
             reranked_docs = self.reranker.rerank(docs_to_rerank, query)
             # Calculate reranker token usage
             if usage:
-                token_metrics = {
-                    "vector_tokens": 0,  # No vector search in this method
-                    "reranker_tokens": ResourceTracker.calculate_reranker_token_count(query, docs_to_rerank)
-                }
-            return reranked_docs[:k], aggregations, token_metrics
+                rerank_tokens = ResourceTracker.calculate_reranker_token_count(
+                    query, docs_to_rerank
+                )
+                metrics = TokenMetrics(
+                    rerank_tokens=rerank_tokens, total_tokens=rerank_tokens
+                )
+            return RetrievalResult(
+                documents=reranked_docs[:k],
+                aggregations=aggregations,
+                token_metrics=metrics,
+            )
 
-        return ks_docs[:k], aggregations, token_metrics
+        return RetrievalResult(
+            documents=ks_docs[:k], aggregations=aggregations, token_metrics=metrics
+        )
 
     def retrieve_by_fusion(
-            self,
-            query: str,
-            k: int,
-            combine_config: CombineConfig,
-            filter: Dict[str, Any] = {},
-            aggregation: bool = False,
-            usage: bool = False
-    ) -> Tuple[List[Tuple[Document, float]], Optional[Dict], Dict[str, int]]:
-        """Retrieve using logistic regression model for fusion.
-        """
+        self,
+        query: str,
+        k: int,
+        combine_config: CombineConfig,
+        filter: Dict[str, Any] = {},
+        aggregation: bool = False,
+        usage: bool = False,
+    ) -> RetrievalResult:
+        """Retrieve using logistic regression model for fusion."""
         docs, doc_features, aggregations = self._retrieve_with_features(
             query, combine_config, filter, aggregation
         )
 
         # Calculate token metrics from all retrieval methods
-        token_metrics = None
+        metrics = None
         if usage:
-            token_metrics = {
-                "vector_tokens": ResourceTracker.calculate_vector_search_token_count(
-                    query,
-                    docs[:combine_config.vector_top_k]
-                ),
-                "reranker_tokens": ResourceTracker.calculate_reranker_token_count(
-                    query,
-                    docs
-                ) if self.reranker else 0
-            }
+            vector_tokens = ResourceTracker.calculate_vector_search_token_count(
+                query, docs[: combine_config.vector_top_k]
+            )
+            rerank_tokens = (
+                ResourceTracker.calculate_reranker_token_count(query, docs)
+                if self.reranker
+                else 0
+            )
+            metrics = TokenMetrics(
+                vector_tokens=vector_tokens,
+                rerank_tokens=rerank_tokens,
+                total_tokens=vector_tokens + rerank_tokens,
+            )
 
         scores = []
         for feature_list in doc_features:
-            scores.append(self.lr_model.predict(feature_list))
+            if self.lr_model:
+                scores.append(self.lr_model.predict(feature_list))
+            else:
+                scores.append(0)
 
         # Combine with documents
         scored_docs = list(zip(docs, scores))
         scored_docs.sort(key=lambda x: x[1], reverse=True)
 
-        return scored_docs[:k], aggregations, token_metrics
+        return RetrievalResult(
+            documents=scored_docs[:k], aggregations=aggregations, token_metrics=metrics
+        )
 
     def _retrieve_with_features(
-            self,
-            query: str,
-            combine_config: CombineConfig,
-            filter: Dict[str, Any] = {},
-            aggregation: bool = False
-    ) -> Tuple[List[Document], List[List[str]]]:
+        self,
+        query: str,
+        combine_config: CombineConfig,
+        filter: Dict[str, Any] = {},
+        aggregation: bool = False,
+    ) -> Tuple[List[Document], List[List[str]], Optional[Dict]]:
         ks_docs = []
         aggregations = None
 
         if self.keyword_search:
             ks_docs, aggregations = self.keyword_search.retrieve(
-                query, combine_config.keyword_top_k, filter=filter, aggregation=aggregation
+                query,
+                combine_config.keyword_top_k,
+                filter=filter,
+                aggregation=aggregation,
             )
         vs_docs = []
         if self.vector_db:
@@ -389,20 +446,21 @@ class DenserRetriever:
         non_zero_features = []
         for i, data in enumerate(doc_features):
             features = []
-            for f_id in features_to_use:
-                f_value = data[int(f_id)]
-                if f_value != 0.0:
-                    features.append(f"{f_id}:{f_value}")
+            if features_to_use:
+                for f_id in features_to_use:
+                    f_value = data[int(f_id)]
+                    if f_value != 0.0:
+                        features.append(f"{f_id}:{f_value}")
 
             non_zero_features.append([str(data[0])] + features)
 
         return docs, non_zero_features, aggregations
 
     def delete(
-            self,
-            ids: Optional[List[str]] = None,
-            source_id: Optional[str] = None,
-            **kwargs: str,
+        self,
+        ids: Optional[List[str]] = None,
+        source_id: Optional[str] = None,
+        **kwargs: str,
     ):
         """Clear the retriever."""
         if self.vector_db:

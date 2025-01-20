@@ -28,9 +28,9 @@ in `denser_retriever/configs/cost_config.json`.
 
 ```json
 {
-   "es_storage_quota_gb": 2.0,
-   "vector_storage_quota_gb": 2.0,
-   "vector_token_quota_million": 2.0
+  "es_storage_quota_gb": 2.0,
+  "vector_storage_quota_gb": 2.0,
+  "vector_token_quota_million": 2.0
 }
 ```
 
@@ -192,7 +192,3 @@ hybrid: $1.13
 reranker: $0.83
 fusion: $2.10
 ```
-
-
-
-

@@ -15,7 +15,7 @@ class DenserEmbeddings(ABC):
 
 
 class SentenceTransformerEmbeddings(DenserEmbeddings):
-    _instances: Dict[str, 'SentenceTransformerEmbeddings'] = {}
+    _instances: Dict[str, "SentenceTransformerEmbeddings"] = {}
 
     def __new__(cls, model_name: str, embedding_size: int, one_model: bool):
         # Create unique key from all parameters
@@ -29,7 +29,7 @@ class SentenceTransformerEmbeddings(DenserEmbeddings):
         return instance
 
     def __init__(self, model_name: str, embedding_size: int, one_model: bool):
-        if hasattr(self, '__initialized') and self.__initialized:
+        if hasattr(self, "__initialized") and self.__initialized:
             return
 
         try:
@@ -59,7 +59,7 @@ class SentenceTransformerEmbeddings(DenserEmbeddings):
 
 
 class BGEEmbeddings(DenserEmbeddings):
-    _instances: Dict[str, 'BGEEmbeddings'] = {}
+    _instances: Dict[str, "BGEEmbeddings"] = {}
 
     def __new__(cls, model_name: str, embedding_size: int):
         key = f"{model_name}_{embedding_size}"
@@ -72,20 +72,20 @@ class BGEEmbeddings(DenserEmbeddings):
         return instance
 
     def __init__(self, model_name: str, embedding_size: int):
-        if hasattr(self, '__initialized') and self.__initialized:
+        if hasattr(self, "__initialized") and self.__initialized:
             return
 
         try:
             from FlagEmbedding import FlagICLModel
         except ImportError as exc:
-            raise ImportError(
-                "Could not import FlagEmbedding python package."
-            ) from exc
+            raise ImportError("Could not import FlagEmbedding python package.") from exc
 
-        self.client = FlagICLModel(model_name,
-                                   query_instruction_for_retrieval="Represent this sentence for searching relevant passages:",
-                                   examples_for_task=None,  # set `examples_for_task=None` to use model without examples
-                                   use_fp16=True)  # Setting use_fp16 to True speeds up computation with a slight performance degradation
+        self.client = FlagICLModel(
+            model_name,
+            query_instruction_for_retrieval="Represent this sentence for searching relevant passages:",
+            examples_for_task=None,  # set `examples_for_task=None` to use model without examples
+            use_fp16=True,
+        )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
         self.embedding_size = embedding_size
         self.__initialized = True
 
@@ -97,7 +97,7 @@ class BGEEmbeddings(DenserEmbeddings):
 
 
 class VoyageAPIEmbeddings(DenserEmbeddings):
-    _instances: Dict[str, 'VoyageAPIEmbeddings'] = {}
+    _instances: Dict[str, "VoyageAPIEmbeddings"] = {}
 
     def __new__(cls, api_key: str, model_name: str, embedding_size: int):
         key = f"{api_key}_{model_name}_{embedding_size}"
@@ -110,18 +110,18 @@ class VoyageAPIEmbeddings(DenserEmbeddings):
         return instance
 
     def __init__(self, api_key: str, model_name: str, embedding_size: int):
-        if hasattr(self, '__initialized') and self.__initialized:
+        if hasattr(self, "__initialized") and self.__initialized:
             return
 
         try:
-            import voyageai
+            from voyageai.client import Client
         except ImportError as exc:
             raise ImportError(
                 "Could not import voyage python package. "
                 "Please install it with `pip install voyageai`."
             ) from exc
 
-        self.client = voyageai.Client(api_key)
+        self.client = Client(api_key)
         self.model_name = model_name
         self.embedding_size = embedding_size
         self.__initialized = True
@@ -148,12 +148,20 @@ class VoyageAPIEmbeddings(DenserEmbeddings):
         embeddings = self.client.embed([text], model=self.model_name).embeddings
         return embeddings
 
+
+# TODO remove this when release
 if __name__ == "__main__":
     # Same parameters = same instance
-    emb1 = SentenceTransformerEmbeddings("Snowflake/snowflake-arctic-embed-m", 768, False)
-    emb2 = SentenceTransformerEmbeddings("Snowflake/snowflake-arctic-embed-m", 768, False)
+    emb1 = SentenceTransformerEmbeddings(
+        "Snowflake/snowflake-arctic-embed-m", 768, False
+    )
+    emb2 = SentenceTransformerEmbeddings(
+        "Snowflake/snowflake-arctic-embed-m", 768, False
+    )
     print(emb1 is emb2)  # True
 
     # Different parameters = different instances
-    emb3 = SentenceTransformerEmbeddings("Snowflake/snowflake-arctic-embed-m-long", 768, True)
+    emb3 = SentenceTransformerEmbeddings(
+        "Snowflake/snowflake-arctic-embed-m-long", 768, True
+    )
     print(emb1 is emb3)  # False

@@ -12,6 +12,7 @@ from pymilvus import (
     DataType,
     FieldSchema,
     MilvusException,
+    SearchResult,
     connections,
     utility,
 )
@@ -174,6 +175,12 @@ class MilvusDenserVectorDB(DenserVectorDB):
             )
             raise e
 
+    def _get_col(self) -> Collection:
+        """Get initialized Milvus collection or raise error."""
+        if self.col is None:
+            raise ValueError("Collection not initialized. Call create_index() first.")
+        return self.col
+
     def add_documents(
         self,
         documents: List[Document],
@@ -188,6 +195,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
         Returns:
             List[str]: IDs of the added texts.
         """
+        col = self._get_col()
         batch = []
         ids = [str(uuid4()) for _ in range(len(documents))]
         uid_list, sources, titles, texts, pid_list = [], [], [], [], []
@@ -234,13 +242,13 @@ class MilvusDenserVectorDB(DenserVectorDB):
                 record += fields_list
 
                 try:
-                    self.col.insert(record)
+                    col.insert(record)
                 except Exception as e:
                     logger.error(
                         f'Milvus index insert error at record {doc.metadata["pid"]} - {e}'
                     )
 
-                self.col.flush()
+                col.flush()
                 logger.info(f"Milvus vector DB ingesting {id}")
 
                 batch = []
@@ -259,7 +267,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
             ]
             record += fields_list
             try:
-                self.col.insert(record)
+                col.insert(record)
             except Exception as e:
                 logger.error(f"Milvus index insert error at record {id} - {e}")
                 failed_batches.append(
@@ -269,7 +277,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
                         "batch": batch,
                     }
                 )
-            self.col.flush()
+            col.flush()
             logger.info(f"Milvus vector DB ingesting {id}")
 
         index = {
@@ -277,8 +285,8 @@ class MilvusDenserVectorDB(DenserVectorDB):
             "metric_type": "L2",
         }
 
-        self.col.create_index("embeddings", index)
-        self.col.load()
+        col.create_index("embeddings", index)
+        col.load()
         return ids
 
     def similarity_search_with_score(
@@ -300,6 +308,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
         Returns:
             List[Tuple[Document, float]]: List of tuples of documents and their similarity scores.
         """
+        col = self._get_col()
         start_time = time.time()
         embeddings = self.embeddings.embed_query(query)
         query_embeddings = np.array(embeddings)
@@ -354,7 +363,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
         ] + self.search_fields.get_keys()
 
         start_time = time.time()
-        result = self.col.search(
+        result = col.search(
             data=query_embeddings,
             anns_field="embeddings",
             param=search_params,
@@ -362,6 +371,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
             expr=expr_str,
             output_fields=output_fields,
         )
+        assert isinstance(result, SearchResult)
         retrieve_time_sec = time.time() - start_time
         logger.info(f"Vector DB retrieve time: {retrieve_time_sec:.3f} sec.")
         logger.info(f"Retrieved {len(result[0])} documents.")
@@ -428,22 +438,22 @@ class MilvusDenserVectorDB(DenserVectorDB):
             ids (Optional[List[str]]): IDs of the documents to delete.
             expr (Optional[str]): Expression to filter the deletion.
         """
-        # self.col.delete(ids=ids, **kwargs)
+        col = self._get_col()
         if isinstance(ids, list) and len(ids) > 0:
             if source_id is not None:
                 logger.warning(
                     "Both ids and source_id are provided. " "Ignore source_id and delete by ids."
                 )
             expr = f"uid in {ids}"
-            self.col.delete(expr=expr)
+            col.delete(expr=expr)
         elif source_id:
-            self.col.delete(expr=f"source == '{source_id}'")
+            col.delete(expr=f"source == '{source_id}'")
         elif source_url:
-            self.col.delete(expr=f"source like '{source_url}%'")
+            col.delete(expr=f"source like '{source_url}%'")
         else:
             raise ValueError("No ids or source_id provided for deletion")
 
     def delete_all(self):
         """Delete all documents from the vector db."""
-        if self.col:
-            self.col.delete(expr="uid != ''")
+        col = self._get_col()
+        col.delete(expr="uid != ''")

@@ -25,9 +25,7 @@ def save_HF_corpus_as_docs(corpus, output_file: str, max_doc_size, max_doc_len):
         out.write("\n")
 
 
-def save_data(
-        group_data, output_feature, output_group, features
-):
+def save_data(group_data, output_feature, output_group, features):
     if len(group_data) == 0:
         return
 
@@ -47,9 +45,7 @@ def save_data(
         output_feature.write(data[0] + " " + " ".join(feats) + "\n")
 
 
-def prepare_features(
-        exp_dir, out_file, out_group_file, features_to_use
-):
+def prepare_features(exp_dir, out_file, out_group_file, features_to_use):
     fi = open(os.path.join(exp_dir, "features.svmlight"))
     output_feature = open(os.path.join(exp_dir, out_file), "w")
     output_group = open(os.path.join(exp_dir, out_group_file), "w")
@@ -64,19 +60,12 @@ def prepare_features(
         splits = line.strip().split(" ")
         if splits[1] != group:
             # print(f"Processing group {group}")
-            save_data(
-                group_data,
-                output_feature,
-                output_group,
-                features_to_use
-            )
+            save_data(group_data, output_feature, output_group, features_to_use)
             group_data = []
         group = splits[1]
         group_data.append(splits)
 
-    save_data(
-        group_data, output_feature, output_group, features_to_use
-    )
+    save_data(group_data, output_feature, output_group, features_to_use)
 
     fi.close()
     output_feature.close()
