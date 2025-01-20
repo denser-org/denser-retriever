@@ -73,13 +73,13 @@ class DenserKeywordSearch(ABC):
         query: str,
         k: int = 100,
         filter: Dict[str, Any] = {},
-    ) -> List[Tuple[Document, float]]:
+        **kwargs: Any,
+    ) -> Tuple[List[Tuple[Document, float]], Optional[Dict]]:
         raise NotImplementedError
 
     @abstractmethod
     def get_index_mappings(self) -> Dict[Any, Any]:
         raise NotImplementedError
-
 
     @abstractmethod
     def delete(
@@ -121,8 +121,13 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         self.analysis = analysis
         self.client = es_connection
 
-    def create_index(self, index_name: str, search_fields: List[str], date_fields: List[str]=[], **args: Any):
-
+    def create_index(
+        self,
+        index_name: str,
+        search_fields: List[str],
+        date_fields: List[str] = [],
+        **args: Any,
+    ):
         # Define the index settings and mappings
         self.index_name = index_name
         self.search_fields = FieldMapper(search_fields)
@@ -271,12 +276,12 @@ class ElasticKeywordSearch(DenserKeywordSearch):
             return []
 
     def retrieve(
-            self,
-            query: str,
-            k: int = 100,
-            filter: Dict[str, Any] = {},
-            aggregation: bool = False, # Aggregate metadata
-            apply_sigmoid: bool = False, # Apply sigmoid to scores
+        self,
+        query: str,
+        k: int = 100,
+        filter: Dict[str, Any] = {},
+        aggregation: bool = False,  # Aggregate metadata
+        apply_sigmoid: bool = False,  # Apply sigmoid to scores
     ) -> Tuple[List[Tuple[Document, float]], Dict]:
         assert self.client.indices.exists(index=self.index_name)
         start_time = time.time()
@@ -301,9 +306,9 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                                         "match": {
                                             "content": query,
                                         }
-                                    }
+                                    },
                                 ],
-                                "minimum_should_match": 1  # Ensure at least one of the should conditions is matched
+                                "minimum_should_match": 1,  # Ensure at least one of the should conditions is matched
                             }
                         }
                     ]
@@ -325,7 +330,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                                     "gte": category_or_date[0],
                                     "lte": category_or_date[1]
                                     if len(category_or_date) > 1
-                                    else category_or_date[0],
+                                    else category_or_date[0], # type: ignore
                                 }
                             }
                         }
@@ -341,7 +346,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 query_dict["aggs"][f"{field}_aggregation"] = {
                     "terms": {
                         "field": f"{field}",  # Use keyword type for aggregations
-                        "size": 50  # Adjust size as needed
+                        "size": 50,  # Adjust size as needed
                     }
                 }
 
@@ -372,12 +377,18 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         # Process aggregations for the specified fields
         aggregations = {}
         for field in self.search_fields.get_keys():
-            field_agg = res.get("aggregations", {}).get(f"{field}_aggregation", {}).get("buckets", [])
-            cat_keys = [cat['key'] for cat in field_agg]
-            cat_counts = [cat['doc_count'] for cat in field_agg]
+            field_agg = (
+                res.get("aggregations", {})
+                .get(f"{field}_aggregation", {})
+                .get("buckets", [])
+            )
+            cat_keys = [cat["key"] for cat in field_agg]
+            cat_counts = [cat["doc_count"] for cat in field_agg]
             if len(cat_keys) > 0:
                 if field in self.date_fields:
-                    sorted_data = sorted(zip(cat_keys, cat_counts), key=lambda x: x[0], reverse=True)
+                    sorted_data = sorted(
+                        zip(cat_keys, cat_counts), key=lambda x: x[0], reverse=True
+                    )
                     sorted_keys, sorted_counts = zip(*sorted_data)
                     cat_keys = list(sorted_keys)
                     cat_counts = list(sorted_counts)
@@ -417,7 +428,6 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         all_fields = extract_fields(properties)
         return all_fields
 
-
     def delete(
         self,
         ids: Optional[List[str]] = None,
@@ -430,23 +440,21 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         elif source_id:
             query = {"query": {"match": {"source": source_id}}}
         elif source_url:
-            query = {
-                "query": {
-                    "wildcard": {
-                        "source": f"*{source_url}*"
-                    }
-                }
-            }
+            query = {"query": {"wildcard": {"source": f"*{source_url}*"}}}
         else:
-            raise ValueError("Please provide either ids, source_id, or source_url to delete.")
+            raise ValueError(
+                "Please provide either ids, source_id, or source_url to delete."
+            )
 
         result = self.client.delete_by_query(index=self.index_name, body=query)
-        deleted_count = result.get('deleted', 0)
+        deleted_count = result.get("deleted", 0)
 
         # Refresh the index to make the changes visible
         self.client.indices.refresh(index=self.index_name)
 
-        logger.info(f"Deleted {deleted_count} documents with {'ids' if ids else 'source_id' if source_id else 'source_url'}: {ids or source_id or source_url}")
+        logger.info(
+            f"Deleted {deleted_count} documents with {'ids' if ids else 'source_id' if source_id else 'source_url'}: {ids or source_id or source_url}"
+        )
 
     def delete_all(self):
         self.client.indices.delete(index=self.index_name)

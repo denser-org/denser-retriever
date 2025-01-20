@@ -1,3 +1,5 @@
+# type: ignore
+
 import logging
 import os
 from collections import defaultdict
@@ -68,9 +70,11 @@ class HFDataLoader:
             self, split="test"
     ) -> Tuple[Dict[str, Dict[str, str]], Dict[str, str], Dict[str, Dict[str, int]]]:
         if not self.hf_repo:
-            self.qrels_file = os.path.join(self.qrels_folder, split + ".tsv")
+            if not self.qrels_folder:
+                raise ValueError("qrels_folder must be provided when not using HuggingFace repo")
+            self.qrels_file = os.path.join(str(self.qrels_folder), split + ".tsv")
             self.check(fIn=self.corpus_file, ext="jsonl")
-            self.check(fIn=self.query_file, ext="jsonl")
+            self.check(fIn=self.query_file, ext="jsonl") 
             self.check(fIn=self.qrels_file, ext="tsv")
 
         if not len(self.corpus):

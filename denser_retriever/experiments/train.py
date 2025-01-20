@@ -1,3 +1,5 @@
+# type: ignore
+
 import logging
 import os
 import sys
@@ -21,10 +23,13 @@ from denser_retriever.core.utils import (
     docs_to_dict,
 )
 from denser_retriever.experiments.utils import prepare_features, save_HF_corpus_as_docs
-from denser_retriever.core.utils import config_to_features
+from denser_retriever.core.utils import config_to_features, load_queries
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+os.environ["http_proxy"] = "http://127.0.0.1:7890"
+os.environ["https_proxy"] = "http://127.0.0.1:7890"
 
 
 class DenserData:

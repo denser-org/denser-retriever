@@ -12,6 +12,7 @@ from denser_retriever.core.reranker import DenserReranker, HFReranker, CohereRer
 from denser_retriever.core.retriever import DenserRetriever
 from denser_retriever.core.vectordb.base import DenserVectorDB
 from denser_retriever.core.vectordb import MilvusDenserVectorDB
+from denser_retriever.config import RetrieverConfig
 
 if sys.version_info >= (3, 8):
     from importlib import metadata as importlib_metadata
@@ -40,4 +41,5 @@ __all__ = [
     "DenserRetriever",
     "DenserVectorDB",
     "MilvusDenserVectorDB",
+    "RetrieverConfig",
 ]

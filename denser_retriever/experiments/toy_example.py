@@ -16,13 +16,9 @@ retriever = DenserRetriever(**retriever_config)
 retriever.ingest(texts)
 
 query = "What did the president say about Ketanji Brown Jackson"
-results, _, token_metrics = retriever.retrieve(
-    query=query,
-    k=5,
-    combine_config=retriever_config["combine_config"],
-    usage=True
+retrieval_result = retriever.retrieve(
+    query=query, k=5, combine_config=retriever_config["combine_config"], usage=True
 )
-print(results)
-print(token_metrics)
+print(retrieval_result.to_json())
 
 retriever.delete_all()
