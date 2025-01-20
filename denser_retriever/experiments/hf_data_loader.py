@@ -1,11 +1,9 @@
-# type: ignore
-
 import logging
 import os
 from collections import defaultdict
 from typing import Dict, Optional, Tuple
 
-from datasets import Features, Value, load_dataset
+from datasets import Features, Value, load_dataset, Dataset, IterableDataset
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +127,7 @@ class HFDataLoader:
                 streaming=self.streaming,
                 keep_in_memory=self.keep_in_memory,
             )
+
         corpus_ds = next(iter(corpus_ds.values()))  # get first split
         corpus_ds = corpus_ds.cast_column("_id", Value("string"))
         corpus_ds = corpus_ds.rename_column("_id", "id")
