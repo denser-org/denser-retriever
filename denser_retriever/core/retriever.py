@@ -235,7 +235,7 @@ class DenserRetriever:
             combine_config.keyword_top_k,
             filter=filter,
             aggregation=aggregation,
-            apply_sigmoid=True,
+            apply_sigmoid=False,
         )
 
         # Get vector search results

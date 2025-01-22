@@ -39,7 +39,7 @@ class LRConfig(BaseModel):
 
 
 class CombineConfig(BaseModel):
-    method: CombineMethod = "reranker"
+    method: CombineMethod = "fusion"
     keyword_top_k: int = 100
     vector_top_k: int = 100
     reranker_top_k: int = 100

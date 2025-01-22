@@ -229,7 +229,7 @@ def main():
     # Process queries with specified methods
     results, token_stats = process_queries_all_methods(
         retriever=retriever,
-        queries=list(queries.values()),
+        queries=list(queries),
         combine_config=retriever_config["combine_config"],
         top_k=args.top_k,
         methods=args.methods,
