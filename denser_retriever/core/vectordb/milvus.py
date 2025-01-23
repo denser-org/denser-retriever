@@ -453,7 +453,9 @@ class MilvusDenserVectorDB(DenserVectorDB):
         else:
             raise ValueError("No ids or source_id provided for deletion")
 
-    def delete_all(self):
+    def delete_all(self, delete_index: bool = True):
         """Delete all documents from the vector db."""
         col = self._get_col()
-        col.delete(expr="uid != ''")
+        col.drop()
+        if not delete_index:
+            self._create_collection()

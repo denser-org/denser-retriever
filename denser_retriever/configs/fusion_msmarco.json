@@ -2,10 +2,14 @@
   "max_query_len": 2000,
   "es": {
     "url": "http://localhost:9200",
+    "username": "elastic",
+    "password": "YOUR_PASSWORD",
     "analysis": "default"
   },
   "milvus": {
-    "uri": "http://localhost:19530"
+    "uri": "http://localhost:19530",
+    "user": "root",
+    "password": "YOUR_PASSWORD"
   },
   "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
   "embedding": {
@@ -21,7 +25,7 @@
     "reranker_top_k": 100,
     "lr_config": {
       "lr_features": "es+vs+rr",
-      "lr_model": "denser_retriever/models/weights_es+vs+rr.json"
+      "lr_model": "denser_retriever/models/weights_es+vs+rr_msmarco.json"
     }
   },
   "aggregation": false

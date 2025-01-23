@@ -60,7 +60,7 @@ class DenserVectorDB(ABC):
             f"clear has not been implemented for {self.__class__.__name__}"
         )
 
-    def delete_all(self):
+    def delete_all(self, delete_index: bool = True):
         raise NotImplementedError(
             f"clear has not been implemented for {self.__class__.__name__}"
         )

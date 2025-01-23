@@ -79,7 +79,7 @@ class TestRetriever:
             Document(page_content="content2", metadata={"title": "title2", "source": "source_test2"}),
         ]
         self.denser_retriever.ingest(docs)
-        self.denser_retriever.delete_all()
+        self.denser_retriever.delete_all(delete_index=True)
         assert True
 
     def test_delete_by_source(self):

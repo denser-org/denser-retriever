@@ -1,9 +1,5 @@
 {
-  "ingest_bs": 2000,
-  "max_query_size": 10000,
   "max_query_len": 2000,
-  "max_doc_size": 0,
-  "max_doc_len": 8000,
   "es": {
     "url": "http://localhost:9200",
     "username": "elastic",
@@ -24,9 +20,13 @@
   },
   "combine_config": {
     "method": "fusion",
-    "keyword_top_k":100,
-    "vector_top_k":100,
-    "reranker_top_k":100
+    "keyword_top_k": 100,
+    "vector_top_k": 100,
+    "reranker_top_k": 100,
+    "lr_config": {
+      "lr_features": "es+vs+rr",
+      "lr_model": "denser_retriever/models/weights_es+vs+rr_scifact.json"
+    }
   },
   "aggregation": false
 }

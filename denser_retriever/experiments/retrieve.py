@@ -102,7 +102,7 @@ def create_parser():
     )
     parser.add_argument(
         "--lr-model",
-        default="denser_retriever/models/weights_es+vs+rr.json",
+        default="denser_retriever/models/weights_es+vs+rr_scifact.json",
         help="Path to LR model weights",
     )
 

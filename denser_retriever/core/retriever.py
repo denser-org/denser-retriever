@@ -468,12 +468,12 @@ class DenserRetriever:
         if self.keyword_search:
             self.keyword_search.delete(ids=ids, source_id=source_id, **kwargs)
 
-    def delete_all(self):
+    def delete_all(self, delete_index: bool=True):
         """Clear the retriever."""
         if self.vector_db:
-            self.vector_db.delete_all()
+            self.vector_db.delete_all(delete_index=delete_index)
         if self.keyword_search:
-            self.keyword_search.delete_all()
+            self.keyword_search.delete_all(delete_index=delete_index)
 
     def get_filter_fields(self):
         """Get the filter fields."""

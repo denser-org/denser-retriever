@@ -92,7 +92,7 @@ class DenserKeywordSearch(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete_all(self):
+    def delete_all(self, delete_index: bool = True):
         raise NotImplementedError
 
 
@@ -456,5 +456,17 @@ class ElasticKeywordSearch(DenserKeywordSearch):
             f"Deleted {deleted_count} documents with {'ids' if ids else 'source_id' if source_id else 'source_url'}: {ids or source_id or source_url}"
         )
 
-    def delete_all(self):
-        self.client.indices.delete(index=self.index_name)
+    def delete_all(self, delete_index: bool = True):
+        """Delete all documents from the Elasticsearch index.
+
+        Args:
+            delete_index (bool): If True, deletes the entire index.
+                               If False, only deletes the documents in the index. Default is True.
+        """
+        if delete_index:
+            self.client.indices.delete(index=self.index_name)
+        else:
+            self.client.delete_by_query(
+                index=self.index_name,
+                query={"match_all": {}}
+            )

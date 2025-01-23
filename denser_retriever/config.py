@@ -19,11 +19,15 @@ CombineMethod = Literal["vector", "hybrid", "reranker", "fusion"]
 
 class ESConfig(BaseModel):
     url: str = "http://localhost:9200"
+    username: str = "elastic"
+    password: str = "YOUR_PASSWORD"
     analysis: str = "default"
 
 
 class MilvusConfig(BaseModel):
     uri: str = "http://localhost:19530"
+    user: str =  "root"
+    password: str = "YOUR_PASSWORD"
 
 
 class EmbeddingConfig(BaseModel):
@@ -64,7 +68,8 @@ class RetrieverConfig(BaseModel):
 
         # Configure keyword search
         keyword_search = ElasticKeywordSearch(
-            es_connection=create_elasticsearch_client(url=self.es.url),
+            es_connection=create_elasticsearch_client(url=self.es.url, username=self.es.username,
+                                                      password=self.es.password),
             drop_old=drop_old,
             analysis=self.es.analysis,
         )
@@ -72,7 +77,8 @@ class RetrieverConfig(BaseModel):
         # Configure vector database
         if self.milvus:
             vector_db = MilvusDenserVectorDB(
-                connection_args={"uri": self.milvus.uri}, drop_old=drop_old
+                connection_args={"uri": self.milvus.uri, "user": self.milvus.user, "password": self.milvus.password},
+                drop_old=drop_old
             )
         else:
             vector_db = None
