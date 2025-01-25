@@ -436,7 +436,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         **kwargs: str,
     ):
         if ids:
-            query = {"query": {"terms": {"uid": ids}}}
+            query = {"query": {"terms": {"pid": ids}}}
         elif source_id:
             query = {"query": {"match": {"source": source_id}}}
         elif source_url:
@@ -445,7 +445,6 @@ class ElasticKeywordSearch(DenserKeywordSearch):
             raise ValueError(
                 "Please provide either ids, source_id, or source_url to delete."
             )
-
         result = self.client.delete_by_query(index=self.index_name, body=query)
         deleted_count = result.get("deleted", 0)
 
@@ -470,3 +469,4 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 index=self.index_name,
                 query={"match_all": {}}
             )
+            self.client.indices.refresh(index=self.index_name)

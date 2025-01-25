@@ -40,7 +40,6 @@ class TestElasticsearchKeywordStore:
         ]
         keyword_search.add_documents(documents)
         results, _ = keyword_search.retrieve("content1", 1)
-        # import pdb; pdb.set_trace()
         assert len(results) == 1
 
     def test_get_index_mappings(self, keyword_search):

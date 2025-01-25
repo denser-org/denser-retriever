@@ -4,7 +4,7 @@ from typing import List
 
 from langchain_core.documents import Document
 
-from denser_retriever.reranker import HFReranker
+from denser_retriever.core.reranker import HFReranker
 
 
 def test_rerank() -> None:
@@ -20,10 +20,6 @@ def test_rerank() -> None:
     reranker = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
     actual_docs = reranker.rerank(docs, "bbb2")
     actual = list(map(lambda doc: doc[0].page_content, actual_docs))[0:3]
-    # expected_returned = ["bbb2", "bbb1", "bbb3"]
-    # expected_not_returned = ["aaa1", "aaa2", "aaa3"]
-    # assert all([text in actual for text in expected_returned])
-    # assert all([text not in actual for text in expected_not_returned])
     assert actual[0] == "bbb2"
 
 

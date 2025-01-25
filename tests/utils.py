@@ -3,21 +3,23 @@ from denser_retriever.core.keyword import (
     ElasticKeywordSearch,
     create_elasticsearch_client,
 )
-from denser_retriever.reranker import HFReranker
+from denser_retriever.core.reranker import HFReranker
 from denser_retriever.core.vectordb.milvus import MilvusDenserVectorDB
 
 index_name = "unit_test_retriever"
 
 milvus = MilvusDenserVectorDB(
-    connection_args={"uri": "http://localhost:19530"},
-    auto_id=True,
+    connection_args={"uri": "http://localhost:19530", "user": "root", "password": "YOUR_PASSWORD"},
     drop_old=True
 )
 
 elasticsearch = ElasticKeywordSearch(
-    es_connection=create_elasticsearch_client(url="http://localhost:9200"),
-    drop_old=True
+    es_connection=create_elasticsearch_client(url="http://localhost:9200", username="elastic",
+                                              password="YOUR_PASSWORD"),
+    drop_old=True,
+    analysis="default"
 )
+
 reranker = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 embeddings = SentenceTransformerEmbeddings(

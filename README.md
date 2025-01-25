@@ -17,13 +17,13 @@ An enterprise-grade AI retriever designed to streamline AI integration into your
 
 </div>
 
-## Features
+## Key Features:
 
-- Supporting heterogeneous retrievers such as **keyword search**, **vector search**, and **ML model reranking**
-- Leveraging ML technique to effectively combine heterogeneous retrievers
-- **Comprehensive benchmark** on [MTEB](https://github.com/embeddings-benchmark/mteb) Retrieval dataset
-- Demonstrating how to use Denser retriever to power an **end-to-end applications** such as chatbot and semantic search
-![mteb_ndcg_plot](https://github.com/denser-org/denser-retriever/blob/main/mteb_ndcg_plot.png?raw=true)
+- Optimizes retrieval by combining keyword search, vector search, and reranking
+- Simple example for quick start
+- Built-in support for [MTEB](https://github.com/embeddings-benchmark/mteb) scifact and MsMarco datasets
+- Full MTEB Retrieval benchmark experiments
+- Ready-to-use components for chatbots and semantic search applications
 
 ## Installation
 
@@ -37,14 +37,18 @@ poetry install
 
 ## Quick Start
 
-We provide a toy example to demonstrate the usage of the denser retriever by running the following command.
+We need to start the elasticsearch and Milvus services before running the experiments.
+
+```bash
+docker compose up -d
+```
+
+After starting the services, we run the following command to use `"tests/test_data/state_of_the_union.txt"` file to build a retriever and run a
+query `"What did the president say about Ketanji Brown Jackson"` to retrieve the top 10 passages.
 
 ```commandline
 python -m denser_retriever.experiments.toy_example
 ```
-
-Specifically, we use `"tests/test_data/state_of_the_union.txt"` file to build a retriever and run a
-query `"What did the president say about Ketanji Brown Jackson"` to retrieve the top 10 passages.
 
 ## Ingetstion
 
@@ -82,7 +86,7 @@ following ingestion stats:
 }
 ```
 
-## Retrieving
+## Retrieval
 
 Denser retriever consists of three components: keyword search, vector search, and reranker. We provide the following
 methods to combine these components:
@@ -284,22 +288,17 @@ NDCG@10 scores. The fusion method outperforms the other methods with a higher co
 | reranker | 0.4013  | 10.02 |
 | fusion   | 0.4707  | 16.65 |
 
+## Unit Tests
 
+Run the following command to run the unit tests.
 
-## 📝 Experiments (slightly outdated)
+```bash
+pytest tests
+```
 
-### [MTEB Retrieval experiment](https://retriever-docs.denser.ai/docs/core/experiments/mteb_retrieval)
+## 📃 Documentation (slightly outdated)
 
-## 📃 Documentation
-
-The official documentation is hosted on [retriever.denser.ai](https://retriever.denser.ai).
-Click [here](https://retriever.denser.ai/docs/quick-start) to get started.
-
-## 👨🏼‍💻 Development
-
-You can start developing Denser Retriever on your local machine.
-
-See [DEVELOPMENT.md](DEVELOPMENT.md) for more details.
+The official documentation is hosted on [retriever.denser.ai](https://retriever.denser.ai). The complete MTEB retrieval experiment is available at [retriever-docs.denser.ai](https://retriever-docs.denser.ai/docs/core/experiments/mteb_retrieval).
 
 ## 🛡 License
 

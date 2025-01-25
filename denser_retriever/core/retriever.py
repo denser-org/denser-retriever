@@ -42,6 +42,7 @@ class DenserRetriever:
         self.keyword_search = keyword_search
         self.vector_db = vector_db
         self.reranker = reranker
+        self.combine_config = combine_config
 
         # create index. If exists, remove them first if drop_old is true
         if self.vector_db:
@@ -480,3 +481,54 @@ class DenserRetriever:
         if not self.keyword_search:
             raise ValueError("Keyword search not initialized")
         return self.keyword_search.get_index_mappings()
+
+    def get_index_stats(self) -> Dict[str, int]:
+        """Get the number of documents in elasticsearch and milvus indices.
+
+        Returns:
+            Dict[str, int]: Dictionary containing document counts for each index
+                {'es_docs': int, 'vector_docs': int}
+        """
+        stats = {'es_docs': 0, 'vector_docs': 0}
+
+        if self.keyword_search:
+            # Count documents in elasticsearch
+            result = self.keyword_search.client.count(index=self.index_name)
+            stats['es_docs'] = result['count']
+
+        if self.vector_db:
+            # Count documents in milvus
+            stats['vector_docs'] = self.vector_db.get_count()
+            # col.num_entities is not a reliable way to get the number of documents
+            # if hasattr(self.vector_db, 'col') and self.vector_db.col:
+            #     stats['vector_docs'] = self.vector_db.col.num_entities
+
+        return stats
+
+    def check_indices(self) -> Dict[str, bool]:
+        """Check if elasticsearch and milvus indices exist and are valid.
+
+        Returns:
+            Dict containing index status {'es_valid': bool, 'vector_valid': bool}
+        """
+        status = {'es_valid': False, 'vector_valid': False}
+
+        if self.keyword_search:
+            try:
+                exists = self.keyword_search.client.indices.exists(index=self.index_name)
+                if exists:
+                    # Test query to verify index is working
+                    self.keyword_search.client.search(index=self.index_name, query={"match_all": {}})
+                    status['es_valid'] = True
+            except Exception as e:
+                logger.error(f"Elasticsearch index check failed: {e}")
+
+        if self.vector_db:
+            try:
+                # Verify collection exists and can be queried
+                count = self.vector_db.get_count()
+                status['vector_valid'] = True
+            except Exception as e:
+                logger.error(f"Vector DB index check failed: {e}")
+
+        return status

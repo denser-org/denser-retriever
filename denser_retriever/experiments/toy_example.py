@@ -9,7 +9,7 @@ text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100
 texts = text_splitter.split_documents(docs)
 
 index_name = "state_of_the_union"
-config = load_retriever_config("denser_retriever/configs/fusion.json")
+config = load_retriever_config("denser_retriever/configs/fusion_msmarco.json")
 retriever_config = config.get_retriever_config(index_name, True)
 retriever = DenserRetriever(**retriever_config)
 
