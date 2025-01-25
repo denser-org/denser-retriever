@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 def process_queries_all_methods(
     retriever: DenserRetriever,
     queries: list,
-    combine_config: CombineConfig,
     top_k: int,
     methods: List[str] = [],
     max_query_len: int = 2000,
@@ -74,7 +73,6 @@ def process_queries_all_methods(
             retrieval_result = method_func(
                 query=query_str,
                 k=top_k,
-                combine_config=combine_config,
                 filter={},
                 aggregation=False,
                 usage=usage,
@@ -230,7 +228,6 @@ def main():
     results, token_stats = process_queries_all_methods(
         retriever=retriever,
         queries=list(queries),
-        combine_config=retriever_config["combine_config"],
         top_k=args.top_k,
         methods=args.methods,
         num_queries=args.num_queries,

@@ -165,7 +165,6 @@ class DenserRetriever:
         self,
         query: str,
         k: int,
-        combine_config: CombineConfig,
         filter: Dict[str, Any] = {},
         aggregation: bool = False,
         usage: bool = False,
@@ -173,19 +172,19 @@ class DenserRetriever:
         logger.info(f"Retrieve query: {query} top_k: {k}")
         if self.combine_method == "vector":
             return self.retrieve_by_vector(
-                query, k, combine_config, filter, aggregation, usage
+                query, k, filter, aggregation, usage
             )
         elif self.combine_method == "hybrid":
             return self.retrieve_by_hybrid(
-                query, k, combine_config, filter, aggregation, usage
+                query, k, filter, aggregation, usage
             )
         elif self.combine_method == "reranker":
             return self.retrieve_by_reranker(
-                query, k, combine_config, filter, aggregation, usage
+                query, k, filter, aggregation, usage
             )
         elif self.combine_method == "fusion":
             return self.retrieve_by_fusion(
-                query, k, combine_config, filter, aggregation, usage
+                query, k, filter, aggregation, usage
             )
         else:
             raise ValueError(f"Unknown combine method {self.combine_method}")
@@ -194,7 +193,6 @@ class DenserRetriever:
         self,
         query: str,
         k: int,
-        combine_config: CombineConfig,
         filter: Dict[str, Any] = {},
         aggregation: bool = False,
         usage: bool = False,
@@ -222,7 +220,6 @@ class DenserRetriever:
         self,
         query: str,
         k: int,
-        combine_config: CombineConfig,
         filter: Dict[str, Any] = {},
         aggregation: bool = False,
         usage: bool = False,
@@ -233,7 +230,7 @@ class DenserRetriever:
             raise ValueError("Keyword search not initialized")
         ks_docs, aggregations = self.keyword_search.retrieve(
             query,
-            combine_config.keyword_top_k,
+            self.combine_config.keyword_top_k,
             filter=filter,
             aggregation=aggregation,
             apply_sigmoid=False,
@@ -243,7 +240,7 @@ class DenserRetriever:
         if not self.vector_db:
             raise ValueError("Vector database not initialized")
         vs_docs = self.vector_db.similarity_search_with_score(
-            query, combine_config.vector_top_k, filter=filter
+            query, self.combine_config.vector_top_k, filter=filter
         )
 
         # Calculate token usage
@@ -271,7 +268,7 @@ class DenserRetriever:
                 all_docs[pid] = doc
 
         hybrid_scores = {}
-        max_rank = max(combine_config.keyword_top_k, combine_config.vector_top_k)
+        max_rank = max(self.combine_config.keyword_top_k, self.combine_config.vector_top_k)
 
         for pid, doc in all_docs.items():
             ks_rank = ks_rank_dict.get(pid, max_rank + 1)
@@ -294,7 +291,6 @@ class DenserRetriever:
         self,
         query: str,
         k: int,
-        combine_config: CombineConfig,
         filter: Dict[str, Any] = {},
         aggregation: bool = False,
         usage: bool = False,
@@ -304,7 +300,7 @@ class DenserRetriever:
         if not self.keyword_search:
             raise ValueError("Keyword search not initialized")
         ks_docs, aggregations = self.keyword_search.retrieve(
-            query, combine_config.keyword_top_k, filter=filter, aggregation=aggregation
+            query, self.combine_config.keyword_top_k, filter=filter, aggregation=aggregation
         )
 
         # Extract documents for reranking
@@ -336,21 +332,18 @@ class DenserRetriever:
         self,
         query: str,
         k: int,
-        combine_config: CombineConfig,
         filter: Dict[str, Any] = {},
         aggregation: bool = False,
         usage: bool = False,
     ) -> RetrievalResult:
         """Retrieve using logistic regression model for fusion."""
-        docs, doc_features, aggregations = self._retrieve_with_features(
-            query, combine_config, filter, aggregation
-        )
+        docs, doc_features, aggregations = self._retrieve_with_features(query, filter, aggregation)
 
         # Calculate token metrics from all retrieval methods
         metrics = None
         if usage:
             vector_tokens = ResourceTracker.calculate_vector_search_token_count(
-                query, docs[: combine_config.vector_top_k]
+                query, docs[: self.combine_config.vector_top_k]
             )
             rerank_tokens = (
                 ResourceTracker.calculate_reranker_token_count(query, docs)
@@ -381,7 +374,6 @@ class DenserRetriever:
     def _retrieve_with_features(
         self,
         query: str,
-        combine_config: CombineConfig,
         filter: Dict[str, Any] = {},
         aggregation: bool = False,
     ) -> Tuple[List[Document], List[List[str]], Optional[Dict]]:
@@ -391,14 +383,14 @@ class DenserRetriever:
         if self.keyword_search:
             ks_docs, aggregations = self.keyword_search.retrieve(
                 query,
-                combine_config.keyword_top_k,
+                self.combine_config.keyword_top_k,
                 filter=filter,
                 aggregation=aggregation,
             )
         vs_docs = []
         if self.vector_db:
             vs_docs = self.vector_db.similarity_search_with_score(
-                query, combine_config.vector_top_k, filter=filter
+                query, self.combine_config.vector_top_k, filter=filter
             )
 
         combined = []

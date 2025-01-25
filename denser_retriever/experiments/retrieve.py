@@ -202,7 +202,6 @@ def main():
     retrieval_result = retrieve_method(
         query=args.query,
         k=args.top_k,
-        combine_config=retriever_config["combine_config"],
         filter={},
         aggregation=config.aggregation,
         usage=args.usage,

@@ -31,9 +31,10 @@ class TestRetriever:
 
     def test_retrieve(self):
         doc_ids, _ = self.retriever.ingest(self.test_docs)
-        results = self.retriever.retrieve("content1", 2, self.retriever.combine_config)
+        results = self.retriever.retrieve("content1", 2)
         assert len(results.documents) == 2
         assert results.documents[0][0].page_content == "content1"
+        assert abs(results.documents[0][1]- 0.9241) < 0.001
 
     def test_delete_by_id(self):
         doc_ids, _ = self.retriever.ingest(self.test_docs)

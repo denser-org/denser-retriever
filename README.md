@@ -199,7 +199,7 @@ of top-k passages to retrieve, and the sixth argument is the number of queries t
 python -m denser_retriever.experiments.evaluate \
     scifact \
     mteb/scifact \
-    --config denser_retriever/configs/fusion.json \
+    --config denser_retriever/configs/fusion_scifact.json \
     --output-dir exps/exp_scifact/pred \
     --top-k 100 \
     --num-queries 0
@@ -261,7 +261,7 @@ python -m denser_retriever.experiments.evaluate \
     msmarco \
     mteb/msmarco \
     --split dev \
-    --config denser_retriever/configs/fusion.json \
+    --config denser_retriever/configs/fusion_msmarco.json \
     --output-dir exps/exp_msmarco/pred \
     --top-k 100 \
     --num-queries 0
@@ -290,10 +290,16 @@ NDCG@10 scores. The fusion method outperforms the other methods with a higher co
 
 ## Unit Tests
 
-Run the following command to run the unit tests.
+Run the following command to run all unit tests.
 
 ```bash
 pytest tests
+```
+
+If you want to run a specific test, for example the `test_retrieve` method in `test_retriever.py`, you can use the following command.
+
+```bash
+pytest tests/test_retriever.py::TestRetriever::test_retrieve
 ```
 
 ## 📃 Documentation (slightly outdated)

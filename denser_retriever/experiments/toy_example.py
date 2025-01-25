@@ -16,23 +16,10 @@ retriever = DenserRetriever(**retriever_config)
 ## Ingest the documents
 retriever.ingest(texts)
 
-# Create the CombineConfig object to specify the retrieval method
-combine_config = CombineConfig(
-    method="fusion",
-    keyword_top_k=100,
-    vector_top_k=100,
-    reranker_top_k=100,
-    lr_config=LRConfig(
-        lr_features="es+vs+rr",
-        lr_model="denser_retriever/models/weights_es+vs+rr_msmarco.json"
-    )
-)
-
 query = "What did the president say about Ketanji Brown Jackson"
 retrieval_result = retriever.retrieve(
     query=query,
     k=5,
-    combine_config=combine_config,
     usage=True
 )
 print(retrieval_result.to_json())
