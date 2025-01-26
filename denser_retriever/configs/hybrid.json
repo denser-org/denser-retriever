@@ -2,10 +2,14 @@
   "max_query_len": 2000,
   "es": {
     "url": "http://localhost:9200",
+    "username": "elastic",
+    "password": "YOUR_PASSWORD",
     "analysis": "default"
   },
   "milvus": {
-    "uri": "http://localhost:19530"
+    "uri": "http://localhost:19530",
+    "user": "root",
+    "password": "YOUR_PASSWORD"
   },
   "embedding": {
     "type": "sentence_transformer",

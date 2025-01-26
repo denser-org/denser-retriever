@@ -8,7 +8,7 @@ from denser_retriever.core.embeddings import (
     VoyageAPIEmbeddings,
 )
 from denser_retriever.core.keyword import DenserKeywordSearch, ElasticKeywordSearch
-from denser_retriever.core.reranker import DenserReranker, HFReranker, CohereReranker
+from denser_retriever.core.reranker import DenserReranker, HFReranker, CohereReranker, BGEReranker
 from denser_retriever.core.retriever import DenserRetriever
 from denser_retriever.core.vectordb.base import DenserVectorDB
 from denser_retriever.core.vectordb import MilvusDenserVectorDB
@@ -38,6 +38,7 @@ __all__ = [
     "DenserReranker",
     "HFReranker",
     "CohereReranker",
+    "BGEReranker",
     "DenserRetriever",
     "DenserVectorDB",
     "MilvusDenserVectorDB",

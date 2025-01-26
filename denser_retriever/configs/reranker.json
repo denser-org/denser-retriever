@@ -2,6 +2,8 @@
   "max_query_len": 2000,
   "es": {
     "url": "http://localhost:9200",
+    "username": "elastic",
+    "password": "YOUR_PASSWORD",
     "analysis": "default"
   },
   "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",

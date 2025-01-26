@@ -96,6 +96,43 @@ class BGEEmbeddings(DenserEmbeddings):
         return self.client.encode_queries(text)
 
 
+class BGEM3Embeddings(DenserEmbeddings):
+    _instances: Dict[str, "BGEM3Embeddings"] = {}
+
+    def __new__(cls, model_name: str, embedding_size: int):
+        key = f"{model_name}_{embedding_size}"
+        if key in cls._instances:
+            return cls._instances[key]
+
+        instance = super(BGEM3Embeddings, cls).__new__(cls)
+        cls._instances[key] = instance
+        instance.__initialized = False
+        return instance
+
+    def __init__(self, model_name: str, embedding_size: int):
+        if hasattr(self, "__initialized") and self.__initialized:
+            return
+
+        try:
+            from FlagEmbedding import BGEM3FlagModel
+        except ImportError as exc:
+            raise ImportError("Could not import FlagEmbedding python package.") from exc
+
+        self.client = BGEM3FlagModel(
+            model_name,
+            use_fp16=True,
+        )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
+        self.embedding_size = embedding_size
+        self.__initialized = True
+
+    def embed_documents(self, texts):
+        res = self.client.encode(texts)['dense_vecs'].tolist()
+        return res
+
+    def embed_query(self, text):
+        res =  self.client.encode([text])['dense_vecs'].tolist()
+        return res
+
 class VoyageAPIEmbeddings(DenserEmbeddings):
     _instances: Dict[str, "VoyageAPIEmbeddings"] = {}
 

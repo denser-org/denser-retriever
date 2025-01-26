@@ -1,6 +1,6 @@
 {
-  "ingest_bs": 20,
-  "max_query_size": 0,
+  "ingest_bs": 10000,
+  "max_query_size": 10000,
   "max_query_len": 2000,
   "max_doc_size": 0,
   "max_doc_len": 8000,
@@ -15,13 +15,13 @@
     "user": "root",
     "password": "YOUR_PASSWORD"
   },
-  "reranker_model": "BAAI/bge-reranker-base",
+  "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
   "embedding": {
-    "type": "bgem3",
-    "model": "BAAI/bge-m3",
-    "size": 1024
+    "type": "sentence_transformer",
+    "model": "Snowflake/snowflake-arctic-embed-m",
+    "size": 768,
+    "one_model": false
   },
-  "voyage_api_key": "",
   "combine_config": {
     "method": "fusion",
     "keyword_top_k":100,

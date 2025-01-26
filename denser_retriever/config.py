@@ -5,12 +5,13 @@ from denser_retriever.core.keyword import (
     ElasticKeywordSearch,
     create_elasticsearch_client,
 )
-from denser_retriever.core.reranker import HFReranker
+from denser_retriever.core.reranker import HFReranker, BGEReranker
 from denser_retriever.core.vectordb.milvus import MilvusDenserVectorDB
 from denser_retriever.core.embeddings import (
     VoyageAPIEmbeddings,
     SentenceTransformerEmbeddings,
     BGEEmbeddings,
+    BGEM3Embeddings,
 )
 
 # Define the combine method type
@@ -85,7 +86,10 @@ class RetrieverConfig(BaseModel):
 
         # Configure reranker
         if self.reranker_model:
-            reranker = HFReranker(model_name=self.reranker_model)
+            if self.reranker_model.startswith("BAAI"):
+                reranker = BGEReranker(model_name=self.reranker_model)
+            else:
+                reranker = HFReranker(model_name=self.reranker_model)
         else:
             reranker = None
 
@@ -105,6 +109,10 @@ class RetrieverConfig(BaseModel):
                 )
             elif self.embedding.type == "bge":
                 embeddings = BGEEmbeddings(
+                    model_name=self.embedding.model, embedding_size=self.embedding.size
+                )
+            elif self.embedding.type == "bgem3":
+                embeddings = BGEM3Embeddings(
                     model_name=self.embedding.model, embedding_size=self.embedding.size
                 )
             else:

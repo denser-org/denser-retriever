@@ -21,7 +21,7 @@ An enterprise-grade AI retriever designed to streamline AI integration into your
 
 - Optimizes retrieval by combining keyword search, vector search, and reranking
 - Simple example for quick start
-- Built-in support for [MTEB](https://github.com/embeddings-benchmark/mteb) scifact and MsMarco datasets
+- Built-in experiments for [MTEB](https://github.com/embeddings-benchmark/mteb) scifact, MsMarco and LeCaRDv2 datasets
 - Full MTEB Retrieval benchmark experiments
 - Ready-to-use components for chatbots and semantic search applications
 
@@ -43,11 +43,50 @@ We need to start the elasticsearch and Milvus services before running the experi
 docker compose up -d
 ```
 
-After starting the services, we run the following command to use `"tests/test_data/state_of_the_union.txt"` file to build a retriever and run a
-query `"What did the president say about Ketanji Brown Jackson"` to retrieve the top 10 passages.
+After starting the services, here is the code to build a retriever and run a query. The retriever building and query are governed by the configuration file `denser_retriever/configs/fusion_msmarco.json`, which specifies the embedding model, reranker model and top-k arguments in retrieval.
 
-```commandline
-python -m denser_retriever.experiments.toy_example
+```python
+from langchain_core.documents import Document
+from denser_retriever.core.retriever import DenserRetriever
+from denser_retriever.config import load_retriever_config
+
+# Create sample documents
+texts = [
+    Document(page_content="Python is a high-level programming language known for its simplicity and readability."),
+    Document(page_content="Machine learning is a subset of AI that enables systems to learn from data."),
+    Document(page_content="Natural Language Processing (NLP) helps computers understand human language."),
+    Document(page_content="Deep learning models use neural networks with multiple layers.")
+]
+
+# Initialize retriever
+index_name = "tech_docs"
+config = load_retriever_config("denser_retriever/configs/fusion_msmarco.json")
+retriever_config = config.get_retriever_config(index_name, True)
+retriever = DenserRetriever(**retriever_config)
+
+# Ingest documents
+retriever.ingest(texts)
+
+# Test queries
+queries = [
+    "What is Python?",
+    "Explain machine learning",
+]
+
+# Retrieve results
+for query in queries:
+    result = retriever.retrieve(query=query, k=5, usage=True)
+    print(f"\nQuery: {query}")
+    print(result.to_json())
+
+# Cleanup
+retriever.delete_all(delete_index=True)
+```
+
+You can also find the code at `experiments/quick_start.py`. Run the following command to execute the code.
+
+```bash
+python -m denser_retriever.experiments.quick_start
 ```
 
 ## Ingetstion
@@ -141,9 +180,15 @@ Metadata: {
 --------------------------------------------------------------------------------
 ```
 
-## Scifact Dataset Experiment
 
-### Training
+## Mteb Experiments
+
+<details>
+<summary>
+Scifact Dataset Experiment
+</summary>
+
+ ### Training 
 
 Training refers to train a logistic regression model to fuse keyword search, vector search and rerank. The trained
 logistic regression model is used in the `fusion` combine method. Without training, we can still use `vector`, `hybrid`,
@@ -226,7 +271,12 @@ the `weights_es+vs+rr.json` model from the training, obtained identical ndcg@10 
 | reranker | 0.6759  | 0.83 |
 | fusion   | 0.7434  | 2.10 |
 
-## MsMarco Dataset Experiment
+</details>
+
+<details>
+<summary>
+MsMarco Dataset Experiment
+</summary>
 
 ### Training
 
@@ -288,6 +338,41 @@ NDCG@10 scores. The fusion method outperforms the other methods with a higher co
 | reranker | 0.4013  | 10.02 |
 | fusion   | 0.4707  | 16.65 |
 
+</details>
+
+<details>
+<summary>
+LeCaRDv2 Dataset Experiment
+</summary>
+
+LeCaRDv2 dataset involves identifying and retrieving the case document that best matches or is most relevant to the scenario described in each of the provided queries. The query set contains 159 queries, each outlining a distinct situation. The corpus set includes 3795 candidate case documents. The original data link is at https://github.com/THUIR/LeCaRDv2
+
+
+### Evaluation
+
+LeCaRDv2 dataset only has 159 test queries and does not have a training dataset. While we cannot train a Logistic Regression model on this data, we use the model trained on MsMarco dataset to evaluate. The embedding model of `BAAI/bge-m3` and reranker model `BAAI/bge-reranker-v2-m3` are used in the evaluation. All models are specified in the `fusion_lecardv2.json`.
+
+```bash
+python -m denser_retriever.experiments.evaluate \
+    lecardv2 \
+    mteb/lecardv2 \
+    --split test \
+    --config denser_retriever/configs/fusion_lecardv2.json \
+    --output-dir exps/exp_lecardv2/pred \
+    --top-k 100
+```
+
+The evaluation accuracy is listed below. The hybrid method achieves the highest NDCG@10 score (0.7510), which is strong when compared to the [Huggingface Mteb leaderboard](https://huggingface.co/spaces/mteb/leaderboard). The fusion method does not perform well mainly due to 1) the reranker model does not perform well on this dataset, and 2) the fusion logistic regression model is trained on MsMarco dataset.
+
+| Method   | NDCG@10 | 
+|----------|---------|
+| vector   | 0.7034  |
+| hybrid   | 0.7510  |
+| reranker | 0.6022  |
+| fusion   | 0.7054  |
+
+</details>
+
 ## Unit Tests
 
 Run the following command to run all unit tests.
@@ -302,7 +387,7 @@ If you want to run a specific test, for example the `test_retrieve` method in `t
 pytest tests/test_retriever.py::TestRetriever::test_retrieve
 ```
 
-## 📃 Documentation (slightly outdated)
+## 📃 Documentation (outdated)
 
 The official documentation is hosted on [retriever.denser.ai](https://retriever.denser.ai). The complete MTEB retrieval experiment is available at [retriever-docs.denser.ai](https://retriever-docs.denser.ai/docs/core/experiments/mteb_retrieval).
 

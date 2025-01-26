@@ -200,7 +200,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
         seen_pids = set()
         fields_list = [[] for _ in range(len(self.search_fields.get_keys()))]
         failed_batches = []  # To store information about failed batches
-        for doc in documents:
+        for i, doc in enumerate(documents):
             batch.append(
                 (
                     doc.metadata.get("title", "")[: self.title_max_length - 10]
@@ -252,7 +252,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
                     )
 
                 col.flush()
-                logger.info(f"Milvus vector DB ingesting {id}")
+                logger.info(f"Milvus vector DB ingesting {i}")
 
                 batch = []
                 pid_list, sources, titles, texts = [], [], [], []
@@ -280,7 +280,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
                     }
                 )
             col.flush()
-            logger.info(f"Milvus vector DB ingesting {id}")
+            logger.info(f"Milvus vector DB ingesting {i}")
 
         index = {
             "index_type": "FLAT",

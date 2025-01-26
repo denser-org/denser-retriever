@@ -1,9 +1,5 @@
 {
-  "ingest_bs": 20,
-  "max_query_size": 0,
   "max_query_len": 2000,
-  "max_doc_size": 0,
-  "max_doc_len": 8000,
   "es": {
     "url": "http://localhost:9200",
     "username": "elastic",
@@ -15,18 +11,21 @@
     "user": "root",
     "password": "YOUR_PASSWORD"
   },
-  "reranker_model": "BAAI/bge-reranker-base",
+  "reranker_model": "BAAI/bge-reranker-v2-m3",
   "embedding": {
     "type": "bgem3",
     "model": "BAAI/bge-m3",
     "size": 1024
   },
-  "voyage_api_key": "",
   "combine_config": {
     "method": "fusion",
-    "keyword_top_k":100,
-    "vector_top_k":100,
-    "reranker_top_k":100
+    "keyword_top_k": 100,
+    "vector_top_k": 100,
+    "reranker_top_k": 100,
+    "lr_config": {
+      "lr_features": "es+vs+rr",
+      "lr_model": "denser_retriever/models/weights_es+vs+rr_msmarco.json"
+    }
   },
   "aggregation": false
 }
