@@ -89,6 +89,12 @@ You can also find the code at `experiments/quick_start.py`. Run the following co
 python -m denser_retriever.experiments.quick_start
 ```
 
+You can easily build a RAG-based chatbot with the following command. It 1) retrieves search results, and 2) passes the results to a LLM (gpt-4o) to generate final results. 
+
+```bash
+streamlit run denser_retriever/examples/chat.py
+``` 
+
 ## Ingetstion
 
 We use a [MTEB dataset](https://github.com/embeddings-benchmark/mteb) scifact to illustrate the ingestion. To ingest a
