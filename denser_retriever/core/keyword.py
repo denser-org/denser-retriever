@@ -3,6 +3,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 import time
+from dataclasses import dataclass
 
 from elasticsearch import Elasticsearch
 
@@ -95,46 +96,32 @@ class DenserKeywordSearch(ABC):
     def delete_all(self, delete_index: bool = True):
         raise NotImplementedError
 
+@dataclass
+class ESIndexData:
+    """Data class containing Elasticsearch index configuration."""
+    index_name: str
+    search_fields: FieldMapper
+    date_fields: List[str]
+    analysis: Optional[str]
+    drop_old: bool
 
 class ElasticKeywordSearch(DenserKeywordSearch):
     """
     Elasticsearch keyword search class.
     """
-
-    index_name: str
-    """Index name for retrieval"""
-    client: Elasticsearch
-    """Elasticsearch client"""
-    search_fields: FieldMapper
-    """Fields to be indexed"""
-    analysis: Optional[str]
-    """Analysis type"""
-
     def __init__(
         self,
-        drop_old: Optional[bool],
         es_connection: Elasticsearch,
-        analysis: Optional[str] = "default",
-        **kwargs,
     ):
-        self.drop_old = drop_old
-        self.analysis = analysis
         self.client = es_connection
 
     def create_index(
         self,
-        index_name: str,
-        search_fields: List[str],
-        date_fields: List[str] = [],
+        index_data: ESIndexData,
         **args: Any,
     ):
-        # Define the index settings and mappings
-        self.index_name = index_name
-        self.search_fields = FieldMapper(search_fields)
-        self.date_fields = date_fields
-
-        logger.info("ES analysis %s", self.analysis)
-        if self.analysis == "default":
+        logger.info("ES analysis %s", index_data.analysis)
+        if index_data.analysis == "default":
             settings = {
                 "analysis": {"analyzer": {"default": {"type": "standard"}}},
                 "similarity": {
@@ -149,7 +136,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 "properties": {
                     "content": {
                         "type": "text",
-                        "similarity": "custom_bm25",  # Use the custom BM25 similarity
+                        "similarity": "custom_bm25",
                     },
                     "title": {
                         "type": "text",
@@ -183,7 +170,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                     "content": {
                         "type": "text",
                         "analyzer": "ik_max_word",
-                        "similarity": "custom_bm25",  # Use the custom BM25 similarity
+                        "similarity": "custom_bm25",
                     },
                     "title": {
                         "type": "text",
@@ -197,23 +184,26 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                     },
                 }
             }
-        for key in self.search_fields.get_keys():
+
+        for key in index_data.search_fields.get_keys():
             mappings["properties"][key] = {
-                "type": self.search_fields.get_field_type(key) or "text"
+                "type": index_data.search_fields.get_field_type(key) or "text"
             }
 
-        # Create the index with the specified settings and mappings
-        if self.client.indices.exists(index=self.index_name):
-            if self.drop_old:
-                self.client.indices.delete(index=self.index_name)
+        if self.client.indices.exists(index=index_data.index_name):
+            if index_data.drop_old:
+                self.client.indices.delete(index=index_data.index_name)
 
-        if not self.client.indices.exists(index=self.index_name):
+        if not self.client.indices.exists(index=index_data.index_name):
             self.client.indices.create(
-                index=self.index_name, mappings=mappings, settings=settings
+                index=index_data.index_name,
+                mappings=mappings,
+                settings=settings
             )
 
     def add_documents(
         self,
+        index_data: ESIndexData,
         documents: List[Document],
         refresh_indices: bool = True,
     ) -> List[str]:
@@ -235,9 +225,9 @@ class ElasticKeywordSearch(DenserKeywordSearch):
 
             request = {
                 "_op_type": "index",
-                "_index": self.index_name,
+                "_index": index_data.index_name,
                 "content": text,
-                "title": metadata.get("title", ""),  # Index the title
+                "title": metadata.get("title", ""),
                 "_id": ids[i],
                 "source": metadata.get("source"),
                 "pid": metadata.get("pid"),
@@ -264,7 +254,6 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 logger.info(
                     f"Added {success} and failed to add {failed} texts to index"
                 )
-
                 return ids
             except BulkIndexError as e:
                 logger.error(f"Error adding texts: {e}")
@@ -277,16 +266,16 @@ class ElasticKeywordSearch(DenserKeywordSearch):
 
     def retrieve(
         self,
+        index_data: ESIndexData,
         query: str,
         k: int = 100,
         filter: Dict[str, Any] = {},
-        aggregation: bool = False,  # Aggregate metadata
-        apply_sigmoid: bool = False,  # Apply sigmoid to scores
+        aggregation: bool = False,
+        apply_sigmoid: bool = False,
     ) -> Tuple[List[Tuple[Document, float]], Dict]:
-        assert self.client.indices.exists(index=self.index_name)
+        assert self.client.indices.exists(index=index_data.index_name)
         start_time = time.time()
 
-        # Build the query with title and content matching and a minimum_should_match condition
         query_dict = {
             "query": {
                 "bool": {
@@ -308,17 +297,16 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                                         }
                                     },
                                 ],
-                                "minimum_should_match": 1,  # Ensure at least one of the should conditions is matched
+                                "minimum_should_match": 1,
                             }
                         }
                     ]
                 }
             },
             "_source": True,
-            "aggs": {},  # This will be populated with aggregations for fields
+            "aggs": {},
         }
 
-        # Add filters if provided
         for field in filter:
             category_or_date = filter.get(field)
             if category_or_date:
@@ -330,7 +318,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                                     "gte": category_or_date[0],
                                     "lte": category_or_date[1]
                                     if len(category_or_date) > 1
-                                    else category_or_date[0], # type: ignore
+                                    else category_or_date[0],
                                 }
                             }
                         }
@@ -340,24 +328,21 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                         {"term": {field: category_or_date}}
                     )
 
-        # Add aggregations for each field provided in 'fields' if aggregation is True
         if aggregation:
-            for field in self.search_fields.get_keys():
+            for field in index_data.search_fields.get_keys():
                 query_dict["aggs"][f"{field}_aggregation"] = {
                     "terms": {
-                        "field": f"{field}",  # Use keyword type for aggregations
-                        "size": 50,  # Adjust size as needed
+                        "field": f"{field}",
+                        "size": 50,
                     }
                 }
 
-        # Execute search query
         res = self.client.search(
-            index=self.index_name,
+            index=index_data.index_name,
             body=query_dict,
             size=k,
         )
 
-        # Process search hits (documents)
         top_k_used = min(len(res["hits"]["hits"]), k)
         docs = []
         for id in range(top_k_used):
@@ -367,16 +352,10 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 metadata=_source,
             )
             score = res["hits"]["hits"][id]["_score"]
-            # import pdb; pdb.set_trace()
-            # for field in self.search_fields.get_keys():
-            #     if _source.get(field):
-            #         doc.metadata[field] = _source.get(field)
-            # import pdb; pdb.set_trace()
             docs.append((doc, sigmoid(score) if apply_sigmoid else score))
 
-        # Process aggregations for the specified fields
         aggregations = {}
-        for field in self.search_fields.get_keys():
+        for field in index_data.search_fields.get_keys():
             field_agg = (
                 res.get("aggregations", {})
                 .get(f"{field}_aggregation", {})
@@ -385,7 +364,7 @@ class ElasticKeywordSearch(DenserKeywordSearch):
             cat_keys = [cat["key"] for cat in field_agg]
             cat_counts = [cat["doc_count"] for cat in field_agg]
             if len(cat_keys) > 0:
-                if field in self.date_fields:
+                if field in index_data.date_fields:
                     sorted_data = sorted(
                         zip(cat_keys, cat_counts), key=lambda x: x[0], reverse=True
                     )
@@ -398,16 +377,12 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         logger.info(f"Keyword retrieve time: {retrieve_time_sec:.3f} sec.")
         logger.info(f"Retrieved {len(docs)} documents.")
 
-        # Return both documents and aggregation results
         return docs, aggregations
 
-    def get_index_mappings(self):
-        mapping = self.client.indices.get_mapping(index=self.index_name)
+    def get_index_mappings(self, index_data: ESIndexData):
+        mapping = self.client.indices.get_mapping(index=index_data.index_name)
+        properties = mapping[index_data.index_name]["mappings"]["properties"]
 
-        # The mapping response structure can be quite nested, focusing on the 'properties' section
-        properties = mapping[self.index_name]["mappings"]["properties"]
-
-        # Function to recursively extract fields and types
         def extract_fields(fields_dict, parent_name=""):
             fields = {}
             for field_name, details in fields_dict.items():
@@ -421,15 +396,15 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                 else:
                     fields[full_field_name] = details.get(
                         "type", "notype"
-                    )  # Default 'notype' if no type is found
+                    )
             return fields
 
-        # Extract fields and types
         all_fields = extract_fields(properties)
         return all_fields
 
     def delete(
         self,
+        index_data: ESIndexData,
         ids: Optional[List[str]] = None,
         source_id: Optional[str] = None,
         source_url: Optional[str] = None,
@@ -445,28 +420,28 @@ class ElasticKeywordSearch(DenserKeywordSearch):
             raise ValueError(
                 "Please provide either ids, source_id, or source_url to delete."
             )
-        result = self.client.delete_by_query(index=self.index_name, body=query)
+        result = self.client.delete_by_query(index=index_data.index_name, body=query)
         deleted_count = result.get("deleted", 0)
 
-        # Refresh the index to make the changes visible
-        self.client.indices.refresh(index=self.index_name)
+        self.client.indices.refresh(index=index_data.index_name)
 
         logger.info(
             f"Deleted {deleted_count} documents with {'ids' if ids else 'source_id' if source_id else 'source_url'}: {ids or source_id or source_url}"
         )
 
-    def delete_all(self, delete_index: bool = True):
-        """Delete all documents from the Elasticsearch index.
-
-        Args:
-            delete_index (bool): If True, deletes the entire index.
-                               If False, only deletes the documents in the index. Default is True.
-        """
+    def delete_all(self, index_data: ESIndexData, delete_index: bool = True):
         if delete_index:
-            self.client.indices.delete(index=self.index_name)
+            self.client.indices.delete(index=index_data.index_name)
         else:
             self.client.delete_by_query(
-                index=self.index_name,
+                index=index_data.index_name,
                 query={"match_all": {}}
             )
-            self.client.indices.refresh(index=self.index_name)
+            self.client.indices.refresh(index=index_data.index_name)
+
+    def check_index(self, index_name: str):
+        return bool(self.client.indices.exists(index=index_name))
+
+    def get_count(self, index_name: str):
+        result = self.client.count(index=index_name)
+        return result['count']

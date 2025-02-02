@@ -219,7 +219,7 @@ class Experiment:
 
             ks_docs, ks_aggregations = self.retriever.keyword_search.retrieve(
                 query_str, self.es_top_k)
-            vs_docs = self.retriever.vector_db.similarity_search_with_score(
+            vs_docs = self.retriever.vector_db.retrieve(
                 query_str, self.vector_top_k)
             combined = []
             seen = set()

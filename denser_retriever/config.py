@@ -1,4 +1,4 @@
-from typing import Optional, Literal, Dict, Any
+from typing import Optional, Literal, Dict, Any, List
 from pydantic import BaseModel
 
 from denser_retriever.core.keyword import (
@@ -50,6 +50,13 @@ class CombineConfig(BaseModel):
     reranker_top_k: int = 100
     lr_config: Optional[LRConfig] = None
 
+
+class IndexData:
+    """Data class containing index configuration."""
+    index_name: str
+    combine_config: CombineConfig
+    search_fields: List[str]
+    date_fields: List[str]
 
 class RetrieverConfig(BaseModel):
     max_query_len: int = 2000

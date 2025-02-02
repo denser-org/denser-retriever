@@ -16,35 +16,12 @@ class DenserFusionModel(ABC):
 
 
 class LogisticRegression(DenserFusionModel):
-    _instances: Dict[str, "LogisticRegression"] = {}
-
-    def __new__(cls, model_path: str):
-        # If an instance with this model_path exists, return it
-        if model_path in cls._instances:
-            return cls._instances[model_path]
-
-        # Create new instance
-        instance = super(LogisticRegression, cls).__new__(cls)
-        cls._instances[model_path] = instance
-        instance.__initialized = False
-        return instance
-
     def __init__(self, model_path: str):
-        """Initialize LogisticRegression with model weights path.
-
-        Args:
-            model_path: Path to the JSON file containing model weights
-        """
-        # Skip initialization if already initialized
-        if hasattr(self, "__initialized") and self.__initialized:
-            return
-
         self.model_path = model_path
         self.weights = None
         self.intercept = None
         self.feature_names = None
         self.load()
-        self.__initialized = True
 
     def load(self):
         """Load model weights from JSON file."""

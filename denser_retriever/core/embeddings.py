@@ -15,23 +15,7 @@ class DenserEmbeddings(ABC):
 
 
 class SentenceTransformerEmbeddings(DenserEmbeddings):
-    _instances: Dict[str, "SentenceTransformerEmbeddings"] = {}
-
-    def __new__(cls, model_name: str, embedding_size: int, one_model: bool):
-        # Create unique key from all parameters
-        key = f"{model_name}_{embedding_size}_{one_model}"
-        if key in cls._instances:
-            return cls._instances[key]
-
-        instance = super(SentenceTransformerEmbeddings, cls).__new__(cls)
-        cls._instances[key] = instance
-        instance.__initialized = False
-        return instance
-
     def __init__(self, model_name: str, embedding_size: int, one_model: bool):
-        if hasattr(self, "__initialized") and self.__initialized:
-            return
-
         try:
             import sentence_transformers
         except ImportError as exc:
@@ -45,7 +29,6 @@ class SentenceTransformerEmbeddings(DenserEmbeddings):
         )
         self.embedding_size = embedding_size
         self.one_model = one_model
-        self.__initialized = True
 
     def embed_documents(self, texts):
         return self.client.encode(texts)
@@ -59,22 +42,7 @@ class SentenceTransformerEmbeddings(DenserEmbeddings):
 
 
 class BGEEmbeddings(DenserEmbeddings):
-    _instances: Dict[str, "BGEEmbeddings"] = {}
-
-    def __new__(cls, model_name: str, embedding_size: int):
-        key = f"{model_name}_{embedding_size}"
-        if key in cls._instances:
-            return cls._instances[key]
-
-        instance = super(BGEEmbeddings, cls).__new__(cls)
-        cls._instances[key] = instance
-        instance.__initialized = False
-        return instance
-
     def __init__(self, model_name: str, embedding_size: int):
-        if hasattr(self, "__initialized") and self.__initialized:
-            return
-
         try:
             from FlagEmbedding import FlagICLModel
         except ImportError as exc:
@@ -87,7 +55,6 @@ class BGEEmbeddings(DenserEmbeddings):
             use_fp16=True,
         )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
         self.embedding_size = embedding_size
-        self.__initialized = True
 
     def embed_documents(self, texts):
         return self.client.encode_corpus(texts)
@@ -97,22 +64,7 @@ class BGEEmbeddings(DenserEmbeddings):
 
 
 class BGEM3Embeddings(DenserEmbeddings):
-    _instances: Dict[str, "BGEM3Embeddings"] = {}
-
-    def __new__(cls, model_name: str, embedding_size: int):
-        key = f"{model_name}_{embedding_size}"
-        if key in cls._instances:
-            return cls._instances[key]
-
-        instance = super(BGEM3Embeddings, cls).__new__(cls)
-        cls._instances[key] = instance
-        instance.__initialized = False
-        return instance
-
     def __init__(self, model_name: str, embedding_size: int):
-        if hasattr(self, "__initialized") and self.__initialized:
-            return
-
         try:
             from FlagEmbedding import BGEM3FlagModel
         except ImportError as exc:
@@ -123,7 +75,6 @@ class BGEM3Embeddings(DenserEmbeddings):
             use_fp16=True,
         )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
         self.embedding_size = embedding_size
-        self.__initialized = True
 
     def embed_documents(self, texts):
         res = self.client.encode(texts)['dense_vecs'].tolist()
@@ -134,22 +85,7 @@ class BGEM3Embeddings(DenserEmbeddings):
         return res
 
 class VoyageAPIEmbeddings(DenserEmbeddings):
-    _instances: Dict[str, "VoyageAPIEmbeddings"] = {}
-
-    def __new__(cls, api_key: str, model_name: str, embedding_size: int):
-        key = f"{api_key}_{model_name}_{embedding_size}"
-        if key in cls._instances:
-            return cls._instances[key]
-
-        instance = super(VoyageAPIEmbeddings, cls).__new__(cls)
-        cls._instances[key] = instance
-        instance.__initialized = False
-        return instance
-
     def __init__(self, api_key: str, model_name: str, embedding_size: int):
-        if hasattr(self, "__initialized") and self.__initialized:
-            return
-
         try:
             from voyageai.client import Client
         except ImportError as exc:
@@ -161,7 +97,6 @@ class VoyageAPIEmbeddings(DenserEmbeddings):
         self.client = Client(api_key)
         self.model_name = model_name
         self.embedding_size = embedding_size
-        self.__initialized = True
 
     def embed_documents(self, texts):
         """
@@ -185,20 +120,3 @@ class VoyageAPIEmbeddings(DenserEmbeddings):
         embeddings = self.client.embed([text], model=self.model_name).embeddings
         return embeddings
 
-
-# TODO remove this when release
-if __name__ == "__main__":
-    # Same parameters = same instance
-    emb1 = SentenceTransformerEmbeddings(
-        "Snowflake/snowflake-arctic-embed-m", 768, False
-    )
-    emb2 = SentenceTransformerEmbeddings(
-        "Snowflake/snowflake-arctic-embed-m", 768, False
-    )
-    print(emb1 is emb2)  # True
-
-    # Different parameters = different instances
-    emb3 = SentenceTransformerEmbeddings(
-        "Snowflake/snowflake-arctic-embed-m-long", 768, True
-    )
-    print(emb1 is emb3)  # False

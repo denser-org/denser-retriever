@@ -30,7 +30,7 @@ class DenserVectorDB(ABC):
             f"upsert has not been implemented for {self.__class__.__name__}"
         )
 
-    def similarity_search_with_score(
+    def retrieve(
         self,
         query: str,
         k: int = 100,
@@ -38,15 +38,7 @@ class DenserVectorDB(ABC):
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
         raise NotImplementedError(
-            f"similarity_search_with_score has not been implemented for {self.__class__.__name__}"
-        )
-
-    def filter_expression(
-        self,
-        filter_dict: Dict[str, Any],
-    ) -> Any:
-        raise NotImplementedError(
-            f"filter_expression has not been implemented for {self.__class__.__name__}"
+            f"retrieve has not been implemented for {self.__class__.__name__}"
         )
 
     def delete(

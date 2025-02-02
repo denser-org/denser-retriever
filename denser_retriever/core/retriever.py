@@ -1,210 +1,206 @@
-from asyncio.log import logger
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Callable
 import uuid
+import logging
+import json
 
 from langchain_core.documents import Document
 
-from denser_retriever.core.embeddings import DenserEmbeddings
-from denser_retriever.core.keyword import DenserKeywordSearch
-from denser_retriever.core.reranker import DenserReranker
 from denser_retriever.core.types import RetrievalResult, TokenMetrics
 from denser_retriever.core.utils import docs_to_dict
-from denser_retriever.core.vectordb.base import DenserVectorDB
-from denser_retriever.config import CombineConfig
-from denser_retriever.core.logistic_regression import LogisticRegression
-from denser_retriever.core.utils import config_to_features
 from denser_retriever.core.resource_tracking import ResourceTracker
+from denser_retriever.core.keyword import ESIndexData
+from denser_retriever.core.vectordb.milvus import MilvusIndexData
+from denser_retriever.config import CombineConfig
+from denser_retriever.core.shared import SharedComponents
+from denser_retriever.core.utils import config_to_features
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class DenserRetriever:
     def __init__(
-        self,
-        index_name: str,
-        keyword_search: Optional[DenserKeywordSearch],
-        vector_db: Optional[DenserVectorDB],
-        reranker: Optional[DenserReranker],
-        embeddings: DenserEmbeddings,
-        combine_config: CombineConfig,
-        search_fields: List[str] = [],
-        date_fields: List[str] = [],
+            self,
+            config_path: str,
+            es_data: Optional[ESIndexData] = None,
+            milvus_data: Optional[MilvusIndexData] = None,
     ):
-        # config parameters
-        self.index_name = index_name
-        self.combine_method = combine_config.method
-        # models
-        self.embeddings = embeddings
-        if combine_config.lr_config:
-            self.lr_model = LogisticRegression(combine_config.lr_config.lr_model)
-            self.lr_features = config_to_features[combine_config.lr_config.lr_features]
-        else:
-            self.lr_model = None
-            self.lr_features = None
-        self.keyword_search = keyword_search
-        self.vector_db = vector_db
-        self.reranker = reranker
-        self.combine_config = combine_config
+        # Get shared components
+        shared = SharedComponents.initialize_from_config(config_path)
+        self.keyword_search = shared.keyword_search
+        self.vector_db = shared.vector_db
+        self.reranker = shared.reranker
+        self.embeddings = shared.embeddings
+        self.lr_model = shared.lr_model
+        self.lr_features = shared.lr_features
 
-        # create index. If exists, remove them first if drop_old is true
-        if self.vector_db:
-            assert embeddings
-            self.vector_db.create_index(index_name, embeddings, search_fields)
-        if self.keyword_search:
-            self.keyword_search.create_index(
-                index_name=index_name,
-                search_fields=search_fields,
-                date_fields=date_fields,
-            )
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        combine_config = CombineConfig(**config.get('combine_config', {}))
+        self.combine_config = combine_config
+        self.es_data = es_data
+        self.milvus_data = milvus_data
+        if es_data and self.keyword_search:
+            self.keyword_search.create_index(es_data)
+        if milvus_data and self.vector_db:
+            self.vector_db.create_index(milvus_data)
 
     def _ingest_elasticsearch(
-        self,
-        docs: List[Document],
-        texts: List[str],
-        es_storage_quota_gb: Optional[float],
-    ) -> Tuple[int, float]:
-        """Process Elasticsearch ingestion and return number of documents allowed and storage used."""
+            self,
+            docs: List[Document]
+    ) -> int:
+        """Process Elasticsearch ingestion and return number of documents processed."""
         if not self.keyword_search:
-            return 0, 0.0
+            return 0
 
-        metadata_fields = {
-            "title": 200,  # Estimate 200 bytes per title
-            "source": 500,  # Estimate 500 bytes per source
-            "pid": 36,  # Fixed 36 bytes for UUID
-        }
-
-        es_size_gb = ResourceTracker.estimate_es_storage_gb(texts, metadata_fields)
         num_docs = len(docs)
-        if es_storage_quota_gb and es_size_gb > es_storage_quota_gb:
-            docs_allowed = int(num_docs * (es_storage_quota_gb / es_size_gb))
-            logger.warning(
-                f"ES storage quota would be exceeded. Limiting to {docs_allowed} documents"
-            )
-            es_size_gb = es_storage_quota_gb
-        else:
-            docs_allowed = num_docs
-
-        logger.info(f"Adding {docs_allowed} documents to keyword search")
-        self.keyword_search.add_documents(docs[:docs_allowed])
-        return docs_allowed, es_size_gb
+        logger.info(f"Adding {num_docs} documents to keyword search")
+        self.keyword_search.add_documents(self.es_data, docs)
+        return num_docs
 
     def _ingest_vector_db(
-        self,
-        docs: List[Document],
-        texts: List[str],
-        vector_storage_quota_gb: Optional[float],
-        vector_token_quota: Optional[int],
-    ) -> Tuple[int, float, int]:
-        """Process Vector DB ingestion and return docs allowed, storage used, and tokens used."""
+            self,
+            docs: List[Document],
+            texts: List[str],
+    ) -> Tuple[int, int]:
+        """Process Vector DB ingestion and return docs processed and tokens used."""
         if not self.vector_db:
-            return 0, 0.0, 0
+            return 0, 0
 
         num_docs = len(docs)
-        vector_size_gb = ResourceTracker.estimate_vector_storage_gb(texts)
-        docs_allowed = num_docs
-        # Check storage quota
-        if vector_storage_quota_gb and vector_size_gb > vector_storage_quota_gb:
-            docs_allowed = int(num_docs * (vector_storage_quota_gb / vector_size_gb))
-            vector_size_gb = vector_storage_quota_gb
-            logger.warning(
-                f"Vector storage quota would be exceeded. Limiting to {docs_allowed} documents"
-            )
+        token_count = ResourceTracker.calculate_vector_token_count(texts)
 
-        # Check token quota
-        token_count = ResourceTracker.calculate_vector_token_count(texts[:docs_allowed])
-        if vector_token_quota and token_count > vector_token_quota:
-            tokens_per_doc = token_count / docs_allowed
-            token_limited_docs = max(0, int(vector_token_quota / tokens_per_doc))
+        if num_docs > 0:
+            self.vector_db.add_documents(self.milvus_data, docs, self.embeddings)
 
-            if token_limited_docs < docs_allowed:
-                docs_allowed = token_limited_docs
-                token_count = int(docs_allowed * tokens_per_doc)
-                vector_size_gb *= docs_allowed / num_docs
-                logger.warning(
-                    f"Vector token quota would be exceeded. Limiting to {docs_allowed} documents"
-                )
-
-        if docs_allowed > 0:
-            self.vector_db.add_documents(documents=docs[:docs_allowed])
-
-        return docs_allowed, vector_size_gb, token_count
+        return num_docs, token_count
 
     def ingest(
-        self,
-        docs: List[Document],
-        overwrite_pid: bool = True,
-        es_storage_quota_gb: Optional[float] = None,
-        vector_storage_quota_gb: Optional[float] = None,
-        vector_token_quota: Optional[int] = None,
+            self,
+            docs: List[Document],
+            overwrite_pid: bool = True,
+            progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> Tuple[List[str], Dict[str, float]]:
-        """Ingest documents into elasticsearch and vector db with quota limits."""
         if overwrite_pid:
             for doc in docs:
                 doc.metadata["pid"] = uuid.uuid4().hex
 
         texts = [doc.page_content for doc in docs]
+        total_docs = len(docs)
 
-        # Process elasticsearch and vector db ingestion
-        es_docs_allowed, es_size_gb = self._ingest_elasticsearch(
-            docs, texts, es_storage_quota_gb
-        )
-        vector_docs_allowed, vector_size_gb, token_count = self._ingest_vector_db(
-            docs, texts, vector_storage_quota_gb, vector_token_quota
-        )
-        # Calculate max docs processed across both stores
-        max_docs_processed = max(es_docs_allowed, vector_docs_allowed)
+        if progress_callback:
+            progress_callback({
+                "total_docs": total_docs,
+                "es_progress": 0,
+                "vector_progress": 0,
+                "es_docs_processed": 0,
+                "vector_docs_processed": 0,
+                "status": "starting"
+            })
+
+        es_docs_processed = 0
+        try:
+            es_docs_processed = self._ingest_elasticsearch(docs)
+            if progress_callback:
+                progress_callback({
+                    "total_docs": total_docs,
+                    "es_progress": (es_docs_processed / total_docs) * 100,
+                    "es_docs_processed": es_docs_processed,
+                    "status": "elasticsearch_ingestion_complete"
+                })
+        except Exception as e:
+            logger.error(f"Elasticsearch ingestion error: {e}")
+            if progress_callback:
+                progress_callback({
+                    "total_docs": total_docs,
+                    "es_progress": 0,
+                    "es_docs_processed": 0,
+                    "status": "elasticsearch_ingestion_failed",
+                    "error": str(e)
+                })
+
+        vector_docs_processed, token_count = 0, 0
+        try:
+            vector_docs_processed, token_count = self._ingest_vector_db(docs, texts)
+            if progress_callback:
+                progress_callback({
+                    "total_docs": total_docs,
+                    "vector_progress": (vector_docs_processed / total_docs) * 100,
+                    "vector_docs_processed": vector_docs_processed,
+                    "status": "vector_db_ingestion_complete"
+                })
+        except Exception as e:
+            logger.error(f"Vector DB ingestion error: {e}")
+            if progress_callback:
+                progress_callback({
+                    "total_docs": total_docs,
+                    "vector_progress": 0,
+                    "vector_docs_processed": 0,
+                    "status": "vector_db_ingestion_failed",
+                    "error": str(e)
+                })
+
+        max_docs_processed = max(es_docs_processed, vector_docs_processed)
+
+        if progress_callback:
+            progress_callback({
+                "total_docs": total_docs,
+                "es_progress": (es_docs_processed / total_docs) * 100,
+                "vector_progress": (vector_docs_processed / total_docs) * 100,
+                "es_docs_processed": es_docs_processed,
+                "vector_docs_processed": vector_docs_processed,
+                "status": "ingestion_complete"
+            })
 
         metrics = {
-            "es_docs": es_docs_allowed,
-            "vector_docs": vector_docs_allowed,
-            "es_storage_gb": es_size_gb,
-            "vector_storage_gb": vector_size_gb,
+            "es_docs": es_docs_processed,
+            "vector_docs": vector_docs_processed,
             "vector_tokens": token_count,
         }
         return [doc.metadata["pid"] for doc in docs[:max_docs_processed]], metrics
 
     def retrieve(
-        self,
-        query: str,
-        k: int,
-        filter: Dict[str, Any] = {},
-        aggregation: bool = False,
-        usage: bool = False,
+            self,
+            query: str,
+            k: int,
+            filter: Dict[str, Any] = {},
+            aggregation: bool = False,
+            usage: bool = False,
     ) -> RetrievalResult:
         logger.info(f"Retrieve query: {query} top_k: {k}")
-        if self.combine_method == "vector":
+        if self.combine_config.method == "vector":
             return self.retrieve_by_vector(
                 query, k, filter, aggregation, usage
             )
-        elif self.combine_method == "hybrid":
+        elif self.combine_config.method == "hybrid":
             return self.retrieve_by_hybrid(
                 query, k, filter, aggregation, usage
             )
-        elif self.combine_method == "reranker":
+        elif self.combine_config.method == "reranker":
             return self.retrieve_by_reranker(
                 query, k, filter, aggregation, usage
             )
-        elif self.combine_method == "fusion":
+        elif self.combine_config.method == "fusion":
             return self.retrieve_by_fusion(
                 query, k, filter, aggregation, usage
             )
         else:
-            raise ValueError(f"Unknown combine method {self.combine_method}")
+            raise ValueError(f"Unknown combine method {self.combine_config.method}")
 
     def retrieve_by_vector(
-        self,
-        query: str,
-        k: int,
-        filter: Dict[str, Any] = {},
-        aggregation: bool = False,
-        usage: bool = False,
+            self,
+            query: str,
+            k: int,
+            filter: Dict[str, Any] = {},
+            aggregation: bool = False,
+            usage: bool = False,
     ) -> RetrievalResult:
         """Vector-only search using the vector database."""
         if not self.vector_db:
             raise ValueError("Vector database not initialized")
 
-        # Get vector search results
-        vs_docs = self.vector_db.similarity_search_with_score(query, k, filter=filter)
+        vs_docs = self.vector_db.retrieve(self.milvus_data, query, self.embeddings, k, filter=filter)
 
-        # Calculate token usage
         metrics = None
         if usage:
             embedding_tokens = ResourceTracker.calculate_vector_search_token_count(
@@ -217,18 +213,18 @@ class DenserRetriever:
         return RetrievalResult(vs_docs, None, metrics)
 
     def retrieve_by_hybrid(
-        self,
-        query: str,
-        k: int,
-        filter: Dict[str, Any] = {},
-        aggregation: bool = False,
-        usage: bool = False,
+            self,
+            query: str,
+            k: int,
+            filter: Dict[str, Any] = {},
+            aggregation: bool = False,
+            usage: bool = False,
     ) -> RetrievalResult:
         """Hybrid search using keyword and vector positions."""
-        # Get keyword search results
         if not self.keyword_search:
             raise ValueError("Keyword search not initialized")
         ks_docs, aggregations = self.keyword_search.retrieve(
+            self.es_data,
             query,
             self.combine_config.keyword_top_k,
             filter=filter,
@@ -236,14 +232,12 @@ class DenserRetriever:
             apply_sigmoid=False,
         )
 
-        # Get vector search results
         if not self.vector_db:
             raise ValueError("Vector database not initialized")
-        vs_docs = self.vector_db.similarity_search_with_score(
-            query, self.combine_config.vector_top_k, filter=filter
+        vs_docs = self.vector_db.retrieve(
+            self.milvus_data, query, self.embeddings, self.combine_config.vector_top_k, filter=filter
         )
 
-        # Calculate token usage
         metrics = None
         if usage:
             vector_tokens = ResourceTracker.calculate_vector_search_token_count(
@@ -256,11 +250,9 @@ class DenserRetriever:
                 total_tokens=vector_tokens + keyword_tokens,
             )
 
-        # Extract position information and combine results
         _, _, ks_rank_dict = docs_to_dict(ks_docs)
         _, _, vs_rank_dict = docs_to_dict(vs_docs)
 
-        # Combine results
         all_docs = {}
         for doc, _ in ks_docs + vs_docs:
             pid = doc.metadata["pid"]
@@ -288,29 +280,25 @@ class DenserRetriever:
         )
 
     def retrieve_by_reranker(
-        self,
-        query: str,
-        k: int,
-        filter: Dict[str, Any] = {},
-        aggregation: bool = False,
-        usage: bool = False,
+            self,
+            query: str,
+            k: int,
+            filter: Dict[str, Any] = {},
+            aggregation: bool = False,
+            usage: bool = False,
     ) -> RetrievalResult:
         """Two-stage retrieval: keyword search followed by reranking."""
-        # First stage: keyword search
         if not self.keyword_search:
             raise ValueError("Keyword search not initialized")
         ks_docs, aggregations = self.keyword_search.retrieve(
-            query, self.combine_config.keyword_top_k, filter=filter, aggregation=aggregation
+            self.es_data, query, self.combine_config.keyword_top_k, filter=filter, aggregation=aggregation
         )
 
-        # Extract documents for reranking
         docs_to_rerank = [doc for doc, _ in ks_docs]
 
         metrics = None
-        # Second stage: reranking
         if self.reranker and docs_to_rerank:
             reranked_docs = self.reranker.rerank(docs_to_rerank, query)
-            # Calculate reranker token usage
             if usage:
                 rerank_tokens = ResourceTracker.calculate_reranker_token_count(
                     query, docs_to_rerank
@@ -329,17 +317,16 @@ class DenserRetriever:
         )
 
     def retrieve_by_fusion(
-        self,
-        query: str,
-        k: int,
-        filter: Dict[str, Any] = {},
-        aggregation: bool = False,
-        usage: bool = False,
+            self,
+            query: str,
+            k: int,
+            filter: Dict[str, Any] = {},
+            aggregation: bool = False,
+            usage: bool = False,
     ) -> RetrievalResult:
         """Retrieve using logistic regression model for fusion."""
         docs, doc_features, aggregations = self._retrieve_with_features(query, filter, aggregation)
 
-        # Calculate token metrics from all retrieval methods
         metrics = None
         if usage:
             vector_tokens = ResourceTracker.calculate_vector_search_token_count(
@@ -363,7 +350,6 @@ class DenserRetriever:
             else:
                 scores.append(0)
 
-        # Combine with documents
         scored_docs = list(zip(docs, scores))
         scored_docs.sort(key=lambda x: x[1], reverse=True)
 
@@ -372,16 +358,17 @@ class DenserRetriever:
         )
 
     def _retrieve_with_features(
-        self,
-        query: str,
-        filter: Dict[str, Any] = {},
-        aggregation: bool = False,
+            self,
+            query: str,
+            filter: Dict[str, Any] = {},
+            aggregation: bool = False,
     ) -> Tuple[List[Document], List[List[str]], Optional[Dict]]:
         ks_docs = []
         aggregations = None
 
         if self.keyword_search:
             ks_docs, aggregations = self.keyword_search.retrieve(
+                self.es_data,
                 query,
                 self.combine_config.keyword_top_k,
                 filter=filter,
@@ -389,8 +376,8 @@ class DenserRetriever:
             )
         vs_docs = []
         if self.vector_db:
-            vs_docs = self.vector_db.similarity_search_with_score(
-                query, self.combine_config.vector_top_k, filter=filter
+            vs_docs = self.vector_db.retrieve(
+                self.milvus_data, query, self.embeddings, self.combine_config.vector_top_k, filter=filter
             )
 
         combined = []
@@ -434,7 +421,7 @@ class DenserRetriever:
             features.append(0)  # 9. placeholder
             doc_features.append(features)
 
-        features_to_use = self.lr_features
+        features_to_use = config_to_features[self.lr_features]
 
         non_zero_features = []
         for i, data in enumerate(doc_features):
@@ -450,77 +437,34 @@ class DenserRetriever:
         return docs, non_zero_features, aggregations
 
     def delete(
-        self,
-        ids: Optional[List[str]] = None,
-        source_id: Optional[str] = None,
-        **kwargs: str,
+            self,
+            ids: Optional[List[str]] = None,
+            source_id: Optional[str] = None,
+            **kwargs: str,
     ):
         """Clear the retriever."""
         if self.vector_db:
-            self.vector_db.delete(ids=ids, source_id=source_id, **kwargs)
+            self.vector_db.delete(self.milvus_data, ids=ids, source_id=source_id, **kwargs)
         if self.keyword_search:
-            self.keyword_search.delete(ids=ids, source_id=source_id, **kwargs)
+            self.keyword_search.delete(self.es_data, ids=ids, source_id=source_id, **kwargs)
 
-    def delete_all(self, delete_index: bool=True):
+    def delete_all(self, delete_index: bool = True):
         """Clear the retriever."""
         if self.vector_db:
-            self.vector_db.delete_all(delete_index=delete_index)
+            self.vector_db.delete_all(self.milvus_data, delete_index=delete_index)
         if self.keyword_search:
-            self.keyword_search.delete_all(delete_index=delete_index)
+            self.keyword_search.delete_all(self.es_data, delete_index=delete_index)
 
-    def get_filter_fields(self):
-        """Get the filter fields."""
-        if not self.keyword_search:
-            raise ValueError("Keyword search not initialized")
-        return self.keyword_search.get_index_mappings()
-
-    def get_index_stats(self) -> Dict[str, int]:
-        """Get the number of documents in elasticsearch and milvus indices.
-
-        Returns:
-            Dict[str, int]: Dictionary containing document counts for each index
-                {'es_docs': int, 'vector_docs': int}
-        """
-        stats = {'es_docs': 0, 'vector_docs': 0}
-
-        if self.keyword_search:
-            # Count documents in elasticsearch
-            result = self.keyword_search.client.count(index=self.index_name)
-            stats['es_docs'] = result['count']
-
-        if self.vector_db:
-            # Count documents in milvus
-            stats['vector_docs'] = self.vector_db.get_count()
-            # col.num_entities is not a reliable way to get the number of documents
-            # if hasattr(self.vector_db, 'col') and self.vector_db.col:
-            #     stats['vector_docs'] = self.vector_db.col.num_entities
-
-        return stats
-
-    def check_indices(self) -> Dict[str, bool]:
-        """Check if elasticsearch and milvus indices exist and are valid.
-
-        Returns:
-            Dict containing index status {'es_valid': bool, 'vector_valid': bool}
-        """
-        status = {'es_valid': False, 'vector_valid': False}
-
-        if self.keyword_search:
-            try:
-                exists = self.keyword_search.client.indices.exists(index=self.index_name)
-                if exists:
-                    # Test query to verify index is working
-                    self.keyword_search.client.search(index=self.index_name, query={"match_all": {}})
-                    status['es_valid'] = True
-            except Exception as e:
-                logger.error(f"Elasticsearch index check failed: {e}")
-
-        if self.vector_db:
-            try:
-                # Verify collection exists and can be queried
-                count = self.vector_db.get_count()
-                status['vector_valid'] = True
-            except Exception as e:
-                logger.error(f"Vector DB index check failed: {e}")
+    def check_indices(self, index_name: str) -> Dict[str, bool]:
+        status = {'es_valid': self.keyword_search.check_index(index_name),
+                  'vector_valid': self.vector_db.check_index(index_name)}
 
         return status
+
+    def get_count(self) -> Dict[str, int]:
+        stats = {}
+        assert self.es_data and self.milvus_data
+
+        stats['es_docs'] = self.keyword_search.get_count(self.es_data.index_name)
+        stats['vector_docs'] = self.vector_db.get_count(self.milvus_data)
+        return stats

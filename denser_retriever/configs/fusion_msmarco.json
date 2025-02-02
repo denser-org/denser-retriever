@@ -3,13 +3,13 @@
   "es": {
     "url": "http://localhost:9200",
     "username": "elastic",
-    "password": "YOUR_PASSWORD",
+    "password": "",
     "analysis": "default"
   },
   "milvus": {
     "uri": "http://localhost:19530",
     "user": "root",
-    "password": "YOUR_PASSWORD"
+    "password": ""
   },
   "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
   "embedding": {
