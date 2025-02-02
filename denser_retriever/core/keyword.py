@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Callable
 import uuid
 import time
 from dataclasses import dataclass
@@ -202,10 +202,11 @@ class ElasticKeywordSearch(DenserKeywordSearch):
             )
 
     def add_documents(
-        self,
-        index_data: ESIndexData,
-        documents: List[Document],
-        refresh_indices: bool = True,
+            self,
+            index_data: ESIndexData,
+            documents: List[Document],
+            refresh_indices: bool = True,
+            progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
     ) -> List[str]:
         try:
             from elasticsearch.helpers import BulkIndexError, bulk
@@ -219,10 +220,11 @@ class ElasticKeywordSearch(DenserKeywordSearch):
         metadatas = [doc.metadata for doc in documents]
         ids = [str(uuid.uuid4()) for _ in texts]
         requests = []
+        total_docs = len(texts)
+        docs_processed = 0
 
         for i, text in enumerate(texts):
             metadata = metadatas[i] if metadatas else {}
-
             request = {
                 "_op_type": "index",
                 "_index": index_data.index_name,
@@ -243,6 +245,17 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                     request[filter_key] = value
             requests.append(request)
 
+            docs_processed += 1
+            if progress_callback and i % 1000 == 0:  # Update progress every 100 documents
+                progress_callback({
+                    "total_docs": total_docs,
+                    "es_progress": (docs_processed / total_docs) * 100,
+                    "vector_progress": 0,
+                    "es_docs_processed": docs_processed,
+                    "vector_docs_processed": 0,
+                    "status": "elasticsearch_ingesting"
+                })
+
         if len(requests) > 0:
             try:
                 success, failed = bulk(
@@ -251,9 +264,18 @@ class ElasticKeywordSearch(DenserKeywordSearch):
                     stats_only=True,
                     refresh=refresh_indices,
                 )
-                logger.info(
-                    f"Added {success} and failed to add {failed} texts to index"
-                )
+                logger.info(f"Added {success} and failed to add {failed} texts to index")
+
+                if progress_callback:
+                    progress_callback({
+                        "total_docs": total_docs,
+                        "es_progress": 100,
+                        "vector_progress": 0,
+                        "es_docs_processed": success,
+                        "vector_docs_processed": 0,
+                        "status": "elasticsearch_complete"
+                    })
+
                 return ids
             except BulkIndexError as e:
                 logger.error(f"Error adding texts: {e}")
@@ -445,3 +467,23 @@ class ElasticKeywordSearch(DenserKeywordSearch):
     def get_count(self, index_name: str):
         result = self.client.count(index=index_name)
         return result['count']
+
+    def list_pids(self, index_name: str) -> List[str]:
+        query = {
+            "query": {"match_all": {}},
+            "_source": ["pid"],  # Only retrieve pid field
+            "size": 10000  # Adjust based on your needs
+        }
+        try:
+            response = self.client.search(
+                index=index_name,
+                body=query
+            )
+
+            pids = [hit["_source"]["pid"] for hit in response["hits"]["hits"]]
+            logger.info(f"Retrieved {len(pids)} PIDs from index {index_name}")
+            return pids
+
+        except Exception as e:
+            logger.error(f"Error retrieving PIDs from index {index_name}: {e}")
+            raise

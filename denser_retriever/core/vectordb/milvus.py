@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 import logging
 import time
 from datetime import datetime
@@ -193,16 +193,15 @@ class MilvusDenserVectorDB(DenserVectorDB):
         """Create the index for the vector db."""
         index_data.init_collection(self.connection_args)
 
-
     def add_documents(
             self,
             index_data: MilvusIndexData,
             documents: List[Document],
             embedding_model: DenserEmbeddings,
             batch_size: int = 1000,
+            progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
             **kwargs: Any,
     ) -> List[str]:
-        """Add documents to the vector db."""
         if not index_data.collection:
             raise ValueError("Collection not initialized. Call create_index() first.")
 
@@ -211,6 +210,8 @@ class MilvusDenserVectorDB(DenserVectorDB):
         seen_pids = set()
         fields_list = [[] for _ in range(len(index_data.search_fields.get_keys()))]
         failed_batches = []
+        total_docs = len(documents)
+        docs_processed = 0
 
         for i, doc in enumerate(documents):
             batch.append(
@@ -226,44 +227,35 @@ class MilvusDenserVectorDB(DenserVectorDB):
                 pid = str(uuid4())
             seen_pids.add(pid)
             pid_list.append(pid)
-            sources.append(
-                doc.metadata.get("source", "")[: index_data.source_max_length - 10]
-            )
+            sources.append(doc.metadata.get("source", "")[: index_data.source_max_length - 10])
             titles.append(doc.metadata.get("title", "")[: index_data.title_max_length - 10])
-            truncated_text = doc.page_content[:10000]
-            if len(truncated_text) >= index_data.text_max_length:
-                print(f"Truncated text length: {len(truncated_text)} longer than {index_data.text_max_length}")
-            texts.append(truncated_text)
+            texts.append(doc.page_content[:10000])
 
-            for i, field_original_key in enumerate(
-                    index_data.search_fields.get_original_keys()
-            ):
+            for j, field_original_key in enumerate(index_data.search_fields.get_original_keys()):
                 data = doc.metadata.get(field_original_key, -1)
-                converted_data = index_data.search_fields.convert_for_storage(
-                    {field_original_key: data}
-                )
-                fields_list[i].append(converted_data)
+                converted_data = index_data.search_fields.convert_for_storage({field_original_key: data})
+                fields_list[j].append(converted_data)
 
-            if len(batch) == batch_size:
+            docs_processed += 1
+
+            if progress_callback and (len(batch) == batch_size or i == len(documents) - 1):
+                progress_callback({
+                    "total_docs": total_docs,
+                    "es_progress": 100,  # ES is already complete at this point
+                    "vector_progress": (docs_processed / total_docs) * 100,
+                    "es_docs_processed": total_docs,
+                    "vector_docs_processed": docs_processed,
+                    "status": "vector_db_ingesting"
+                })
+
                 embeddings = embedding_model.embed_documents(batch)
-                record = [
-                    pid_list,
-                    sources,
-                    titles,
-                    texts,
-                    np.array(embeddings),
-                ]
-                record += fields_list
+                record = [pid_list, sources, titles, texts, np.array(embeddings)] + fields_list
 
                 try:
                     index_data.collection.insert(record)
+                    index_data.collection.flush()
                 except Exception as e:
-                    logger.error(
-                        f'Milvus index insert error at record {doc.metadata["pid"]} - {e}'
-                    )
-
-                index_data.collection.flush()
-                logger.info(f"Milvus vector DB ingesting {i}")
+                    logger.error(f'Milvus index insert error at record {doc.metadata["pid"]} - {e}')
 
                 batch = []
                 pid_list, sources, titles, texts = [], [], [], []
@@ -271,29 +263,31 @@ class MilvusDenserVectorDB(DenserVectorDB):
 
         if len(batch) > 0:
             embeddings = embedding_model.embed_documents(batch)
-            record = [
-                pid_list,
-                sources,
-                titles,
-                texts,
-                np.array(embeddings),
-            ]
-            record += fields_list
+            record = [pid_list, sources, titles, texts, np.array(embeddings)] + fields_list
+
             try:
                 index_data.collection.insert(record)
+                index_data.collection.flush()
             except Exception as e:
-                logger.error(f"Milvus index insert error at record {id} - {e}")
-                failed_batches.append(
-                    {
-                        "sources": sources,
-                        "pids": pid_list,
-                        "batch": batch,
-                    }
-                )
-            index_data.collection.flush()
-            logger.info(f"Milvus vector DB ingesting {i}")
+                logger.error(f"Milvus index insert error - {e}")
+                failed_batches.append({
+                    "sources": sources,
+                    "pids": pid_list,
+                    "batch": batch,
+                })
 
         index_data.collection.load()
+
+        if progress_callback:
+            progress_callback({
+                "total_docs": total_docs,
+                "es_progress": 100,
+                "vector_progress": 100,
+                "es_docs_processed": total_docs,
+                "vector_docs_processed": total_docs,
+                "status": "vector_db_complete"
+            })
+
         return list(seen_pids)
 
     def retrieve(
@@ -449,3 +443,34 @@ class MilvusDenserVectorDB(DenserVectorDB):
             raise ValueError("Collection not initialized. Call create_index() first.")
 
         return len(index_data.collection.query(expr="pid != ''", output_fields=["pid"]))
+
+    def list_pids(self, index_data: MilvusIndexData, batch_size: int = 1000) -> List[str]:
+        if not index_data.collection:
+            raise ValueError("Collection not initialized. Call create_index() first.")
+        try:
+            # Get total count
+            total_count = len(index_data.collection.query(
+                expr="pid != ''",
+                output_fields=["pid"]
+            ))
+            logger.info(f"Found {total_count} total documents in collection {index_data.index_name}")
+            pids = []
+            offset = 0
+            while offset < total_count:
+                # Get batch of PIDs
+                batch = index_data.collection.query(
+                    expr="pid != ''",
+                    output_fields=["pid"],
+                    limit=batch_size,
+                    offset=offset
+                )
+                # Extract PIDs from batch
+                batch_pids = [doc['pid'] for doc in batch]
+                pids.extend(batch_pids)
+                offset += batch_size
+                logger.debug(f"Retrieved {len(pids)}/{total_count} PIDs")
+            logger.info(f"Retrieved all {len(pids)} PIDs from collection {index_data.index_name}")
+            return pids
+        except Exception as e:
+            logger.error(f"Error retrieving PIDs from collection {index_data.index_name}: {e}")
+            raise

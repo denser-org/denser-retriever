@@ -47,7 +47,8 @@ class DenserRetriever:
 
     def _ingest_elasticsearch(
             self,
-            docs: List[Document]
+            docs: List[Document],
+            progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
     ) -> int:
         """Process Elasticsearch ingestion and return number of documents processed."""
         if not self.keyword_search:
@@ -55,13 +56,14 @@ class DenserRetriever:
 
         num_docs = len(docs)
         logger.info(f"Adding {num_docs} documents to keyword search")
-        self.keyword_search.add_documents(self.es_data, docs)
+        self.keyword_search.add_documents(self.es_data, docs, progress_callback=progress_callback)
         return num_docs
 
     def _ingest_vector_db(
             self,
             docs: List[Document],
             texts: List[str],
+            progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
     ) -> Tuple[int, int]:
         """Process Vector DB ingestion and return docs processed and tokens used."""
         if not self.vector_db:
@@ -71,7 +73,12 @@ class DenserRetriever:
         token_count = ResourceTracker.calculate_vector_token_count(texts)
 
         if num_docs > 0:
-            self.vector_db.add_documents(self.milvus_data, docs, self.embeddings)
+            self.vector_db.add_documents(
+                self.milvus_data,
+                docs,
+                self.embeddings,
+                progress_callback=progress_callback
+            )
 
         return num_docs, token_count
 
@@ -100,7 +107,7 @@ class DenserRetriever:
 
         es_docs_processed = 0
         try:
-            es_docs_processed = self._ingest_elasticsearch(docs)
+            es_docs_processed = self._ingest_elasticsearch(docs, progress_callback)
             if progress_callback:
                 progress_callback({
                     "total_docs": total_docs,
@@ -121,7 +128,7 @@ class DenserRetriever:
 
         vector_docs_processed, token_count = 0, 0
         try:
-            vector_docs_processed, token_count = self._ingest_vector_db(docs, texts)
+            vector_docs_processed, token_count = self._ingest_vector_db(docs, texts, progress_callback)
             if progress_callback:
                 progress_callback({
                     "total_docs": total_docs,
@@ -468,3 +475,34 @@ class DenserRetriever:
         stats['es_docs'] = self.keyword_search.get_count(self.es_data.index_name)
         stats['vector_docs'] = self.vector_db.get_count(self.milvus_data)
         return stats
+
+    def list_pids(self, batch_size: int = 1000) -> Dict[str, List[str]]:
+        es_pids = []
+        vector_pids = []
+
+        try:
+            if self.keyword_search and self.es_data:
+                es_pids = self.keyword_search.list_pids(self.es_data.index_name)
+                logger.info(f"Retrieved {len(es_pids)} PIDs from Elasticsearch")
+            if self.vector_db and self.milvus_data:
+                vector_pids = self.vector_db.list_pids(self.milvus_data, batch_size)
+                logger.info(f"Retrieved {len(vector_pids)} PIDs from Milvus")
+
+            # Find common and unique PIDs
+            es_set = set(es_pids)
+            vector_set = set(vector_pids)
+            common_pids = list(es_set & vector_set)
+            es_only_pids = list(es_set - vector_set)
+            vector_only_pids = list(vector_set - es_set)
+
+            return {
+                'es_pids': es_pids,
+                'vector_pids': vector_pids,
+                'common_pids': common_pids,
+                'es_only_pids': es_only_pids,
+                'vector_only_pids': vector_only_pids
+            }
+
+        except Exception as e:
+            logger.error(f"Error listing PIDs: {e}")
+            raise
