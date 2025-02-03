@@ -96,6 +96,10 @@ class DenserKeywordSearch(ABC):
     def delete_all(self, delete_index: bool = True):
         raise NotImplementedError
 
+    @abstractmethod
+    def list_indices(self) -> List[str]:
+        raise NotImplementedError
+
 @dataclass
 class ESIndexData:
     """Data class containing Elasticsearch index configuration."""
@@ -486,4 +490,19 @@ class ElasticKeywordSearch(DenserKeywordSearch):
 
         except Exception as e:
             logger.error(f"Error retrieving PIDs from index {index_name}: {e}")
+            raise
+
+    def list_indices(self) -> List[str]:
+        try:
+            # Get all indices
+            indices = self.client.indices.get_alias()
+
+            # Get just the index names
+            index_names = list(indices.keys())
+
+            logger.info(f"Retrieved {len(index_names)} ES indices")
+            return index_names
+
+        except Exception as e:
+            logger.error(f"Error retrieving ES indices: {e}")
             raise

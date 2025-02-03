@@ -506,3 +506,49 @@ class DenserRetriever:
         except Exception as e:
             logger.error(f"Error listing PIDs: {e}")
             raise
+
+    def list_indices(self) -> Dict[str, List[str]]:
+        """List all indices from both Elasticsearch and Milvus.
+
+        Returns:
+            Dict[str, List[str]]: Dictionary containing indices from each source:
+            {
+                'es_indices': List of Elasticsearch indices,
+                'vector_indices': List of Milvus collections,
+                'common_indices': List of indices present in both,
+                'es_only_indices': Indices only in Elasticsearch,
+                'vector_only_indices': Indices only in Milvus
+            }
+        """
+        es_indices = []
+        vector_indices = []
+
+        try:
+            # Get Elasticsearch indices
+            if self.keyword_search:
+                es_indices = self.keyword_search.list_indices()
+                logger.info(f"Retrieved {len(es_indices)} indices from Elasticsearch")
+
+            # Get Milvus collections
+            if self.vector_db:
+                vector_indices = self.vector_db.list_indices()
+                logger.info(f"Retrieved {len(vector_indices)} collections from Milvus")
+
+            # Find common and unique indices
+            es_set = set(es_indices)
+            vector_set = set(vector_indices)
+            common_indices = list(es_set & vector_set)
+            es_only_indices = list(es_set - vector_set)
+            vector_only_indices = list(vector_set - es_set)
+
+            return {
+                'es_indices': es_indices,
+                'vector_indices': vector_indices,
+                'common_indices': common_indices,
+                'es_only_indices': es_only_indices,
+                'vector_only_indices': vector_only_indices
+            }
+
+        except Exception as e:
+            logger.error(f"Error listing indices: {e}")
+            raise

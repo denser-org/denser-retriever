@@ -474,3 +474,18 @@ class MilvusDenserVectorDB(DenserVectorDB):
         except Exception as e:
             logger.error(f"Error retrieving PIDs from collection {index_data.index_name}: {e}")
             raise
+
+    def list_indices(self) -> List[str]:
+        try:
+            # Create connection
+            alias = _create_connection_alias(self.connection_args)
+
+            # Get all collections
+            collection_names = utility.list_collections(using=alias)
+
+            logger.info(f"Retrieved {len(collection_names)} collections")
+            return collection_names
+
+        except Exception as e:
+            logger.error(f"Error retrieving collections: {e}")
+            raise

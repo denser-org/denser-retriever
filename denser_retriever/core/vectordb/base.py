@@ -56,3 +56,6 @@ class DenserVectorDB(ABC):
         raise NotImplementedError(
             f"clear has not been implemented for {self.__class__.__name__}"
         )
+
+    def list_indices(self) -> List[str]:
+        raise NotImplementedError
