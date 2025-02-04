@@ -1,15 +1,14 @@
 {
   "max_query_len": 2000,
   "es": {
-    "url": "http://localhost:9200",
-    "username": "elastic",
-    "password": "YOUR_PASSWORD",
-    "analysis": "default"
+    "url": "${ES_URL:http://localhost:9200}",
+    "username": "${ES_USERNAME}",
+    "password": "${ES_PASSWORD}"
   },
   "milvus": {
-    "uri": "http://localhost:19530",
-    "user": "root",
-    "password": "YOUR_PASSWORD"
+    "uri": "${MILVUS_URI:http://localhost:19530}",
+    "user": "${MILVUS_USER}",
+    "password": "${MILVUS_PASSWORD}"
   },
   "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
   "embedding": {

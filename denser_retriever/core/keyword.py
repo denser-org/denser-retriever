@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple, Callable
 import uuid
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from elasticsearch import Elasticsearch
 
@@ -104,10 +104,10 @@ class DenserKeywordSearch(ABC):
 class ESIndexData:
     """Data class containing Elasticsearch index configuration."""
     index_name: str
-    search_fields: FieldMapper
-    date_fields: List[str]
-    analysis: Optional[str]
-    drop_old: bool
+    search_fields: FieldMapper = FieldMapper()
+    date_fields: List[str] = field(default_factory=list)
+    analysis: str = "default"
+    drop_old: bool = False
 
 class ElasticKeywordSearch(DenserKeywordSearch):
     """

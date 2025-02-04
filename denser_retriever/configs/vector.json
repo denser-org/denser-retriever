@@ -1,9 +1,9 @@
 {
   "max_query_len": 2000,
   "milvus": {
-    "uri": "http://localhost:19530",
-    "user": "root",
-    "password": "YOUR_PASSWORD"
+    "uri": "${MILVUS_URI:http://localhost:19530}",
+    "user": "${MILVUS_USER}",
+    "password": "${MILVUS_PASSWORD}"
   },
   "embedding": {
     "type": "sentence_transformer",

@@ -1,22 +1,20 @@
 {
   "max_query_len": 2000,
   "es": {
-    "url": "http://localhost:9200",
-    "username": "elastic",
-    "password": "",
-    "analysis": "default"
+    "url": "${ES_URL:http://localhost:9200}",
+    "username": "${ES_USERNAME}",
+    "password": "${ES_PASSWORD}"
   },
   "milvus": {
-    "uri": "http://localhost:19530",
-    "user": "root",
-    "password": ""
+    "uri": "${MILVUS_URI:http://localhost:19530}",
+    "user": "${MILVUS_USER}",
+    "password": "${MILVUS_PASSWORD}"
   },
-  "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+  "reranker_model": "BAAI/bge-reranker-v2-m3",
   "embedding": {
-    "type": "sentence_transformer",
-    "model": "Snowflake/snowflake-arctic-embed-m",
-    "size": 768,
-    "one_model": false
+    "type": "bgem3",
+    "model": "BAAI/bge-m3",
+    "size": 1024
   },
   "combine_config": {
     "method": "fusion",

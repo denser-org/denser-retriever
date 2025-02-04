@@ -1,4 +1,3 @@
-
 from denser_retriever.core.keyword import (
     ElasticKeywordSearch,
     create_elasticsearch_client,
@@ -6,9 +5,13 @@ from denser_retriever.core.keyword import (
 from denser_retriever.core.reranker import HFReranker, BGEReranker
 from denser_retriever.core.vectordb.milvus import MilvusDenserVectorDB
 from denser_retriever.core.embeddings import (
+    VoyageAPIEmbeddings,
     SentenceTransformerEmbeddings,
+    BGEEmbeddings,
+    BGEM3Embeddings,
 )
 from denser_retriever.core.logistic_regression import LogisticRegression
+from denser_retriever.core.utils import load_config_with_env_vars
 
 
 class SharedComponents:
@@ -33,9 +36,7 @@ class SharedComponents:
     @classmethod
     def initialize_from_config(cls, config_path: str):
         """Initialize shared components from config file."""
-        import json
-        with open(config_path, 'r') as f:
-            config = json.load(f)
+        config = load_config_with_env_vars(config_path)
 
         instance = cls()
 
@@ -69,6 +70,26 @@ class SharedComponents:
                     embedding_size=embedding_config['size'],
                     one_model=embedding_config['one_model']
                 )
+            elif embedding_config['type'] == 'voyage':
+                if not embedding_config.get('api_key'):
+                    raise ValueError("Voyage API key is required for Voyage embeddings")
+                instance.embeddings = VoyageAPIEmbeddings(
+                    api_key=embedding_config['api_key'],
+                    model_name=embedding_config['model'],
+                    embedding_size=embedding_config['size']
+                )
+            elif embedding_config['type'] == 'bge':
+                instance.embeddings = BGEEmbeddings(
+                    model_name=embedding_config['model'],
+                    embedding_size=embedding_config['size']
+                )
+            elif embedding_config['type'] == 'bgem3':
+                instance.embeddings = BGEM3Embeddings(
+                    model_name=embedding_config['model'],
+                    embedding_size=embedding_config['size']
+                )
+            else:
+                raise ValueError(f"Unknown embedding type: {embedding_config['type']}")
 
         # Initialize reranker
         reranker_model = config.get('reranker_model')

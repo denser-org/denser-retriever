@@ -5,7 +5,8 @@ import openai
 import streamlit as st
 from langchain_core.documents import Document
 from denser_retriever.core.retriever import DenserRetriever
-from denser_retriever.config import load_retriever_config
+from denser_retriever.core.keyword import ESIndexData
+from denser_retriever.core.vectordb.milvus import MilvusIndexData
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +20,24 @@ texts = [
 
 # Initialize retriever
 index_name = "tech_docs"
-config = load_retriever_config("denser_retriever/configs/fusion_msmarco.json")
-retriever_config = config.get_retriever_config(index_name, True)
-retriever = DenserRetriever(**retriever_config)
+# Create retriever with config and index data
+es_data = ESIndexData(
+    index_name=index_name,
+    analysis="default",
+    drop_old=True
+)
+milvus_data = MilvusIndexData(
+    index_name=index_name,
+    embedding_size=1024,  # Match embedding model size
+    drop_old=True
+)
+retriever = DenserRetriever(
+    config_path="denser_retriever/configs/fusion_msmarco.json",
+    es_data=es_data,
+    milvus_data=milvus_data
+)
+
+# Ingest documents
 retriever.ingest(texts)
 
 openai.api_key = os.getenv("OPENAI_API_KEY")

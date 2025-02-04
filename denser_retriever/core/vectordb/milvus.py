@@ -82,9 +82,9 @@ def _create_connection_alias(connection_args: dict) -> str:
 class MilvusIndexData:
     """Data class containing Milvus index configuration."""
     index_name: str
-    embedding_size: int
-    search_fields: FieldMapper
-    drop_old: bool
+    embedding_size: int = 768
+    search_fields: FieldMapper = FieldMapper()
+    drop_old: bool = False
     source_max_length: int = 500
     title_max_length: int = 500
     text_max_length: int = 30000

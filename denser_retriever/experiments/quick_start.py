@@ -1,6 +1,7 @@
 from langchain_core.documents import Document
 from denser_retriever.core.retriever import DenserRetriever
-from denser_retriever.config import load_retriever_config
+from denser_retriever.core.keyword import ESIndexData
+from denser_retriever.core.vectordb.milvus import MilvusIndexData
 
 # Create sample documents
 texts = [
@@ -12,24 +13,28 @@ texts = [
 
 # Initialize retriever
 index_name = "tech_docs"
-config = load_retriever_config("denser_retriever/configs/fusion_msmarco.json")
-retriever_config = config.get_retriever_config(index_name, True)
-retriever = DenserRetriever(**retriever_config)
+# Create retriever with config and index data
+es_data = ESIndexData(
+    index_name=index_name,
+    analysis="default",
+    drop_old=True
+)
+milvus_data = MilvusIndexData(
+    index_name=index_name,
+    embedding_size=1024,  # Match embedding model size
+    drop_old=True
+)
+retriever = DenserRetriever(
+    config_path="denser_retriever/configs/fusion_msmarco.json",
+    es_data=es_data,
+    milvus_data=milvus_data
+)
 
 # Ingest documents
 retriever.ingest(texts)
 
-# Test queries
-queries = [
-    "What is Python?",
-    "Explain machine learning",
-]
-
-# Retrieve results
-for query in queries:
-    result = retriever.retrieve(query=query, k=5, usage=True)
-    print(f"\nQuery: {query}")
-    print(result.to_json())
+result = retriever.retrieve(query="Explain machine learning", k=5, usage=True)
+print(result.to_json())
 
 # Cleanup
 retriever.delete_all(delete_index=True)

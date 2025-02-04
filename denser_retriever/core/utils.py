@@ -3,6 +3,9 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pytrec_eval
+from pathlib import Path
+from dotenv import load_dotenv
+import os
 
 from langchain_core.documents import Document
 
@@ -127,3 +130,23 @@ def docs_to_dict(
         rank_dict[uid_str] = i + 1
 
     return doc_dict, score_dict, rank_dict
+
+
+def load_config_with_env_vars(config_path):
+    # Load environment variables from the root directory
+    root_dir = Path(__file__).parent.parent.parent
+    load_dotenv(root_dir / '.env')
+
+    # Read the config file
+    with open(config_path) as f:
+        config = json.load(f)
+
+    # Replace environment variables in config with defaults
+    config['es']['url'] = os.getenv('ES_URL', 'http://localhost:9200')
+    config['es']['username'] = os.getenv('ES_USERNAME', '')  # Optional
+    config['es']['password'] = os.getenv('ES_PASSWORD', '')  # Optional
+    config['milvus']['uri'] = os.getenv('MILVUS_URI', 'http://localhost:19530')
+    config['milvus']['user'] = os.getenv('MILVUS_USER', '')  # Optional
+    config['milvus']['password'] = os.getenv('MILVUS_PASSWORD', '')  # Optional
+
+    return config

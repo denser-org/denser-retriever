@@ -18,7 +18,7 @@ def generate_milvus_expr(filter_dict: Dict[str, Any]) -> str:
 
 
 class FieldMapper:
-    def __init__(self, fields: list[str]):
+    def __init__(self, fields: list[str]=[]):
         self.original_to_key_map: Dict[str, str] = {}
         self.key_to_original_map: Dict[str, str] = {}
         self.field_types: Dict[str, str] = {}
