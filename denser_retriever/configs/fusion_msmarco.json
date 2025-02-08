@@ -10,11 +10,12 @@
     "user": "${MILVUS_USER}",
     "password": "${MILVUS_PASSWORD}"
   },
-  "reranker_model": "BAAI/bge-reranker-v2-m3",
+  "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
   "embedding": {
-    "type": "bgem3",
-    "model": "BAAI/bge-m3",
-    "size": 1024
+    "type": "sentence_transformer",
+    "model": "Snowflake/snowflake-arctic-embed-m",
+    "size": 768,
+    "one_model": false
   },
   "combine_config": {
     "method": "fusion",

@@ -10,7 +10,6 @@ from denser_retriever.core.utils import docs_to_dict
 from denser_retriever.core.resource_tracking import ResourceTracker
 from denser_retriever.core.keyword import ESIndexData
 from denser_retriever.core.vectordb.milvus import MilvusIndexData
-from denser_retriever.config import CombineConfig
 from denser_retriever.core.shared import SharedComponents
 from denser_retriever.core.utils import config_to_features
 
@@ -31,13 +30,12 @@ class DenserRetriever:
         self.vector_db = shared.vector_db
         self.reranker = shared.reranker
         self.embeddings = shared.embeddings
-        self.lr_model = shared.lr_model
-        self.lr_features = shared.lr_features
+        self.lr_model = shared.lr_model if hasattr(shared, 'lr_model') else None
+        self.lr_features = shared.lr_features if hasattr(shared, 'lr_features') else None
 
         with open(config_path, 'r') as f:
             config = json.load(f)
-        combine_config = CombineConfig(**config.get('combine_config', {}))
-        self.combine_config = combine_config
+        self.combine_config = config.get('combine_config', {})
         self.es_data = es_data
         self.milvus_data = milvus_data
         if es_data and self.keyword_search:
@@ -175,24 +173,25 @@ class DenserRetriever:
             usage: bool = False,
     ) -> RetrievalResult:
         logger.info(f"Retrieve query: {query} top_k: {k}")
-        if self.combine_config.method == "vector":
+        if self.combine_config["method"] == "vector":
             return self.retrieve_by_vector(
                 query, k, filter, aggregation, usage
             )
-        elif self.combine_config.method == "hybrid":
+        elif self.combine_config["method"] == "hybrid":
             return self.retrieve_by_hybrid(
                 query, k, filter, aggregation, usage
             )
-        elif self.combine_config.method == "reranker":
+        elif self.combine_config["method"] == "reranker":
             return self.retrieve_by_reranker(
                 query, k, filter, aggregation, usage
             )
-        elif self.combine_config.method == "fusion":
+        elif self.combine_config["method"] == "fusion":
             return self.retrieve_by_fusion(
                 query, k, filter, aggregation, usage
             )
         else:
-            raise ValueError(f"Unknown combine method {self.combine_config.method}")
+            method = self.combine_config["method"]
+            raise ValueError(f"Unknown combine method {method}")
 
     def retrieve_by_vector(
             self,
@@ -233,7 +232,7 @@ class DenserRetriever:
         ks_docs, aggregations = self.keyword_search.retrieve(
             self.es_data,
             query,
-            self.combine_config.keyword_top_k,
+            self.combine_config["keyword_top_k"],
             filter=filter,
             aggregation=aggregation,
             apply_sigmoid=False,
@@ -242,7 +241,7 @@ class DenserRetriever:
         if not self.vector_db:
             raise ValueError("Vector database not initialized")
         vs_docs = self.vector_db.retrieve(
-            self.milvus_data, query, self.embeddings, self.combine_config.vector_top_k, filter=filter
+            self.milvus_data, query, self.embeddings, self.combine_config["vector_top_k"], filter=filter
         )
 
         metrics = None
@@ -267,7 +266,7 @@ class DenserRetriever:
                 all_docs[pid] = doc
 
         hybrid_scores = {}
-        max_rank = max(self.combine_config.keyword_top_k, self.combine_config.vector_top_k)
+        max_rank = max(self.combine_config["keyword_top_k"], self.combine_config["vector_top_k"])
 
         for pid, doc in all_docs.items():
             ks_rank = ks_rank_dict.get(pid, max_rank + 1)
@@ -298,7 +297,7 @@ class DenserRetriever:
         if not self.keyword_search:
             raise ValueError("Keyword search not initialized")
         ks_docs, aggregations = self.keyword_search.retrieve(
-            self.es_data, query, self.combine_config.keyword_top_k, filter=filter, aggregation=aggregation
+            self.es_data, query, self.combine_config["keyword_top_k"], filter=filter, aggregation=aggregation
         )
 
         docs_to_rerank = [doc for doc, _ in ks_docs]
@@ -337,7 +336,7 @@ class DenserRetriever:
         metrics = None
         if usage:
             vector_tokens = ResourceTracker.calculate_vector_search_token_count(
-                query, docs[: self.combine_config.vector_top_k]
+                query, docs[: self.combine_config["vector_top_k"]]
             )
             rerank_tokens = (
                 ResourceTracker.calculate_reranker_token_count(query, docs)
@@ -377,14 +376,14 @@ class DenserRetriever:
             ks_docs, aggregations = self.keyword_search.retrieve(
                 self.es_data,
                 query,
-                self.combine_config.keyword_top_k,
+                self.combine_config["keyword_top_k"],
                 filter=filter,
                 aggregation=aggregation,
             )
         vs_docs = []
         if self.vector_db:
             vs_docs = self.vector_db.retrieve(
-                self.milvus_data, query, self.embeddings, self.combine_config.vector_top_k, filter=filter
+                self.milvus_data, query, self.embeddings, self.combine_config["vector_top_k"], filter=filter
             )
 
         combined = []

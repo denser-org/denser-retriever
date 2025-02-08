@@ -28,7 +28,7 @@ es_data = ESIndexData(
 )
 milvus_data = MilvusIndexData(
     index_name=index_name,
-    embedding_size=1024,  # Match embedding model size
+    embedding_size=768,  # Match embedding model size
     drop_old=True
 )
 retriever = DenserRetriever(

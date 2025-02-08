@@ -7,13 +7,24 @@ from denser_retriever.core.keyword import (
 )
 from denser_retriever.core.filter import FieldMapper
 from langchain_core.documents import Document
+from pathlib import Path
+from dotenv import load_dotenv
+import os
 
 
 class TestElasticsearchKeywordStore:
     @pytest.fixture
     def es_client(self):
-        return create_elasticsearch_client(url="http://localhost:9200", username="elastic",
-                                              password="")
+        # Load environment variables from the root directory
+        root_dir = Path(__file__).parent.parent
+        load_dotenv(root_dir / '.env')
+
+        # Replace environment variables in config with defaults
+        url = os.getenv('ES_URL', 'http://localhost:9200')
+        username = os.getenv('ES_USERNAME', '')
+        password = os.getenv('ES_PASSWORD', '')
+        return create_elasticsearch_client(url=url, username=username,
+                                           password=password)
 
     @pytest.fixture
     def index_data(self):

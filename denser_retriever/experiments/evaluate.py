@@ -5,22 +5,23 @@ import os
 import json
 
 from denser_retriever.core.retriever import DenserRetriever
-from denser_retriever.config import load_retriever_config, CombineConfig
 from denser_retriever.experiments.hf_data_loader import HFDataLoader
 from denser_retriever.core.utils import evaluate
+from denser_retriever.core.keyword import ESIndexData
+from denser_retriever.core.vectordb.milvus import MilvusIndexData
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 def process_queries_all_methods(
-    retriever: DenserRetriever,
-    queries: list,
-    top_k: int,
-    methods: List[str] = [],
-    max_query_len: int = 2000,
-    num_queries: int = 0,
-    usage: bool = True,
+        retriever: DenserRetriever,
+        queries: list,
+        top_k: int,
+        methods: List[str] = [],
+        max_query_len: int = 2000,
+        num_queries: int = 0,
+        usage: bool = True,
 ) -> Tuple[Dict[str, Dict[str, Dict[str, float]]], Dict[str, Dict[str, int]]]:
     """Process queries with specified retrieval methods and track token usage.
 
@@ -112,9 +113,9 @@ def process_queries_all_methods(
 
 
 def evaluate_methods(
-    results: Dict[str, Dict[str, Dict[str, float]]],
-    qrels: Dict,
-    output_prefix: Optional[str] = None,
+        results: Dict[str, Dict[str, Dict[str, float]]],
+        qrels: Dict,
+        output_prefix: Optional[str] = None,
 ) -> Dict[str, Dict[str, float]]:
     """Evaluate and report results for each method."""
     # Dictionary to store all metrics
@@ -151,33 +152,6 @@ def evaluate_methods(
     return all_metrics
 
 
-def calculate_method_costs(
-    token_stats: Dict[str, Dict[str, int]], method: str
-) -> Dict[str, float]:
-    """Calculate costs for a specific retrieval method."""
-    stats = token_stats[method]
-    num_queries = stats["total_queries"]
-    costs = json.load(open("denser_retriever/configs/cost_config.json", "r"))
-
-    # Cost calculations
-    es_cost = (
-        costs["es_query_cost"] * num_queries if method != "vector" else 0.0
-    )  # $0.001 per query
-    vector_cost = (
-        stats["vector_tokens"] * costs["vector_token_cost_per_million"]
-    ) / 1_000_000  # $0.08 per million tokens
-    reranker_cost = (
-        stats["reranker_tokens"] * costs["reranker_token_cost_per_million"]
-    ) / 1_000_000  # $0.05 per million tokens
-
-    return {
-        "es_query_cost": es_cost,
-        "vector_token_cost": vector_cost,
-        "reranker_token_cost": reranker_cost,
-        "total_cost": es_cost + vector_cost + reranker_cost,
-    }
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Evaluate retriever methods on a dataset"
@@ -212,9 +186,26 @@ def main():
     args = parser.parse_args()
 
     # Load config and initialize retriever
-    config = load_retriever_config(args.config)
-    retriever_config = config.get_retriever_config(args.index_name, False)
-    retriever = DenserRetriever(**retriever_config)
+    index_name = args.index_name
+    config_path = args.config
+    with open(config_path) as f:
+        config = json.load(f)
+
+    es_data = ESIndexData(
+        index_name=index_name,
+        analysis="default",
+        drop_old=False
+    )
+    milvus_data = MilvusIndexData(
+        index_name=index_name,
+        embedding_size=int(config["embedding"]["size"]),  # Match embedding model size
+        drop_old=False
+    )
+    retriever = DenserRetriever(
+        config_path=config_path,
+        es_data=es_data,
+        milvus_data=milvus_data
+    )
 
     # Load queries and qrels
     _, queries, qrels = HFDataLoader(
@@ -237,12 +228,6 @@ def main():
     # Evaluate and get metrics
     all_metrics = evaluate_methods(results, qrels, args.output_dir)
 
-    # Calculate costs for each method
-    method_costs = {
-        method: calculate_method_costs(token_stats, method)
-        for method in token_stats.keys()
-    }
-
     # Print comprehensive summary
     print("\n=== Evaluation Summary ===")
     print("-" * 80)
@@ -257,7 +242,6 @@ def main():
 
         # Usage statistics
         stats = token_stats[method]
-        costs = method_costs[method]
 
         print("\nUsage Statistics:")
         print(f"Total Queries: {stats['total_queries']:,}")
@@ -269,12 +253,6 @@ def main():
             f"Reranker Tokens: {stats['reranker_tokens']:,} "
             f"(avg: {stats.get('avg_reranker_tokens', 0):,.1f} per query)"
         )
-
-        print("\nCost Breakdown:")
-        print(f"ES Query Cost: ${costs['es_query_cost']:.4f}")
-        print(f"Vector Token Cost: ${costs['vector_token_cost']:.4f}")
-        print(f"Reranker Token Cost: ${costs['reranker_token_cost']:.4f}")
-        print(f"Total Cost: ${costs['total_cost']:.4f}")
 
 
 if __name__ == "__main__":

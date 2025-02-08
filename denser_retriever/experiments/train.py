@@ -3,7 +3,7 @@ import os
 import sys
 import json
 import argparse
-from typing import List, Dict, Tuple
+from typing import Dict
 
 from langchain_core.documents import Document
 from sklearn.datasets import load_svmlight_file
@@ -11,7 +11,6 @@ from sklearn.linear_model import LogisticRegression
 import joblib  # for saving/loading the model
 
 from denser_retriever.core.retriever import DenserRetriever
-from denser_retriever.config import load_train_config
 from denser_retriever.experiments.hf_data_loader import HFDataLoader
 from denser_retriever.core.utils import (
     evaluate,
@@ -22,6 +21,8 @@ from denser_retriever.core.utils import (
 )
 from denser_retriever.experiments.utils import prepare_features, save_HF_corpus_as_docs
 from denser_retriever.core.utils import config_to_features, load_queries
+from denser_retriever.core.keyword import ESIndexData
+from denser_retriever.core.vectordb.milvus import MilvusIndexData
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,83 +42,39 @@ class DenserData:
 
 
 class Experiment:
-    def __init__(self, dataset_name, drop_old, config):
+    def __init__(self, dataset_name, drop_old, config_path):
         data_name = os.path.basename(dataset_name)
         self.output_prefix = os.path.join("exps", f"exp_{data_name}")
 
-        # Set experiment parameters from config
-        self.ingest_bs = config.ingest_bs
-        self.max_query_size = config.max_query_size
-        self.max_query_len = config.max_query_len
-        self.max_doc_size = config.max_doc_size
-        self.max_doc_len = config.max_doc_len
-        self.es_top_k = config.combine_config.keyword_top_k
-        self.vector_top_k = config.combine_config.vector_top_k
-        self.reranker_top_k = config.combine_config.reranker_top_k
+        # Read the config file
+        with open(config_path) as f:
+            config = json.load(f)
+        self.ingest_bs = config["ingest_bs"]
+        self.max_query_size = config["max_query_size"]
+        self.max_query_len = config["max_query_len"]
+        self.max_doc_size = config["max_doc_size"]
+        self.max_doc_len = config["max_doc_len"]
+        self.es_top_k = config["combine_config"]["keyword_top_k"]
+        self.vector_top_k = config["combine_config"]["vector_top_k"]
+        self.reranker_top_k = config["combine_config"]["reranker_top_k"]
 
         # Initialize retriever with config
         index_name = data_name.replace("-", "_")
-        retriever_config = config.get_retriever_config(index_name, drop_old)
-        self.retriever = DenserRetriever(**retriever_config)
-
-    def _process_batch(self, docs: List[Document],
-                       remain_es_storage_quota_gb: float,
-                       remain_vector_storage_quota_gb: float,
-                       remain_vector_token_quota: int) -> Tuple[Dict[str, float], float, float, int]:
-        """Process a batch of documents with quota limits.
-
-        Args:
-            docs: List of documents to process
-            remain_es_storage_quota_gb: Remaining ES storage quota in GB
-            remain_vector_storage_quota_gb: Remaining vector storage quota in GB
-            remain_vector_token_quota: Remaining vector token quota
-
-        Returns:
-            Tuple containing:
-            - Metrics dictionary
-            - Remaining ES storage quota
-            - Remaining vector storage quota
-            - Remaining vector token quota
-        """
-        if not docs:
-            return ({"es_storage_gb": 0.0, "vector_storage_gb": 0.0, "vector_tokens": 0},
-                    remain_es_storage_quota_gb,
-                    remain_vector_storage_quota_gb,
-                    remain_vector_token_quota)
-
-        # Process documents and get metrics
-        _, metrics = self.retriever.ingest(docs, overwrite_pid=False, es_storage_quota_gb=remain_es_storage_quota_gb,
-                                           vector_storage_quota_gb=remain_vector_storage_quota_gb,
-                                           vector_token_quota=remain_vector_token_quota)
-
-        # Update remaining quotas
-        new_es_quota = remain_es_storage_quota_gb - metrics["es_storage_gb"]
-        new_vector_quota = remain_vector_storage_quota_gb - metrics["vector_storage_gb"]
-        new_token_quota = remain_vector_token_quota - metrics["vector_tokens"]
-
-        if any(quota < 0 for quota in [new_es_quota, new_vector_quota, new_token_quota]):
-            logger.warning(f"Quota exceeded during batch processing: "
-                           f"ES: {new_es_quota:.2f}GB, "
-                           f"Vector: {new_vector_quota:.2f}GB, "
-                           f"Tokens: {new_token_quota:,}")
-
-        return metrics, new_es_quota, new_vector_quota, new_token_quota
-
-    def _calculate_costs(self, total_metrics: Dict[str, float]) -> Dict[str, float]:
-        """Calculate costs based on resource usage."""
-        with open('denser_retriever/configs/cost_config.json', 'r') as f:
-            costs = json.load(f)
-
-        storage_cost = costs['storage_cost_per_gb'] * (
-                total_metrics['es_storage_gb'] + total_metrics['vector_storage_gb'])
-        token_cost = (total_metrics['vector_tokens'] * costs['vector_token_cost_per_million']) / 1_000_000
-
-        return {
-            **total_metrics,
-            "storage_cost": storage_cost,
-            "token_cost": token_cost,
-            "total_cost": storage_cost + token_cost
-        }
+        es_data = ESIndexData(
+            index_name=index_name,
+            analysis="default",
+            drop_old=drop_old
+        )
+        milvus_data = MilvusIndexData(
+            index_name=index_name,
+            embedding_size=int(config["embedding"]["size"]),
+            drop_old=drop_old
+        )
+        self.retriever = DenserRetriever(
+            config_path=config_path,
+            es_data=es_data,
+            milvus_data=milvus_data
+        )
 
     def ingest(self, dataset_name: str, split: str) -> Dict[str, float]:
         """Ingest dataset and return cost metrics."""
@@ -135,18 +92,6 @@ class Experiment:
         ).load(split=split)
         save_HF_corpus_as_docs(corpus, passage_file, self.max_doc_size, self.max_doc_len)
 
-        # Load quotas from cost config
-        costs = json.load(open('denser_retriever/configs/cost_config.json', 'r'))
-        remain_es_storage_quota_gb = float('inf') if str(
-            costs.get("es_storage_quota_gb", 'inf')).lower() == "inf" else float(costs["es_storage_quota_gb"])
-        remain_vector_storage_quota_gb = float('inf') if str(
-            costs.get("vector_storage_quota_gb", 'inf')).lower() == "inf" else float(costs["vector_storage_quota_gb"])
-        remain_vector_token_quota = float('inf') if str(
-            costs.get("vector_token_quota_million", 'inf')).lower() == "inf" else float(costs["vector_token_quota_million"]) * 1_000_000
-
-        # Initialize metrics tracking
-        total_metrics = {"es_docs": 0, "vector_docs": 0, "es_storage_gb": 0.0, "vector_storage_gb": 0.0,
-                         "vector_tokens": 0}
         docs = []
         num_docs = 0
 
@@ -154,40 +99,12 @@ class Experiment:
             for line in f:
                 docs.append(Document(**json.loads(line)))
                 num_docs += 1
-
                 if len(docs) == self.ingest_bs:
-                    # Process batch with quota limits
-                    batch_metrics, remain_es_storage_quota_gb, remain_vector_storage_quota_gb, remain_vector_token_quota = \
-                        self._process_batch(docs, remain_es_storage_quota_gb, remain_vector_storage_quota_gb,
-                                            remain_vector_token_quota)
-
-                    # Update total metrics
-                    for key in total_metrics:
-                        total_metrics[key] += batch_metrics[key]
-
+                    self.retriever.ingest(docs, overwrite_pid=False)
                     docs = []
-                    logger.info(f"Ingested {num_docs} documents. Remaining quotas - "
-                                f"ES: {remain_es_storage_quota_gb:.2f}GB, "
-                                f"Vector: {remain_vector_storage_quota_gb:.2f}GB, "
-                                f"Tokens: {remain_vector_token_quota:,}")
-
-                    # Check if we've hit any quota limits
-                    if remain_es_storage_quota_gb <= 0 or remain_vector_storage_quota_gb <= 0 or remain_vector_token_quota <= 0:
-                        logger.warning("Quota limit reached. Stopping ingestion.")
-                        break
-
-            # Process remaining documents if any quotas left
-            if docs and any(quota > 0 for quota in
-                            [remain_es_storage_quota_gb, remain_vector_storage_quota_gb, remain_vector_token_quota]):
-                batch_metrics, _, _, _ = self._process_batch(
-                    docs, remain_es_storage_quota_gb, remain_vector_storage_quota_gb, remain_vector_token_quota)
-                for key in total_metrics:
-                    total_metrics[key] += batch_metrics[key]
-
-        res =  self._calculate_costs(total_metrics)
-        usage_out = open(os.path.join(exp_dir, "usage.jsonl"), "w")
-        json.dump(res, usage_out, indent=4, ensure_ascii=False)
-        return res
+                    logger.info(f"Ingested {num_docs} documents.")
+            if docs:
+                self.retriever.ingest(docs, overwrite_pid=False)
 
     def generate_feature_data(self, dataset_name, split):
         exp_dir = os.path.join(self.output_prefix, split)
@@ -216,11 +133,10 @@ class Experiment:
             if (self.max_query_len > 0 and len(query_str) > self.max_query_len):
                 query_str = query_str[:self.max_query_len]
             qid = q["id"]
-
-            ks_docs, ks_aggregations = self.retriever.keyword_search.retrieve(
-                query_str, self.es_top_k)
-            vs_docs = self.retriever.vector_db.retrieve(
-                query_str, self.vector_top_k)
+            ks_docs, ks_aggregations = self.retriever.keyword_search.retrieve(self.retriever.es_data,
+                                                                              query_str, self.es_top_k)
+            vs_docs = self.retriever.vector_db.retrieve(self.retriever.milvus_data,
+                                                        query_str, self.retriever.embeddings, self.vector_top_k)
             combined = []
             seen = set()
 
@@ -310,14 +226,6 @@ class Experiment:
             qrels, scores_reranker, os.path.join(output_prefix, "metric_reranker.json")
         )
         logger.info(f'Reranker NDCG@10: {metric_reranker[0]["NDCG@10"]}')
-
-    def read_group(self, dir, retriever_config):
-        group = []
-        with open(os.path.join(dir, retriever_config + ".group"), "r") as f:
-            data = f.readlines()
-            for line in data:
-                group.append(int(line.split("\n")[0]))
-        return group
 
     def train_logistic(self, train_dir, dev_dir, model_dir, retriever_config):
         """Train logistic regression model"""
@@ -471,17 +379,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Load config if provided
-    config = None
-    if args.config:
-        config = load_train_config(args.config)
-
     drop_old = True
-    experiment = Experiment(args.dataset_name, drop_old, config)
-    train_ingestion_cost = None
+    experiment = Experiment(args.dataset_name, drop_old, args.config)
     if drop_old:
-        train_ingestion_cost = experiment.ingest(args.dataset_name, args.train)
-        logger.info(f"Training ingestion cost: {train_ingestion_cost}")
+        experiment.ingest(args.dataset_name, args.train)
 
     if args.ingest_only:
         logger.info("Ingest-only mode. Stopping after data ingestion.")
@@ -497,5 +398,4 @@ if __name__ == "__main__":
     experiment.test(args.test, model_dir)
 
     logger.info(f"train: {args.train}, eval: {args.test}")
-    logger.info(f"Training ingestion cost: {train_ingestion_cost}")
     experiment.report(args.test, "NDCG@10")

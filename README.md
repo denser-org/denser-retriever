@@ -69,7 +69,7 @@ es_data = ESIndexData(
 )
 milvus_data = MilvusIndexData(
     index_name=index_name,
-    embedding_size=1024,  # Match embedding model size
+    embedding_size=768,  # Match embedding model size
     drop_old=True
 )
 retriever = DenserRetriever(
@@ -97,43 +97,20 @@ python -m denser_retriever.experiments.quick_start
 You can easily build a RAG-based chatbot with the following command. It 1) retrieves search results, and 2) passes the results to a LLM (gpt-4o) to generate final results. 
 
 ```bash
+export OPENAI_API_KEY="your_api_key_here"
 streamlit run denser_retriever/examples/chat.py
 ``` 
 
 ## Ingetstion
 
-We use a [MTEB dataset](https://github.com/embeddings-benchmark/mteb) scifact to illustrate the ingestion. To ingest a
+We use a [MTEB dataset](https://github.com/embeddings-benchmark/mteb) scifact to illustrate the ingestion. A dataset consists of a corpus, a query set and annotations: the ground truth docs for each query. To ingest a
 dataset, run the following command. The first argument is the dataset name, the second and third arguments
 are the dataset splits. The fourth argument is the path to the configuration file. The fifth argument is
 the `--ingest-only` flag, which is used to ingest the dataset without training.
 
 ```bash
-python -m denser_retriever.experiments.train mteb/scifact train test --config denser_retriever/configs/train_default.json --ingest-only
-```
-
-We note that the ingestion stops when it exceeds the following quotas specified
-in `denser_retriever/configs/cost_config.json`.
-
-```json
-{
-  "es_storage_quota_gb": 2.0,
-  "vector_storage_quota_gb": 2.0,
-  "vector_token_quota_million": 2.0
-}
-```
-
-The ingestion storage and vector tokens and their costs are reported after the ingestion. If you run a large experiment,
-make sure to set the quotas to `inf` so you have infinite budget to run experiments. As a reference, the ingestion of
-scifact dataset (5183 documents) has the
-following ingestion stats:
-
-```json
-{
-  "num_docs": 5183,
-  "es_storage_gb": 0.03670822083950042,
-  "vector_storage_gb": 0.014828681945800781,
-  "vector_tokens": 1635249
-}
+python -m denser_retriever.experiments.train mteb/scifact train test \
+ --config denser_retriever/configs/train_default.json --ingest-only
 ```
 
 ## Retrieval
@@ -150,21 +127,14 @@ methods to combine these components:
 
 To retrieve passages for a given question with the `fusion` method, use the following command. The first argument is the
 retriever index name, the second argument is the question, and the third argument is the path to the configuration file.
-The retriever index is generated in the ingestion section above.
-Replace `fusion.json` with `vector.json`, `hybrid.json`, `reranker.json` to use the corresponding method.
+The retriever index is generated in the ingestion section above. We can change the method `fusion` in the configure file to use other methods:`vector`, `hybrid`, or `reranker`.
 
 ```bash
-python -m denser_retriever.experiments.retrieve scifact "0-dimensional biomaterials show inductive properties." --config denser_retriever/configs/fusion_scifact.json
+python -m denser_retriever.experiments.retrieve scifact \
+"0-dimensional biomaterials show inductive properties." \
+--config denser_retriever/configs/fusion_scifact.json
 ```
-
-Alternatively, you can also use command-line arguments. Replace `fusion`
-with `vector`, `hybrid`, `reranker` to use the corresponding method.
-
-```bash
-python -m denser_retriever.experiments.retrieve scifact "0-dimensional biomaterials show inductive properties." --combine-method fusion
-```
-
-Either of the above commands leads to the following results:
+The above command leads to the following results:
 
 ```text
 Top 10 results for query: 0-dimensional biomaterials show inductive properties.
@@ -207,10 +177,11 @@ and `reranker` methods to retrieve passages.
 
 The following command shows a training example, where `mteb/scifact` is the dataset name, `train` and `test` are the
 splits to use, and `train_default.json` is the training configuration file. `train_default.json` specifies the
-elasticsearch and vector search setup, as well as the embedding and reranker models to use.
+elasticsearch, vector search, embedding and reranker models to use.
 
 ```bash
-python -m denser_retriever.experiments.train mteb/scifact train test --config denser_retriever/configs/train_default.json
+python -m denser_retriever.experiments.train mteb/scifact train test \
+--config denser_retriever/configs/train_default.json
 ```
 
 The training process:
@@ -234,14 +205,18 @@ metric_vs+rr.json: "NDCG@10": 0.73946,
 metric_es+vs+rr.json: "NDCG@10": 0.74344,
 ```
 
-`keyword` and `vector` are the keyword search and vector search
-respectively. `reranker` is the reranking of the joint set of keyword search and vector search
-results. `es+vs`, `es+rr`, `vs+rr`, and `es+vs+rr` are the features used to train logistic models. For
-example, `es+vs+rr` is a logistic regression model which was trained using keyword (es), vector search (vs) and
-reranker (rr) features, while `es+vs` is a logistic regression model which was trained using keyword and vector search
-features. Four models `weights_es+vs.json`, `weights_es+rr.json`, `weights_vs+rr.json` and `weights_es+vs+rr.json` are
-saved to the `exps/exp_scifact/models` directory. We use the `weights_es+vs+rr.json` model in the `fusion` combine
-method (see Retrieving and Evaluation and Retrieving Sections) to retrieve passages, as it outperforms other methods.
+Where
+* `keyword`: keyword search
+* `vector`: vector search
+* `reranker`: reranking of the joint set of keyword search and vector search
+results
+* `es+vs`: use elasticsearch and vector search features to train a logistic regression model to combine elastic search and vector search
+* `es+rr`: similar to above but use elasticsearch and reranker features
+* `vs+rr`: similar to above but use vector search and reranker features
+* `es+vs+rr`: similar to above but use elasticsearch, vector search and reranker features
+
+Four models `weights_es+vs.json`, `weights_es+rr.json`, `weights_vs+rr.json` and `weights_es+vs+rr.json` are
+saved to the `exps/exp_scifact/models` directory. We use the `weights_es+vs+rr.json` to power`fusion` method.
 
 ### Evaluation
 
@@ -261,26 +236,15 @@ python -m denser_retriever.experiments.evaluate \
     --num-queries 0
 ```
 
-With the following cost configuration in `denser_retriever/configs/cost_config.json`,
-
-```json
-{
-  "storage_cost_per_gb": 0.4,
-  "es_query_cost": 0.001,
-  "vector_token_cost_per_million": 0.08,
-  "reranker_token_cost_per_million": 0.05
-}
-```
-
-the evaluation accuracy and cost are listed below. As expected, the `fusion` method which uses
+the evaluation accuracy is listed below. As expected, the `fusion` method which uses
 the `weights_es+vs+rr.json` model from the training, obtained identical ndcg@10 number as the `es+vs+rr` from training.
 
-| Method   | NDCG@10 | COST |
-|----------|---------|------|
-| vector   | 0.7317  | 0.83 |
-| hybrid   | 0.6832  | 1.13 |
-| reranker | 0.6759  | 0.83 |
-| fusion   | 0.7434  | 2.10 |
+| Method   | NDCG@10 |
+|----------|---------|
+| vector   | 0.7317  |
+| hybrid   | 0.6832  |
+| reranker | 0.6759  |
+| fusion   | 0.7434  |
 
 </details>
 
@@ -295,7 +259,8 @@ Scifact dataset is a small dataset, and the training process is fast. For a larg
 takes two days to complete. We provide a script to train the MsMarco dataset with the following command.
 
 ```bash
-python -m denser_retriever.experiments.train mteb/msmarco train dev --config denser_retriever/configs/train_default.json
+python -m denser_retriever.experiments.train mteb/msmarco train dev \
+--config denser_retriever/configs/train_default.json
 ```
 
 After training, we get the following accuracy report. We note that the keyword search and vector search lead to the
@@ -328,26 +293,15 @@ python -m denser_retriever.experiments.evaluate \
     --num-queries 0
 ```
 
-With the following cost configuration in `denser_retriever/configs/cost_config.json`,
-
-```json
-{
-  "storage_cost_per_gb": 0.4,
-  "es_query_cost": 0.001,
-  "vector_token_cost_per_million": 0.08,
-  "reranker_token_cost_per_million": 0.05
-}
-```
-
-the evaluation accuracy and cost are listed below. For MsMarco dataset, the vector and reranker methods lead to similar
+the evaluation accuracy is listed below. For MsMarco dataset, the vector and reranker methods lead to similar
 NDCG@10 scores. The fusion method outperforms the other methods with a higher cost.
 
-| Method   | NDCG@10 | COST  |
-|----------|---------|-------|
-| vector   | 0.4147  | 4.30  |
-| hybrid   | 0.3416  | 11.28 |
-| reranker | 0.4013  | 10.02 |
-| fusion   | 0.4707  | 16.65 |
+| Method   | NDCG@10 |
+|----------|---------|
+| vector   | 0.4147  |
+| hybrid   | 0.3416  |
+| reranker | 0.4013  |
+| fusion   | 0.4707  |
 
 </details>
 

@@ -1,5 +1,4 @@
 import pytest
-from pymilvus import Collection
 from denser_retriever.core.vectordb.milvus import (
     MilvusDenserVectorDB,
     MilvusIndexData,
@@ -7,11 +6,22 @@ from denser_retriever.core.vectordb.milvus import (
 from denser_retriever.core.embeddings import SentenceTransformerEmbeddings
 from denser_retriever.core.filter import FieldMapper
 from langchain_core.documents import Document
+from pathlib import Path
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from the root directory
+root_dir = Path(__file__).parent.parent
+load_dotenv(root_dir / '.env')
+
+uri = os.getenv('MILVUS_URI', 'http://localhost:19530')
+user = os.getenv('MILVUS_USER', '')
+password = os.getenv('MILVUS_PASSWORD', '')
 
 MILVUS_CONNECTION = {
-    "uri": "http://localhost:19530",
-    "user": "root",
-    "password": ""
+    "uri": uri,
+    "user": user,
+    "password": password
 }
 
 
