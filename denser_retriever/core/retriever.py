@@ -171,27 +171,30 @@ class DenserRetriever:
             filter: Dict[str, Any] = {},
             aggregation: bool = False,
             usage: bool = False,
+            method: Optional[str] = None
     ) -> RetrievalResult:
-        logger.info(f"Retrieve query: {query} top_k: {k}")
-        if self.combine_config["method"] == "vector":
+        # Use provided method if available, otherwise fall back to config
+        retrieve_method = method if method is not None else self.combine_config["method"]
+        logger.info(f"Retrieve query: {query} top_k: {k} method: {retrieve_method}")
+
+        if retrieve_method == "vector":
             return self.retrieve_by_vector(
                 query, k, filter, aggregation, usage
             )
-        elif self.combine_config["method"] == "hybrid":
+        elif retrieve_method == "hybrid":
             return self.retrieve_by_hybrid(
                 query, k, filter, aggregation, usage
             )
-        elif self.combine_config["method"] == "reranker":
+        elif retrieve_method == "reranker":
             return self.retrieve_by_reranker(
                 query, k, filter, aggregation, usage
             )
-        elif self.combine_config["method"] == "fusion":
+        elif retrieve_method == "fusion":
             return self.retrieve_by_fusion(
                 query, k, filter, aggregation, usage
             )
         else:
-            method = self.combine_config["method"]
-            raise ValueError(f"Unknown combine method {method}")
+            raise ValueError(f"Unknown combine method {retrieve_method}")
 
     def retrieve_by_vector(
             self,

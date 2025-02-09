@@ -12,6 +12,9 @@ from denser_retriever.core.embeddings import (
 )
 from denser_retriever.core.logistic_regression import LogisticRegression
 from denser_retriever.core.utils import load_config_with_env_vars
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class SharedComponents:
@@ -37,7 +40,8 @@ class SharedComponents:
     def initialize_from_config(cls, config_path: str):
         """Initialize shared components from config file."""
         config = load_config_with_env_vars(config_path)
-
+        logger.info(f"Loading config from {config_path}")
+        logger.info(f"Config: {config}")
         instance = cls()
 
         # Initialize Elasticsearch

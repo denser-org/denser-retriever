@@ -22,11 +22,11 @@ def sigmoid(x):
 
 
 def evaluate(
-    qrels: Dict[str, Dict[str, int]],
-    results: Dict[str, Dict[str, float]],
-    metric_file: Optional[str] = None,
-    k_values: List[int] = [1, 3, 5, 10, 20, 100, 1000],
-    ignore_identical_ids: bool = True,
+        qrels: Dict[str, Dict[str, int]],
+        results: Dict[str, Dict[str, float]],
+        metric_file: Optional[str] = None,
+        k_values: List[int] = [1, 3, 5, 10, 20, 100, 1000],
+        ignore_identical_ids: bool = True,
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float], Dict[str, float]]:
     if ignore_identical_ids:
         print(
@@ -117,7 +117,7 @@ def load_qrels(in_file: str):
 
 
 def docs_to_dict(
-    doc: List[Tuple[Document, float]],
+        doc: List[Tuple[Document, float]],
 ) -> Tuple[Dict[str, Document], Dict[str, float], Dict[str, int]]:
     """Convert a list of documents and scores to dictionaries."""
     doc_dict, score_dict, rank_dict = {}, {}, {}
@@ -133,20 +133,24 @@ def docs_to_dict(
 
 
 def load_config_with_env_vars(config_path):
-    # Load environment variables from the root directory
-    root_dir = Path(__file__).parent.parent.parent
-    load_dotenv(root_dir / '.env')
-
-    # Read the config file
+    # Read the config file first
     with open(config_path) as f:
         config = json.load(f)
 
-    # Replace environment variables in config with defaults
-    config['es']['url'] = os.getenv('ES_URL', 'http://localhost:9200')
-    config['es']['username'] = os.getenv('ES_USERNAME', '')  # Optional
-    config['es']['password'] = os.getenv('ES_PASSWORD', '')  # Optional
-    config['milvus']['uri'] = os.getenv('MILVUS_URI', 'http://localhost:19530')
-    config['milvus']['user'] = os.getenv('MILVUS_USER', '')  # Optional
-    config['milvus']['password'] = os.getenv('MILVUS_PASSWORD', '')  # Optional
+    # Try to load environment variables from the root directory
+    root_dir = Path(__file__).parent.parent.parent
+    env_path = root_dir / '.env'
+    env_exists = env_path.exists()
+
+    if env_exists:
+        load_dotenv(env_path)
+        # If .env exists, use environment variables with config values as fallback
+        config['es']['url'] = os.getenv('ES_URL', config['es']['url'])
+        config['es']['username'] = os.getenv('ES_USERNAME', config['es']['username'])
+        config['es']['password'] = os.getenv('ES_PASSWORD', config['es']['password'])
+        config['milvus']['uri'] = os.getenv('MILVUS_URI', config['milvus']['uri'])
+        config['milvus']['user'] = os.getenv('MILVUS_USER', config['milvus']['user'])
+        config['milvus']['password'] = os.getenv('MILVUS_PASSWORD', config['milvus']['password'])
+    # If .env doesn't exist, the config file values will be used as is
 
     return config
