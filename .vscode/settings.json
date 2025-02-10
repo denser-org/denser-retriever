@@ -1,14 +1,5 @@
 {
-  "python.analysis.typeCheckingMode": "basic",
-  "python.analysis.autoImportCompletions": true,
-  "cSpell.words": [
-    "langchain",
-    "metadatas",
-    "milvus",
-    "Qdrant",
-    "Rerank",
-    "reranked",
-    "Reranker",
-    "vectorstores"
-  ]
+  "files.exclude": {
+    "**/__pycache__": true
+  },
 }

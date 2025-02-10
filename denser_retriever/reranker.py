@@ -1,19 +1,13 @@
 from abc import ABC, abstractmethod
 import operator
 from typing import List, Sequence, Tuple
-import time
-import logging
 import cohere
-from sentence_transformers import CrossEncoder
 from langchain_core.documents import Document
+from sentence_transformers import CrossEncoder
+from torch import sigmoid
 
-logger = logging.getLogger(__name__)
 
-class DenserReranker(ABC):
-    def __init__(self, top_k: int = 50, weight: float = 0.5):
-        self.top_k = top_k
-        self.weight = weight
-
+class Reranker(ABC):
     @abstractmethod
     def rerank(
         self,
@@ -23,17 +17,14 @@ class DenserReranker(ABC):
         pass
 
 
-class HFReranker(DenserReranker):
-    """Rerank documents using a HuggingFaceCrossEncoder model."""
+class HFReranker(Reranker):
 
-    def __init__(self, model_name: str, top_k: int, **kwargs):
-        super().__init__(top_k=top_k)
-        self.model = CrossEncoder(model_name, **kwargs)
+    def __init__(self, model_name: str, **kwargs):
+        super().__init__()
+        self.model = CrossEncoder(model_name, trust_remote_code=True, **kwargs)
 
     def rerank(
-        self,
-        documents: Sequence[Document],
-        query: str,
+        self, documents: Sequence[Document], query: str, apply_sigmoid: bool = False
     ) -> List[Tuple[Document, float]]:
         """
         Rerank documents using CrossEncoder.
@@ -47,20 +38,24 @@ class HFReranker(DenserReranker):
         """
         if not documents:
             return []
-        start_time = time.time()
-        scores = self.model.predict([(query, doc.page_content) for doc in documents], convert_to_tensor=True)
+
+        scores = self.model.predict(
+            [(query, doc.page_content) for doc in documents], convert_to_tensor=False
+        )
+
+        if apply_sigmoid:
+            scores = sigmoid(scores)
+
+        scores = [float(score) for score in scores]
         docs_with_scores = list(zip(documents, scores))
-        result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
-        rerank_time_sec = time.time() - start_time
-        logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
-        logger.info(f"Reranked {len(result)} documents.")
-        return result
+
+        return sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
 
 
-class CohereReranker(DenserReranker):
+class CohereReranker(Reranker):
     """Rerank documents using the Cohere API."""
 
-    def __init__(self, api_key: str, model_name: str = "rerank-english-v3.0", **kwargs):
+    def __init__(self, api_key: str, model_name: str = "rerank-english-v3.0"):
         """
         Initialize Cohere reranker.
 
@@ -73,9 +68,7 @@ class CohereReranker(DenserReranker):
         self.model_name = model_name
 
     def rerank(
-            self,
-            documents: Sequence[Document],
-            query: str,
+        self, documents: Sequence[Document], query: str, apply_sigmoid: bool = False
     ) -> List[Tuple[Document, float]]:
         """
         Rerank documents using Cohere's reranking model.
@@ -90,22 +83,50 @@ class CohereReranker(DenserReranker):
         if not documents:
             return []
 
-        start_time = time.time()
-
         # Prepare documents for reranking
         texts = [doc.page_content for doc in documents]
         response = self.client.rerank(
-            model=self.model_name,
-            query=query,
-            documents=texts
+            model=self.model_name, query=query, documents=texts
         )
+
         # Combine documents with scores from the rerank response
-        docs_with_scores = [(documents[result.index], result.relevance_score) for result in response.results]
+        docs_with_scores = [
+            (
+                documents[result.index],
+                (
+                    sigmoid(result.relevance_score)
+                    if apply_sigmoid
+                    else result.relevance_score
+                ),
+            )
+            for result in response.results
+        ]
 
         # Sort the documents by their scores in descending order
-        result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
+        return sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
 
-        rerank_time_sec = time.time() - start_time
-        logger.info(f"Cohere Rerank time: {rerank_time_sec:.3f} sec.")
-        logger.info(f"Reranked {len(result)} documents.")
-        return result
+
+class BGEReranker(Reranker):
+    def __init__(
+        self, model_name: str = "BAAI/bge-reranker-v2-m3", use_fp16: bool = True
+    ):
+        super().__init__()
+        from FlagEmbedding import FlagReranker
+
+        self.model_name = model_name
+        self.model = FlagReranker(model_name, use_fp16=use_fp16)
+
+    def rerank(
+        self, documents: Sequence[Document], query: str, apply_sigmoid: bool = False
+    ) -> List[Tuple[Document, float]]:
+        if not documents:
+            return []
+
+        pairs = [[query, doc.page_content[:4000]] for doc in documents]
+        scores = self.model.compute_score(pairs)
+
+        if apply_sigmoid:
+            scores = sigmoid(scores)
+
+        docs_with_scores = list(zip(documents, scores))
+        return sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
