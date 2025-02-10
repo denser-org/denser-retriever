@@ -1,8 +1,7 @@
 [tool.poetry]
-name = "denser-retriever-miqia"
+name = "denser-retriever"
 version = "0.1.0"
 description = ""
-readme = "README.md"
 packages = [{ include = "denser_retriever" }]
 
 [tool.poetry.group.test.dependencies]

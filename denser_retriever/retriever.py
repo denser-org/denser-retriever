@@ -64,7 +64,6 @@ class DenserRetriever:
         return pks
 
     def retrieve(self, query: str, limit: int, collection_name="default"):
-
         if not query or not limit:
             return []
 
