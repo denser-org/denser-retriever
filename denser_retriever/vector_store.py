@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import time
 from typing import Dict, List, Optional
 import chromadb
 from numpy import ndarray
@@ -12,7 +13,7 @@ from pymilvus import (
     utility,
 )
 from langchain_core.documents import Document
-from denser_retriever.utils import sigmoid
+from denser_retriever.utils import get_logger, sigmoid
 
 
 class VectorStore(ABC):
@@ -101,12 +102,14 @@ class MilvusVectorStore(VectorStore):
             consistency_level="Strong",
             using=self._alias,
         )
+
         collection.create_index(
             "embeddings",
             {
                 "index_type": "FLAT",
                 "metric_type": "L2",
             },
+            async_commit=True,
         )
 
     def drop_collection(self, collection_name: str):
@@ -222,7 +225,7 @@ class MilvusVectorStore(VectorStore):
 class ChromaVectorStore(VectorStore):
     def __init__(
         self,
-        persistentPath: str = None,
+        persistentPath: str = ".chroma",
     ):
         self._client = chromadb.PersistentClient(path=persistentPath)
 
@@ -230,7 +233,7 @@ class ChromaVectorStore(VectorStore):
         try:
             self._client.get_collection(collection_name)
             return True
-        except ValueError:
+        except Exception:
             return False
 
     def create_collection(self, collection_name: str):
@@ -241,7 +244,7 @@ class ChromaVectorStore(VectorStore):
 
     def drop_collection(self, collection_name: str):
         if self.has_collection(collection_name):
-            self._client.delete_collection(name="my_collection")
+            self._client.delete_collection(name=collection_name)
 
     def insert(
         self,
@@ -264,16 +267,13 @@ class ChromaVectorStore(VectorStore):
             id,
             doc,
         ) in zip(pks, docs):
-            doc_dict = {
-                "page_content": doc.page_content,
-                "metadata": doc.metadata or {},
-            }
+            metadata = doc.metadata or {}
 
-            if "id" not in doc_dict["metadata"]:
-                doc_dict["metadata"]["id"] = id
+            if "id" not in metadata:
+                metadata["id"] = id
 
-            batch_docs.append(doc_dict)
-            ids.append(doc_dict["metadata"]["id"])
+            batch_docs.append(metadata)
+            ids.append(metadata["id"])
 
         collection.upsert(
             ids=ids,
@@ -303,17 +303,21 @@ class ChromaVectorStore(VectorStore):
             where=search_params,
         )
 
-        top_k_used = min(len(result.metadatas[0]), limit)
+        if not result or "documents" not in result or "metadatas" not in result:
+            return []
+
+        top_k_used = min(len(result["metadatas"][0]), limit)
 
         ret = []
         for i in range(top_k_used):
-            doc_dict = result.metadatas[0][i]
+            page_content = result["documents"][0][i]
+            metadata = result["metadatas"][0][i]
             doc = Document(
-                page_content=doc_dict["page_content"],
-                metadata=doc_dict["metadata"] or {},
+                page_content=page_content,
+                metadata=metadata or {},
             )
 
-            score = -result.distances[0][i]
+            score = -result["distances"][0][i]
             ret.append((doc, sigmoid(score) if apply_sigmoid else score))
 
         return ret
