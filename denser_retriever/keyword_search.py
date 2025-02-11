@@ -128,7 +128,10 @@ class ElasticSearch(KeywordSearch):
         ret = []
 
         for id, doc in zip(pks, docs):
-            doc_dict = {"page_content": doc.page_content, "metadata": doc.metadata}
+            doc_dict = {
+                "page_content": doc.page_content,
+                "metadata": doc.metadata or {},
+            }
             action = {
                 "_index": index_name,
                 "_id": id,
@@ -189,7 +192,7 @@ class ElasticSearch(KeywordSearch):
         for i in range(top_k_used):
             hit = result["hits"]["hits"][i]
 
-            doc_dict = hit["_source"]
+            doc_dict = hit["_source"]["metadata"]
             doc = Document(**doc_dict)
             score = hit["_score"]
 
