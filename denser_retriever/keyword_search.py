@@ -132,12 +132,16 @@ class ElasticSearch(KeywordSearch):
                 "page_content": doc.page_content,
                 "metadata": doc.metadata or {},
             }
+
+            if not doc_dict["metadata"]["id"]:
+                doc_dict["metadata"]["id"] = id
+
             action = {
                 "_index": index_name,
                 "_id": id,
                 "_source": {
                     "content": doc.page_content,
-                    "metadata": {**doc_dict, "id": id},
+                    "metadata": doc_dict,
                 },
             }
             actions.append(action)

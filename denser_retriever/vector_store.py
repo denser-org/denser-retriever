@@ -132,8 +132,12 @@ class MilvusVectorStore(VectorStore):
         for id, doc, emb in zip(pks, docs, embeddings):
             doc_dict = {
                 "page_content": doc.page_content,
-                "metadata": {**doc.metadata, "id": id},
+                "metadata": doc.metadata or {},
             }
+
+            if not doc_dict["metadata"]["id"]:
+                doc_dict["metadata"]["id"] = id
+
             batch_data.append(
                 {"id": id, "embeddings": emb, "metadata": json.dumps(doc_dict)}
             )
