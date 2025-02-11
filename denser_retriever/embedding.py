@@ -28,8 +28,8 @@ class EmbeddingModel(ABC):
         pass
 
 
-class SentenceTransformerEmbeddingModel(EmbeddingModel):
-    def __init__(self, model_name: str, one_model: bool = False):
+class SentenceTransformerEmbeddings(EmbeddingModel):
+    def __init__(self, model_name: str, embedding_size: int = 2048):
         try:
             import sentence_transformers
         except ImportError as exc:
@@ -37,56 +37,57 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 "Could not import sentence_transformers python package. "
             ) from exc
 
-        self.client = sentence_transformers.SentenceTransformer(
+        self._client = sentence_transformers.SentenceTransformer(
             model_name, trust_remote_code=True
         )
-        self.one_model = one_model
+        self._client.max_seq_length = embedding_size
 
     def embed_documents(self, texts: List[str]) -> list:
-        return self.client.encode(texts)
+        return self._client.encode(texts)
 
     def embed_query(self, text: str) -> list:
-        if self.one_model:
-            return self.client.encode([text])
-        else:
-            return self.client.encode([text], prompt_name="query")
+        return self._client.encode([text])
 
 
-class BGEEmbedding(EmbeddingModel):
-    def __init__(self, model_name: str):
+class BGEEmbeddings(EmbeddingModel):
+    def __init__(self, model_name: str, embedding_size: int = 2048):
         try:
             from FlagEmbedding import FlagICLModel
         except ImportError as exc:
             raise ImportError("Could not import FlagEmbedding python package.") from exc
 
-        self.client = FlagICLModel(
+        self._client = FlagICLModel(
             model_name,
             query_instruction_for_retrieval="Represent this sentence for searching relevant passages:",
             examples_for_task=None,  # set `examples_for_task=None` to use model without examples
             use_fp16=True,
         )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
+        self._client.query_max_length = embedding_size
+        self._client.passage_max_length = embedding_size
 
     def embed_documents(self, texts: List[str]) -> list:
-        return self.client.encode_corpus(texts)
+        return self._client.encode_corpus(texts)
 
     def embed_query(self, text: str) -> list:
-        return self.client.encode_queries(text)
+        return self._client.encode_queries(text)
 
 
-class BGEM3Embedding(EmbeddingModel):
-    def __init__(self, model_name: str):
+class BGEM3Embeddings(EmbeddingModel):
+    def __init__(self, model_name: str, embedding_size: int = 2048):
         try:
             from FlagEmbedding import BGEM3FlagModel
         except ImportError as exc:
             raise ImportError("Could not import FlagEmbedding python package.") from exc
 
-        self.client = BGEM3FlagModel(
+        self._client = BGEM3FlagModel(
             model_name,
             use_fp16=True,
         )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
+        self._client.query_max_length = embedding_size
+        self._client.passage_max_length = embedding_size
 
     def embed_documents(self, texts: List[str]) -> list:
-        return self.client.encode(texts)["dense_vecs"].tolist()
+        return self._client.encode(texts)["dense_vecs"].tolist()
 
     def embed_query(self, text: str) -> list:
-        return self.client.encode([text])["dense_vecs"].tolist()
+        return self._client.encode([text])["dense_vecs"].tolist()

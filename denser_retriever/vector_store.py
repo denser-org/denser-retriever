@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import time
 from typing import Dict, List, Optional
 import chromadb
 from numpy import ndarray

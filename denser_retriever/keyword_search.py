@@ -50,68 +50,39 @@ class ElasticSearch(KeywordSearch):
         scheme="http",
         username=None,
         password=None,
+        index_settings={
+            "analysis": {"analyzer": {"default": {"type": "standard"}}},
+            "similarity": {
+                "custom_bm25": {
+                    "type": "BM25",
+                    "k1": 1.2,
+                    "b": 0.75,
+                }
+            },
+        },
+        index_mappings={
+            "properties": {
+                "content": {
+                    "type": "text",
+                    "similarity": "custom_bm25",
+                },
+                "metadata": {"type": "object", "dynamic": True, "properties": {}},
+            }
+        },
     ):
         self._client = Elasticsearch(
             hosts=[{"host": hosts, "port": port, "scheme": scheme}],
             http_auth=(username, password) if username and password else None,
         )
+        self.index_settings = index_settings
+        self.index_mappings = index_mappings
 
     def has_index(self, index_name: str) -> bool:
         return self._client.indices.exists(index=index_name)
 
     def create_index(self, index_name: str, analysis: str):
-        settings = {}
-        mappings = {}
-
-        if analysis == "default":
-            settings = {
-                "analysis": {"analyzer": {"default": {"type": "standard"}}},
-                "similarity": {
-                    "custom_bm25": {
-                        "type": "BM25",
-                        "k1": 1.2,
-                        "b": 0.75,
-                    }
-                },
-            }
-            mappings = {
-                "properties": {
-                    "content": {
-                        "type": "text",
-                        "similarity": "custom_bm25",
-                    },
-                    "metadata": {"type": "object", "dynamic": True, "properties": {}},
-                }
-            }
-        else:  # ik
-            settings = {
-                "analysis": {
-                    "analyzer": {
-                        "ik_max_word": {"type": "custom", "tokenizer": "ik_max_word"},
-                        "ik_smart": {"type": "custom", "tokenizer": "ik_smart"},
-                    }
-                },
-                "similarity": {
-                    "custom_bm25": {
-                        "type": "BM25",
-                        "k1": 1.2,
-                        "b": 0.75,
-                    }
-                },
-            }
-            mappings = {
-                "properties": {
-                    "content": {
-                        "type": "text",
-                        "analyzer": "ik_max_word",
-                        "similarity": "custom_bm25",
-                    },
-                    "metadata": {"type": "object", "dynamic": True, "properties": {}},
-                }
-            }
-
         self._client.indices.create(
-            index=index_name, mappings=mappings, settings=settings
+            index=index_name, mappings=self.index_mappings, settings=self.index_settings
         )
 
     def drop_index(self, index_name: str):
@@ -163,21 +134,8 @@ class ElasticSearch(KeywordSearch):
 
         query_dict = {
             "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "bool": {
-                                "should": [
-                                    {
-                                        "match": {
-                                            "content": query,
-                                        }
-                                    },
-                                ],
-                                "minimum_should_match": 1,
-                            }
-                        }
-                    ]
+                "match": {
+                    "content": query,
                 }
             },
             "_source": True,

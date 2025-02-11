@@ -4,7 +4,7 @@ from typing import List, Sequence, Tuple
 import cohere
 from langchain_core.documents import Document
 from sentence_transformers import CrossEncoder
-from torch import sigmoid
+from denser_retriever.utils import sigmoid
 
 
 class Reranker(ABC):
@@ -18,10 +18,14 @@ class Reranker(ABC):
 
 
 class HFReranker(Reranker):
-
     def __init__(self, model_name: str, **kwargs):
         super().__init__()
-        self.model = CrossEncoder(model_name, trust_remote_code=True, **kwargs)
+        self.model = CrossEncoder(
+            model_name,
+            trust_remote_code=True,
+            automodel_args={"torch_dtype": "auto"},
+            **kwargs
+        )
 
     def rerank(
         self, documents: Sequence[Document], query: str, apply_sigmoid: bool = False

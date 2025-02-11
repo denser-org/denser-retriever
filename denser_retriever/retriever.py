@@ -1,8 +1,7 @@
-import time
 from typing import List
 import uuid
 import numpy as np
-from denser_retriever.embedding import EmbeddingModel, SentenceTransformerEmbeddingModel
+from denser_retriever.embedding import EmbeddingModel, SentenceTransformerEmbeddings
 from denser_retriever.keyword_search import KeywordSearch
 from denser_retriever.fusion import FusionModel
 from denser_retriever.reranker import Reranker
@@ -30,7 +29,6 @@ class DenserRetriever:
         keyword_top_k: int = 100,
         reranker_top_k: int = 100,
     ):
-        start_time = time.perf_counter()
         if not keyword_search and not vector_store:
             raise ValueError(
                 "At least one of keyword_search or vector_store must be provided."
@@ -40,8 +38,8 @@ class DenserRetriever:
         self.vector_store = vector_store
         self.embedding_model = (
             embedding_model
-            or SentenceTransformerEmbeddingModel(
-                model_name="Snowflake/snowflake-arctic-embed-m"
+            or SentenceTransformerEmbeddings(
+                model_name="jinaai/jina-embeddings-v2-base-zh"
             )
             if (vector_store)
             else None
@@ -52,18 +50,15 @@ class DenserRetriever:
         self.vector_top_k = vector_top_k
         self.keyword_top_k = keyword_top_k
         self.reranker_top_k = reranker_top_k
-        logger.debug(f"Initialization time: {time.perf_counter() - start_time:.2f}s")
 
     def ingest(self, docs: List[Document], collection_name="default"):
         if not docs:
             return []
 
-        start_time = time.perf_counter()
         pks = [str(uuid.uuid4()) for _ in range(len(docs))]
 
         if self.keyword_search:
             self.keyword_search.indexing(collection_name, pks, docs)
-            start_time = time.perf_counter()
 
         if self.vector_store and self.embedding_model:
             embeddings = self.embedding_model.embed_documents(
@@ -76,8 +71,6 @@ class DenserRetriever:
     def retrieve(self, query: str, limit: int, collection_name="default"):
         if not query or not limit:
             return []
-
-        start_time = time.perf_counter()
 
         ks_docs = []  # keyword search results
         vs_docs = []  # vector store search results
@@ -103,7 +96,6 @@ class DenserRetriever:
             return hybrid_reranked_docs[:limit]
 
         combined_docs = remove_duplicates(ks_docs + vs_docs)
-
         reranked_docs = self.reranker.rerank([doc for doc, _ in combined_docs], query)
 
         # If fusion model is not provided, return the reranked results
