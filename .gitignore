@@ -169,3 +169,4 @@ cython_debug/
 .pypirc
 
 .vscode/
+.chroma/

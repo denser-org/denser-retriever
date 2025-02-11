@@ -1,6 +1,31 @@
+import logging
+import sys
 from typing import Dict, List, Tuple
 import numpy as np
 from langchain_core.documents import Document
+
+loggers = {}
+
+
+def get_logger(name="default"):
+    global loggers
+    if loggers.get(name):
+        return loggers.get(name)
+    else:
+        logger = logging.getLogger(name)
+        logger.propagate = False
+        logger.setLevel(logging.DEBUG)
+
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.DEBUG)
+
+        formatter = logging.Formatter(
+            fmt="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        loggers[name] = logger
+        return logger
 
 
 def sigmoid(x):
@@ -21,7 +46,7 @@ def docs_to_dict(
     doc_dict, score_dict, rank_dict = {}, {}, {}
 
     for i, (document, score) in enumerate(doc):
-        uid_str = document.metadata.get("pid")
+        uid_str = document.metadata.get("id")
         # store the document, score and rank
         doc_dict[uid_str] = document
         score_dict[uid_str] = score
