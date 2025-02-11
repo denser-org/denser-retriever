@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-import json
 from typing import Dict, List, Optional
+import chromadb
+from numpy import ndarray
 from pymilvus import (
     Collection,
     CollectionSchema,
@@ -33,7 +34,7 @@ class VectorStore(ABC):
         collection_name: str,
         pks: List[str],
         docs: List[Document],
-        embeddings: list,
+        embeddings: ndarray,
     ) -> List[str]:
         raise NotImplementedError
 
@@ -41,7 +42,7 @@ class VectorStore(ABC):
     def search(
         self,
         collection_name: str,
-        embeddings: list,
+        embeddings: ndarray,
         limit: int,
         search_params: Optional[Dict] = None,
         apply_sigmoid: bool = False,
@@ -85,6 +86,7 @@ class MilvusVectorStore(VectorStore):
                     dtype=DataType.VARCHAR,
                     auto_id=False,
                     is_primary=True,
+                    max_length=128,
                 ),
                 FieldSchema(
                     name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=self._dim
@@ -118,7 +120,7 @@ class MilvusVectorStore(VectorStore):
         collection_name: str,
         pks: List[str],
         docs: List[Document],
-        embeddings: list,
+        embeddings: ndarray,
     ) -> List[str]:
         if not docs:
             return []
@@ -135,14 +137,18 @@ class MilvusVectorStore(VectorStore):
                 "metadata": doc.metadata or {},
             }
 
-            if not doc_dict["metadata"]["id"]:
+            if "id" not in doc_dict["metadata"]:
                 doc_dict["metadata"]["id"] = id
 
             batch_data.append(
-                {"id": id, "embeddings": emb, "metadata": json.dumps(doc_dict)}
+                {
+                    "id": doc_dict["metadata"]["id"],
+                    "embeddings": emb,
+                    "metadata": doc_dict,
+                }
             )
 
-        ret = collection.insert(batch_data)
+        ret = collection.upsert(batch_data)
         collection.flush()
 
         return ret.primary_keys
@@ -150,7 +156,7 @@ class MilvusVectorStore(VectorStore):
     def search(
         self,
         collection_name: str,
-        embeddings: list,
+        embeddings: ndarray,
         limit: int,
         search_params: Optional[Dict] = None,
         apply_sigmoid: bool = False,
@@ -174,7 +180,7 @@ class MilvusVectorStore(VectorStore):
         for i in range(top_k_used):
 
             hit: Hit = result[0][i]
-            doc_dict = json.loads(hit.entity.get("metadata"))
+            doc_dict = hit.entity.get("metadata")
             doc = Document(
                 page_content=doc_dict["page_content"],
                 metadata=doc_dict["metadata"] or {},
@@ -206,8 +212,114 @@ class MilvusVectorStore(VectorStore):
             collection.release()
             del self._loaded_collections[collection_name]
 
-    def __del__(self):
+    def close(self):
         """Cleanup method to release collections and disconnect from Milvus."""
         for collection_name in list(self._loaded_collections.keys()):
             self._release_collection(collection_name)
         connections.disconnect(self._alias)
+
+
+class ChromaVectorStore(VectorStore):
+    def __init__(
+        self,
+        persistentPath: str = None,
+    ):
+        self._client = chromadb.PersistentClient(path=persistentPath)
+
+    def has_collection(self, collection_name: str) -> bool:
+        try:
+            self._client.get_collection(collection_name)
+            return True
+        except ValueError:
+            return False
+
+    def create_collection(self, collection_name: str):
+        if self.has_collection(collection_name):
+            raise ValueError(f"Collection {collection_name} already exists")
+
+        self._client.create_collection(name=collection_name)
+
+    def drop_collection(self, collection_name: str):
+        if self.has_collection(collection_name):
+            self._client.delete_collection(name="my_collection")
+
+    def insert(
+        self,
+        collection_name: str,
+        pks: List[str],
+        docs: List[Document],
+        embeddings: ndarray,
+    ) -> List[str]:
+        if not docs:
+            return []
+
+        if not self.has_collection(collection_name):
+            self.create_collection(collection_name)
+
+        collection = self._client.get_collection(collection_name)
+
+        ids = []
+        batch_docs = []
+        for (
+            id,
+            doc,
+        ) in zip(pks, docs):
+            doc_dict = {
+                "page_content": doc.page_content,
+                "metadata": doc.metadata or {},
+            }
+
+            if "id" not in doc_dict["metadata"]:
+                doc_dict["metadata"]["id"] = id
+
+            batch_docs.append(doc_dict)
+            ids.append(doc_dict["metadata"]["id"])
+
+        collection.upsert(
+            ids=ids,
+            embeddings=embeddings,
+            metadatas=batch_docs,
+            documents=[doc.page_content for doc in docs],
+        )
+
+        return pks
+
+    def search(
+        self,
+        collection_name: str,
+        embeddings: ndarray,
+        limit: int,
+        search_params: Optional[Dict] = None,
+        apply_sigmoid: bool = False,
+    ) -> List[tuple[Document, float]]:
+        if not self.has_collection(collection_name):
+            return []
+
+        collection = self._client.get_collection(collection_name)
+
+        result = collection.query(
+            query_embeddings=embeddings,
+            n_results=limit,
+            where=search_params,
+        )
+
+        top_k_used = min(len(result.metadatas[0]), limit)
+
+        ret = []
+        for i in range(top_k_used):
+            doc_dict = result.metadatas[0][i]
+            doc = Document(
+                page_content=doc_dict["page_content"],
+                metadata=doc_dict["metadata"] or {},
+            )
+
+            score = -result.distances[0][i]
+            ret.append((doc, sigmoid(score) if apply_sigmoid else score))
+
+        return ret
+
+    def delete(self, collection_name: str, doc_ids: list[str]):
+        if not self.has_collection(collection_name):
+            return
+        collection = self._client.get_collection(collection_name)
+        collection.delete(ids=doc_ids)

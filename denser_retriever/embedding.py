@@ -4,7 +4,7 @@ from typing import List
 
 class EmbeddingModel(ABC):
     @abstractmethod
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: List[str]) -> list:
         """Embed a list of documents/passages.
 
         Args:
@@ -16,7 +16,7 @@ class EmbeddingModel(ABC):
         pass
 
     @abstractmethod
-    def embed_query(self, text: str) -> List[List[float]]:
+    def embed_query(self, text: str) -> list:
         """Embed a single query text.
 
         Args:
@@ -28,8 +28,8 @@ class EmbeddingModel(ABC):
         pass
 
 
-class SentenceTransformer(EmbeddingModel):
-    def __init__(self, model_name: str, one_model: bool):
+class SentenceTransformerEmbeddingModel(EmbeddingModel):
+    def __init__(self, model_name: str, one_model: bool = False):
         try:
             import sentence_transformers
         except ImportError as exc:
@@ -42,10 +42,10 @@ class SentenceTransformer(EmbeddingModel):
         )
         self.one_model = one_model
 
-    def embed_documents(self, texts):
+    def embed_documents(self, texts: List[str]) -> list:
         return self.client.encode(texts)
 
-    def embed_query(self, text):
+    def embed_query(self, text: str) -> list:
         if self.one_model:
             return self.client.encode([text])
         else:
@@ -66,10 +66,10 @@ class BGEEmbedding(EmbeddingModel):
             use_fp16=True,
         )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
 
-    def embed_documents(self, texts):
+    def embed_documents(self, texts: List[str]) -> list:
         return self.client.encode_corpus(texts)
 
-    def embed_query(self, text):
+    def embed_query(self, text: str) -> list:
         return self.client.encode_queries(text)
 
 
@@ -85,8 +85,8 @@ class BGEM3Embedding(EmbeddingModel):
             use_fp16=True,
         )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
 
-    def embed_documents(self, texts):
+    def embed_documents(self, texts: List[str]) -> list:
         return self.client.encode(texts)["dense_vecs"].tolist()
 
-    def embed_query(self, text):
+    def embed_query(self, text: str) -> list:
         return self.client.encode([text])["dense_vecs"].tolist()

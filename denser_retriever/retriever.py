@@ -1,7 +1,8 @@
 from typing import List
 import uuid
-from sentence_transformers import SentenceTransformer
-from denser_retriever.embedding import EmbeddingModel
+
+import numpy as np
+from denser_retriever.embedding import EmbeddingModel, SentenceTransformerEmbeddingModel
 from denser_retriever.keyword_search import KeywordSearch
 from denser_retriever.fusion import FusionModel
 from denser_retriever.reranker import Reranker
@@ -33,9 +34,9 @@ class DenserRetriever:
 
         self.keyword_search = keyword_search
         self.vector_store = vector_store
-
         self.embedding_model = (
-            embedding_model or SentenceTransformer("Snowflake/snowflake-arctic-embed-m")
+            embedding_model
+            or SentenceTransformerEmbeddingModel(model_name="Snowflake/snowflake-arctic-embed-m")
             if (vector_store)
             else None
         )
@@ -59,7 +60,7 @@ class DenserRetriever:
             embeddings = self.embedding_model.embed_documents(
                 [doc.page_content for doc in docs]
             )
-            self.vector_store.insert(collection_name, pks, docs, embeddings)
+            self.vector_store.insert(collection_name, pks, docs, np.array(embeddings))
 
         return pks
 
@@ -78,7 +79,7 @@ class DenserRetriever:
         if self.vector_store and self.embedding_model:
             embeddings = self.embedding_model.embed_query(query)
             vs_docs = self.vector_store.search(
-                collection_name, embeddings, self.vector_top_k
+                collection_name, np.array(embeddings), self.vector_top_k
             )
 
         # If reranker is not provided, return the hybrid rerank results
