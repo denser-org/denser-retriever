@@ -58,7 +58,7 @@ class MilvusVectorStore(VectorStore):
         self,
         alias="default",
         host="localhost",
-        port="19530",
+        port=19530,
         user=None,
         password=None,
         dim=768,

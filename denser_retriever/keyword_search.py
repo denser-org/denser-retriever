@@ -41,15 +41,18 @@ class KeywordSearch(ABC):
 
 
 class ElasticSearch(KeywordSearch):
+    _client = None
+
     def __init__(
         self,
         hosts="localhost",
-        port="9200",
+        port=9200,
+        scheme="http",
         username=None,
         password=None,
     ):
         self._client = Elasticsearch(
-            hosts=[{"host": hosts, "port": port}],
+            hosts=[{"host": hosts, "port": port, "scheme": scheme}],
             http_auth=(username, password) if username and password else None,
         )
 
@@ -201,4 +204,5 @@ class ElasticSearch(KeywordSearch):
         self._client.delete_by_query(index=index_name, body=body, refresh=True)
 
     def __del__(self):
-        self._client.close()
+        if self._client:
+            self._client.close()
