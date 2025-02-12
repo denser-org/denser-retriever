@@ -12,7 +12,7 @@ from pymilvus import (
     utility,
 )
 from langchain_core.documents import Document
-from denser_retriever.utils import get_logger, sigmoid
+from denser_retriever.utils import sigmoid
 
 
 class VectorStore(ABC):

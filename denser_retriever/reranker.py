@@ -17,7 +17,7 @@ class Reranker(ABC):
         pass
 
 
-class HFReranker(Reranker):
+class CrossEncoderReranker(Reranker):
     def __init__(self, model_name: str, **kwargs):
         super().__init__()
         self.model = CrossEncoder(
