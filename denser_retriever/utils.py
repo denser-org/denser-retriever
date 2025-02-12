@@ -4,29 +4,6 @@ from typing import Dict, List, Tuple
 import numpy as np
 from langchain_core.documents import Document
 
-loggers = {}
-
-
-def get_logger(name="default"):
-    global loggers
-    if loggers.get(name):
-        return loggers.get(name)
-    else:
-        logger = logging.getLogger(name)
-        logger.propagate = False
-        logger.setLevel(logging.DEBUG)
-
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.DEBUG)
-
-        formatter = logging.Formatter(
-            fmt="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        loggers[name] = logger
-        return logger
-
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))

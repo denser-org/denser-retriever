@@ -7,14 +7,11 @@ from denser_retriever.fusion import FusionModel
 from denser_retriever.reranker import Reranker
 from denser_retriever.utils import (
     compute_document_features,
-    get_logger,
     hybridRerank,
     remove_duplicates,
 )
 from denser_retriever.vector_store import VectorStore
 from langchain_core.documents import Document
-
-logger = get_logger(__name__)
 
 
 class DenserRetriever:
@@ -38,9 +35,7 @@ class DenserRetriever:
         self.vector_store = vector_store
         self.embedding_model = (
             embedding_model
-            or SentenceTransformerEmbeddings(
-                model_name="jinaai/jina-embeddings-v2-base-zh"
-            )
+            or SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
             if (vector_store)
             else None
         )

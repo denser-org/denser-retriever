@@ -12,7 +12,7 @@ class KeywordSearch(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def create_index(self, index_name: str, analysis: str):
+    def create_index(self, index_name: str):
         raise NotImplementedError
 
     @abstractmethod
@@ -80,20 +80,21 @@ class ElasticSearch(KeywordSearch):
     def has_index(self, index_name: str) -> bool:
         return self._client.indices.exists(index=index_name)
 
-    def create_index(self, index_name: str, analysis: str):
+    def create_index(self, index_name: str):
         self._client.indices.create(
             index=index_name, mappings=self.index_mappings, settings=self.index_settings
         )
 
     def drop_index(self, index_name: str):
-        self._client.indices.delete(index=index_name)
+        if self.has_index(index_name):
+            self._client.indices.delete(index=index_name)
 
     def indexing(self, index_name: str, pks: List[str], docs: List[Document]) -> list:
         if not docs:
             return []
 
         if not self.has_index(index_name):
-            self.create_index(index_name, analysis="default")
+            self.create_index(index_name)
 
         actions = []
         ret = []
