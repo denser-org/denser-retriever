@@ -43,18 +43,18 @@ class SentenceTransformerEmbeddings(EmbeddingModel):
         self._client.max_seq_length = embedding_size
 
     def embed_documents(self, texts: List[str]) -> list:
-        return self._client.encode(sentences=texts)
+        return self._client.encode(texts)
 
     def embed_query(self, text: str) -> list:
-        return self._client.encode(sentences=[text])
+        return self._client.encode([text])
 
 
-class BGEEmbeddings(EmbeddingModel):
+class FlagICLModelEmbeddings(EmbeddingModel):
     def __init__(self, model_name: str, embedding_size: int = 2048):
         try:
             from FlagEmbedding import FlagICLModel
         except ImportError as exc:
-            raise ImportError("Could not import FlagEmbedding python package.") from exc
+            raise ImportError("Could not import FlagICLModel python package.") from exc
 
         self._client = FlagICLModel(
             model_name,
@@ -72,12 +72,12 @@ class BGEEmbeddings(EmbeddingModel):
         return self._client.encode_queries(text)
 
 
-class BGEM3Embeddings(EmbeddingModel):
+class BGEM3FlagModelEmbeddings(EmbeddingModel):
     def __init__(self, model_name: str, embedding_size: int = 2048):
         try:
             from FlagEmbedding import BGEM3FlagModel
         except ImportError as exc:
-            raise ImportError("Could not import FlagEmbedding python package.") from exc
+            raise ImportError("Could not import BGEM3FlagModel python package.") from exc
 
         self._client = BGEM3FlagModel(
             model_name,

@@ -3844,6 +3844,18 @@ files = [
 cli = ["click (>=5.0)"]
 
 [[package]]
+name = "pytrec-eval"
+version = "0.5"
+description = "Provides Python bindings for popular Information Retrieval measures implemented within trec_eval."
+optional = false
+python-versions = ">=3"
+groups = ["dev"]
+markers = "python_version <= \"3.11\""
+files = [
+    {file = "pytrec_eval-0.5.tar.gz", hash = "sha256:d9eb4616e7d6b73bf1b5ba4c2c4916e88124e790b53fd61610c30158999e7bde"},
+]
+
+[[package]]
 name = "pytz"
 version = "2025.1"
 description = "World timezone definitions, modern and historical"
@@ -5835,4 +5847,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10.0,<3.12.0"
-content-hash = "2942b18f25f446bddcd1806db6bb397491eb6ddc2ab280c194546ae54a80daf0"
+content-hash = "1195fa1daa9bc327a71f909a026a0e1f190b2c4157edc920c2d6d087ed128018"

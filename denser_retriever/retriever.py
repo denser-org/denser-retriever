@@ -1,13 +1,12 @@
 from typing import List
 import uuid
-import numpy as np
 from denser_retriever.embedding import EmbeddingModel, SentenceTransformerEmbeddings
 from denser_retriever.keyword_search import KeywordSearch
 from denser_retriever.fusion import FusionModel
 from denser_retriever.reranker import Reranker
 from denser_retriever.utils import (
     compute_document_features,
-    hybridRerank,
+    hybridCombine,
     remove_duplicates,
 )
 from denser_retriever.vector_store import VectorStore
@@ -36,7 +35,9 @@ class DenserRetriever:
         self.vector_store = vector_store
         self.embedding_model = (
             embedding_model
-            or SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+            or SentenceTransformerEmbeddings(
+                model_name="Snowflake/snowflake-arctic-embed-m"
+            )
             if (vector_store)
             else None
         )
@@ -66,12 +67,13 @@ class DenserRetriever:
             embeddings = self.embedding_model.embed_documents(
                 [doc.page_content for doc in docs]
             )
+
             self.vector_store.insert(
                 collection_name=collection_name,
                 primary_keys=pks,
                 primary_key_field=self.primary_key_field,
                 docs=docs,
-                embeddings=np.array(embeddings),
+                embeddings=embeddings,
             )
 
         return pks
@@ -91,12 +93,12 @@ class DenserRetriever:
         if self.vector_store and self.embedding_model:
             embeddings = self.embedding_model.embed_query(query)
             vs_docs = self.vector_store.search(
-                collection_name, np.array(embeddings), self.vector_top_k
+                collection_name, embeddings, self.vector_top_k
             )
 
         # If reranker is not provided, return the hybrid rerank results
         if not self.reranker:
-            hybrid_reranked_docs = hybridRerank(
+            hybrid_reranked_docs = hybridCombine(
                 ks_docs,
                 vs_docs,
                 max(self.keyword_top_k, self.vector_top_k),

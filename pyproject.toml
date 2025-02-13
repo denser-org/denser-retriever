@@ -7,6 +7,10 @@ packages = [{ include = "denser_retriever" }]
 [tool.poetry.group.test.dependencies]
 pytest = "^7.0"
 
+
+[tool.poetry.group.dev.dependencies]
+pytrec-eval = "^0.5"
+
 [tool.poetry.dependencies]
 python = ">=3.10.0,<3.12.0"
 torch = [

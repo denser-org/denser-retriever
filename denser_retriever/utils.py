@@ -1,5 +1,3 @@
-import logging
-import sys
 from typing import Dict, List, Tuple
 import numpy as np
 from langchain_core.documents import Document
@@ -55,7 +53,7 @@ def remove_duplicates(
     return ret
 
 
-def hybridRerank(
+def hybridCombine(
     keyword_docs: List[tuple[Document, float]],
     vector_docs: List[tuple[Document, float]],
     max_rank: int,

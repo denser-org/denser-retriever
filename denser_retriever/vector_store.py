@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 import chromadb
-from numpy import ndarray
 from pymilvus import (
     Collection,
     CollectionSchema,
@@ -35,7 +34,7 @@ class VectorStore(ABC):
         primary_keys: List[str],
         primary_key_field: str,
         docs: List[Document],
-        embeddings: ndarray,
+        embeddings: list,
     ) -> List[str]:
         raise NotImplementedError
 
@@ -43,7 +42,7 @@ class VectorStore(ABC):
     def search(
         self,
         collection_name: str,
-        embeddings: ndarray,
+        embeddings: list,
         limit: int,
         search_params: Optional[Dict] = None,
         apply_sigmoid: bool = False,
@@ -124,7 +123,7 @@ class MilvusVectorStore(VectorStore):
         primary_keys: List[str],
         primary_key_field: str,
         docs: List[Document],
-        embeddings: ndarray,
+        embeddings: list,
     ) -> List[str]:
         if not docs:
             return []
@@ -160,7 +159,7 @@ class MilvusVectorStore(VectorStore):
     def search(
         self,
         collection_name: str,
-        embeddings: ndarray,
+        embeddings: list,
         limit: int,
         search_params: Optional[Dict] = None,
         apply_sigmoid: bool = False,
@@ -253,7 +252,7 @@ class ChromaVectorStore(VectorStore):
         primary_keys: List[str],
         primary_key_field: str,
         docs: List[Document],
-        embeddings: ndarray,
+        embeddings: list,
     ) -> List[str]:
         if not docs:
             return []
@@ -289,7 +288,7 @@ class ChromaVectorStore(VectorStore):
     def search(
         self,
         collection_name: str,
-        embeddings: ndarray,
+        embeddings: list,
         limit: int,
         search_params: Optional[Dict] = None,
         apply_sigmoid: bool = False,
