@@ -1,11 +1,19 @@
+import json
 from typing import List
 import uuid
+from denser_retriever.constants import (
+    DEFAULT_KEYWORD_TOP_K,
+    DEFAULT_PRIMARY_KEY_FIELD,
+    DEFAULT_RERANKER_TOP_K,
+    DEFAULT_VECTOR_TOP_K,
+)
 from denser_retriever.embedding import EmbeddingModel, SentenceTransformerEmbeddings
 from denser_retriever.keyword_search import KeywordSearch
 from denser_retriever.fusion import FusionModel
 from denser_retriever.reranker import Reranker
 from denser_retriever.utils import (
     compute_document_features,
+    create_instance,
     hybridCombine,
     remove_duplicates,
 )
@@ -21,10 +29,10 @@ class DenserRetriever:
         embedding_model: EmbeddingModel = None,
         reranker: Reranker = None,
         fusion_model: FusionModel = None,
-        vector_top_k: int = 100,
-        keyword_top_k: int = 100,
-        reranker_top_k: int = 100,
-        primary_key_field: str = "id",
+        vector_top_k: int = DEFAULT_VECTOR_TOP_K,
+        keyword_top_k: int = DEFAULT_KEYWORD_TOP_K,
+        reranker_top_k: int = DEFAULT_RERANKER_TOP_K,
+        primary_key_field: str = DEFAULT_PRIMARY_KEY_FIELD,
     ):
         if not keyword_search and not vector_store:
             raise ValueError(
@@ -137,3 +145,62 @@ class DenserRetriever:
             self.keyword_search.drop_index(collection_name)
         if self.vector_store:
             self.vector_store.drop_collection(collection_name)
+
+    @classmethod
+    def from_config(cls, config_file_path: str):
+        """Create a DenserRetriever instance from a JSON configuration file.
+
+        Args:
+            config_file_path: Path to JSON configuration file
+
+        Returns:
+            DenserRetriever: Configured retriever instance
+        """
+
+        with open(config_file_path, "r") as f:
+            config: dict = json.load(f)
+
+        # Initialize components based on config
+        keyword_search = None
+        if "keyword_search" in config:
+            keyword_search = create_instance(
+                config["keyword_search"]["class"], config["keyword_search"]["params"]
+            )
+
+        vector_store = None
+        if "vector_store" in config:
+            vector_store = create_instance(
+                config["vector_store"]["class"], config["vector_store"]["params"]
+            )
+
+        embedding_model = None
+        if "embedding_model" in config:
+            embedding_model = create_instance(
+                config["embedding_model"]["class"], config["embedding_model"]["params"]
+            )
+
+        reranker = None
+        if "reranker" in config:
+            reranker = create_instance(
+                config["reranker"]["class"], config["reranker"]["params"]
+            )
+
+        fusion_model = None
+        if "fusion_model" in config:
+            fusion_model = create_instance(
+                config["fusion_model"]["class"], config["fusion_model"]["params"]
+            )
+
+        return cls(
+            keyword_search=keyword_search,
+            vector_store=vector_store,
+            embedding_model=embedding_model,
+            reranker=reranker,
+            fusion_model=fusion_model,
+            vector_top_k=config.get("vector_top_k", DEFAULT_VECTOR_TOP_K),
+            keyword_top_k=config.get("keyword_top_k", DEFAULT_KEYWORD_TOP_K),
+            reranker_top_k=config.get("reranker_top_k", DEFAULT_RERANKER_TOP_K),
+            primary_key_field=config.get(
+                "primary_key_field", DEFAULT_PRIMARY_KEY_FIELD
+            ),
+        )

@@ -29,7 +29,7 @@ class EmbeddingModel(ABC):
 
 
 class SentenceTransformerEmbeddings(EmbeddingModel):
-    def __init__(self, model_name: str, embedding_size: int = 2048):
+    def __init__(self, model_name: str):
         try:
             import sentence_transformers
         except ImportError as exc:
@@ -40,7 +40,6 @@ class SentenceTransformerEmbeddings(EmbeddingModel):
         self._client = sentence_transformers.SentenceTransformer(
             model_name, trust_remote_code=True
         )
-        self._client.max_seq_length = embedding_size
 
     def embed_documents(self, texts: List[str]) -> list:
         return self._client.encode(texts)
@@ -50,7 +49,7 @@ class SentenceTransformerEmbeddings(EmbeddingModel):
 
 
 class FlagICLModelEmbeddings(EmbeddingModel):
-    def __init__(self, model_name: str, embedding_size: int = 2048):
+    def __init__(self, model_name: str):
         try:
             from FlagEmbedding import FlagICLModel
         except ImportError as exc:
@@ -62,8 +61,6 @@ class FlagICLModelEmbeddings(EmbeddingModel):
             examples_for_task=None,  # set `examples_for_task=None` to use model without examples
             use_fp16=True,
         )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
-        self._client.query_max_length = embedding_size
-        self._client.passage_max_length = embedding_size
 
     def embed_documents(self, texts: List[str]) -> list:
         return self._client.encode_corpus(texts)
@@ -73,18 +70,18 @@ class FlagICLModelEmbeddings(EmbeddingModel):
 
 
 class BGEM3FlagModelEmbeddings(EmbeddingModel):
-    def __init__(self, model_name: str, embedding_size: int = 2048):
+    def __init__(self, model_name: str):
         try:
             from FlagEmbedding import BGEM3FlagModel
         except ImportError as exc:
-            raise ImportError("Could not import BGEM3FlagModel python package.") from exc
+            raise ImportError(
+                "Could not import BGEM3FlagModel python package."
+            ) from exc
 
         self._client = BGEM3FlagModel(
             model_name,
             use_fp16=True,
         )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
-        self._client.query_max_length = embedding_size
-        self._client.passage_max_length = embedding_size
 
     def embed_documents(self, texts: List[str]) -> list:
         return self._client.encode(texts)["dense_vecs"].tolist()

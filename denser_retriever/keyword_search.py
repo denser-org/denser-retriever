@@ -167,8 +167,10 @@ class ElasticSearch(KeywordSearch):
 
         ret = []
         for i in range(top_k_used):
-            hit = hits[i]
+            if (len(hits) <= i) or ("_source" not in hits[i]):
+                continue
 
+            hit = hits[i]
             doc_dict = hit["_source"]["metadata"]
             doc = Document(**doc_dict)
             score = hit["_score"]

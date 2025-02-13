@@ -10,6 +10,7 @@ pytest = "^7.0"
 
 [tool.poetry.group.dev.dependencies]
 pytrec-eval = "^0.5"
+langchain-text-splitters = "^0.3.6"
 
 [tool.poetry.dependencies]
 python = ">=3.10.0,<3.12.0"

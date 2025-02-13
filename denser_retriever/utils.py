@@ -1,4 +1,5 @@
-from typing import Dict, List, Tuple
+from importlib import import_module
+from typing import Any, Dict, List, Tuple
 import numpy as np
 from langchain_core.documents import Document
 
@@ -8,7 +9,7 @@ def sigmoid(x):
 
 
 def docs_to_dict(
-    doc: List[Tuple[Document, float]], primary_key_field: str = "id"
+    doc: List[Tuple[Document, float]], primary_key_field: str
 ) -> Tuple[Dict[str, Document], Dict[str, float], Dict[str, int]]:
     """Convert a list of documents and scores to dictionaries.
 
@@ -31,7 +32,7 @@ def docs_to_dict(
 
 
 def remove_duplicates(
-    docs: List[tuple[Document, float]], primary_key_field: str = "id"
+    docs: List[tuple[Document, float]], primary_key_field: str
 ) -> List[tuple[Document, float]]:
     """Deduplicate documents based on their IDs.
 
@@ -185,3 +186,43 @@ def compute_document_features(
         non_zero_features.append([str(data[0])] + features)
 
     return docs, non_zero_features
+
+
+def create_instance(
+    class_name: str, params: dict, globals_dict: dict = globals()
+) -> Any:
+    """Create an instance of a class dynamically.
+
+    Args:
+        class_name: Name of the class to instantiate
+        params: Parameters to pass to the constructor
+        globals_dict: Dictionary of global variables
+
+    Returns:
+        Instance of the specified class
+    """
+    # First check if class exists in globals
+    if class_name in globals_dict and callable(globals_dict[class_name]):
+        cls = globals_dict[class_name]
+        return cls(**params)
+
+    # List of possible module paths to search
+    module_paths = [
+        "denser_retriever.keyword_search",
+        "denser_retriever.vector_store",
+        "denser_retriever.reranker",
+        "denser_retriever.fusion",
+        "denser_retriever.embedding",
+    ]
+
+    # Try to find and import the class from each module
+    for module_path in module_paths:
+        try:
+            module = import_module(module_path)
+            if hasattr(module, class_name):
+                cls = getattr(module, class_name)
+                return cls(**params)
+        except ImportError:
+            continue
+
+    raise ValueError(f"Class {class_name} not found in any module")

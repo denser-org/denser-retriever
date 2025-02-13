@@ -11,6 +11,7 @@ from pymilvus import (
     utility,
 )
 from langchain_core.documents import Document
+from denser_retriever.constants import DEFAULT_VECTOR_DIM
 from denser_retriever.utils import sigmoid
 
 
@@ -62,7 +63,7 @@ class MilvusVectorStore(VectorStore):
         port=19530,
         user=None,
         password=None,
-        dim=768,
+        dim=DEFAULT_VECTOR_DIM,
     ):
         self._alias = alias
         self._dim = dim
