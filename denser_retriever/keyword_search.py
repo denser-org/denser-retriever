@@ -21,7 +21,11 @@ class KeywordSearch(ABC):
 
     @abstractmethod
     def indexing(
-        self, index_name: str, pks: List[str], docs: List[Document]
+        self,
+        index_name: str,
+        primary_keys: List[str],
+        primary_key_field: str,
+        docs: List[Document],
     ) -> List[str]:
         raise NotImplementedError
 
@@ -89,7 +93,13 @@ class ElasticSearch(KeywordSearch):
         if self.has_index(index_name):
             self._client.indices.delete(index=index_name)
 
-    def indexing(self, index_name: str, pks: List[str], docs: List[Document]) -> list:
+    def indexing(
+        self,
+        index_name: str,
+        primary_keys: List[str],
+        primary_key_field: str,
+        docs: List[Document],
+    ) -> list:
         if not docs:
             return []
 
@@ -99,18 +109,18 @@ class ElasticSearch(KeywordSearch):
         actions = []
         ret = []
 
-        for id, doc in zip(pks, docs):
+        for id, doc in zip(primary_keys, docs):
             doc_dict = {
                 "page_content": doc.page_content,
                 "metadata": doc.metadata or {},
             }
 
-            if "id" not in doc_dict["metadata"]:
-                doc_dict["metadata"]["id"] = id
+            if primary_key_field not in doc_dict["metadata"]:
+                doc_dict["metadata"][primary_key_field] = id
 
             action = {
                 "_index": index_name,
-                "_id": doc_dict["metadata"]["id"],
+                "_id": doc_dict["metadata"][primary_key_field],
                 "_source": {
                     "content": doc.page_content,
                     "metadata": doc_dict,
@@ -149,11 +159,15 @@ class ElasticSearch(KeywordSearch):
             size=limit,
         )
 
-        top_k_used = min(len(result["hits"]["hits"]), limit)
+        if "hits" not in result or "hits" not in result["hits"]:
+            return []
+
+        hits = result["hits"]["hits"]
+        top_k_used = min(len(hits), limit)
 
         ret = []
         for i in range(top_k_used):
-            hit = result["hits"]["hits"][i]
+            hit = hits[i]
 
             doc_dict = hit["_source"]["metadata"]
             doc = Document(**doc_dict)

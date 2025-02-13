@@ -32,7 +32,8 @@ class VectorStore(ABC):
     def insert(
         self,
         collection_name: str,
-        pks: List[str],
+        primary_keys: List[str],
+        primary_key_field: str,
         docs: List[Document],
         embeddings: ndarray,
     ) -> List[str]:
@@ -120,7 +121,8 @@ class MilvusVectorStore(VectorStore):
     def insert(
         self,
         collection_name: str,
-        pks: List[str],
+        primary_keys: List[str],
+        primary_key_field: str,
         docs: List[Document],
         embeddings: ndarray,
     ) -> List[str]:
@@ -133,18 +135,18 @@ class MilvusVectorStore(VectorStore):
         collection = self._load_collection(collection_name)
 
         batch_data = []
-        for id, doc, emb in zip(pks, docs, embeddings):
+        for pk, doc, emb in zip(primary_keys, docs, embeddings):
             doc_dict = {
                 "page_content": doc.page_content,
                 "metadata": doc.metadata or {},
             }
 
-            if "id" not in doc_dict["metadata"]:
-                doc_dict["metadata"]["id"] = id
+            if primary_key_field not in doc_dict["metadata"]:
+                doc_dict["metadata"][primary_key_field] = pk
 
             batch_data.append(
                 {
-                    "id": doc_dict["metadata"]["id"],
+                    "id": doc_dict["metadata"][primary_key_field],
                     "embeddings": emb,
                     "metadata": doc_dict,
                 }
@@ -248,7 +250,8 @@ class ChromaVectorStore(VectorStore):
     def insert(
         self,
         collection_name: str,
-        pks: List[str],
+        primary_keys: List[str],
+        primary_key_field: str,
         docs: List[Document],
         embeddings: ndarray,
     ) -> List[str]:
@@ -265,14 +268,14 @@ class ChromaVectorStore(VectorStore):
         for (
             id,
             doc,
-        ) in zip(pks, docs):
+        ) in zip(primary_keys, docs):
             metadata = doc.metadata or {}
 
-            if "id" not in metadata:
-                metadata["id"] = id
+            if primary_key_field not in metadata:
+                metadata[primary_key_field] = id
 
             batch_docs.append(metadata)
-            ids.append(metadata["id"])
+            ids.append(metadata[primary_key_field])
 
         collection.upsert(
             ids=ids,
@@ -281,7 +284,7 @@ class ChromaVectorStore(VectorStore):
             documents=[doc.page_content for doc in docs],
         )
 
-        return pks
+        return ids
 
     def search(
         self,

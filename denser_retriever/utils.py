@@ -10,7 +10,7 @@ def sigmoid(x):
 
 
 def docs_to_dict(
-    doc: List[Tuple[Document, float]],
+    doc: List[Tuple[Document, float]], primary_key_field: str = "id"
 ) -> Tuple[Dict[str, Document], Dict[str, float], Dict[str, int]]:
     """Convert a list of documents and scores to dictionaries.
 
@@ -23,7 +23,7 @@ def docs_to_dict(
     doc_dict, score_dict, rank_dict = {}, {}, {}
 
     for i, (document, score) in enumerate(doc):
-        uid_str = document.metadata.get("id")
+        uid_str = document.metadata.get(primary_key_field)
         # store the document, score and rank
         doc_dict[uid_str] = document
         score_dict[uid_str] = score
@@ -33,7 +33,7 @@ def docs_to_dict(
 
 
 def remove_duplicates(
-    docs: List[tuple[Document, float]]
+    docs: List[tuple[Document, float]], primary_key_field: str = "id"
 ) -> List[tuple[Document, float]]:
     """Deduplicate documents based on their IDs.
 
@@ -47,7 +47,7 @@ def remove_duplicates(
     ret = []
 
     for doc, score in docs:
-        id = doc.metadata.get("id")
+        id = doc.metadata.get(primary_key_field)
         if id not in seen_ids:
             seen_ids.add(id)
             ret.append((doc, score))
@@ -62,6 +62,7 @@ def hybridRerank(
     ks_weight: float = 1.0,
     vs_weight: float = 1.0,
     rank_offset: int = 60,
+    primary_key_field: str = "id",
 ) -> List[tuple[Document, float]]:
     """Combine keyword and vector retrieval using a hybrid reranking strategy.
 
@@ -79,11 +80,11 @@ def hybridRerank(
     all_docs = {}
     hybrid_scores = {}
 
-    _, _, ks_rank_dict = docs_to_dict(keyword_docs)
-    _, _, vs_rank_dict = docs_to_dict(vector_docs)
+    _, _, ks_rank_dict = docs_to_dict(keyword_docs, primary_key_field)
+    _, _, vs_rank_dict = docs_to_dict(vector_docs, primary_key_field)
 
     for doc, _ in keyword_docs + vector_docs:
-        id = doc.metadata.get("id")
+        id = doc.metadata.get(primary_key_field)
         if id not in all_docs:
             all_docs[id] = doc
 
@@ -130,6 +131,7 @@ def compute_document_features(
     keyword_docs: List[tuple[Document, float]],
     vector_docs: List[tuple[Document, float]],
     reranked_docs: List[tuple[Document, float]],
+    primary_key_field: str = "id",
 ):
     """Compute document features for the fusion model.
 
@@ -141,10 +143,10 @@ def compute_document_features(
     Returns:
         List of documents and their non-zero features
     """
-    _, ks_score_dict, ks_rank_dict = docs_to_dict(keyword_docs)
-    _, vs_score_dict, vs_rank_dict = docs_to_dict(vector_docs)
+    _, ks_score_dict, ks_rank_dict = docs_to_dict(keyword_docs, primary_key_field)
+    _, vs_score_dict, vs_rank_dict = docs_to_dict(vector_docs, primary_key_field)
     reranked_docs_dict, reranked_score_dict, reranked_rank_dict = docs_to_dict(
-        reranked_docs
+        reranked_docs, primary_key_field
     )
 
     docs, doc_features = [], []

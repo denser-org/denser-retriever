@@ -43,10 +43,10 @@ class SentenceTransformerEmbeddings(EmbeddingModel):
         self._client.max_seq_length = embedding_size
 
     def embed_documents(self, texts: List[str]) -> list:
-        return self._client.encode(texts)
+        return self._client.encode(sentences=texts)
 
     def embed_query(self, text: str) -> list:
-        return self._client.encode([text])
+        return self._client.encode(sentences=[text])
 
 
 class BGEEmbeddings(EmbeddingModel):
