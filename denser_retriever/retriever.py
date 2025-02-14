@@ -167,43 +167,23 @@ class DenserRetriever:
         with open(config_file_path, "r") as f:
             config: dict = json.load(f)
 
-        # Initialize components based on config
-        keyword_search = None
-        if "keyword_search" in config:
-            keyword_search = create_instance(
-                config["keyword_search"]["class"], config["keyword_search"]["params"]
+        components = {
+            component: (
+                create_instance(config[component]["class"], config[component]["params"])
+                if component in config
+                else None
             )
-
-        vector_store = None
-        if "vector_store" in config:
-            vector_store = create_instance(
-                config["vector_store"]["class"], config["vector_store"]["params"]
-            )
-
-        embedding_model = None
-        if "embedding_model" in config:
-            embedding_model = create_instance(
-                config["embedding_model"]["class"], config["embedding_model"]["params"]
-            )
-
-        reranker = None
-        if "reranker" in config:
-            reranker = create_instance(
-                config["reranker"]["class"], config["reranker"]["params"]
-            )
-
-        fusion_model = None
-        if "fusion_model" in config:
-            fusion_model = create_instance(
-                config["fusion_model"]["class"], config["fusion_model"]["params"]
-            )
+            for component in [
+                "keyword_search",
+                "vector_store",
+                "embedding_model",
+                "reranker",
+                "fusion_model",
+            ]
+        }
 
         return cls(
-            keyword_search=keyword_search,
-            vector_store=vector_store,
-            embedding_model=embedding_model,
-            reranker=reranker,
-            fusion_model=fusion_model,
+            **components,
             vector_top_k=config.get("vector_top_k", DEFAULT_VECTOR_TOP_K),
             keyword_top_k=config.get("keyword_top_k", DEFAULT_KEYWORD_TOP_K),
             reranker_top_k=config.get("reranker_top_k", DEFAULT_RERANKER_TOP_K),
