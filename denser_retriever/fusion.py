@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
 import json
 from numpy import ndarray
-from importlib import resources
 import numpy as np
 
 
 class FusionModel(ABC):
     @abstractmethod
-    def load(self):
+    def load(self, config_path: str):
         pass
 
     @abstractmethod
@@ -16,15 +15,15 @@ class FusionModel(ABC):
 
 
 class LogisticRegression(FusionModel):
-    def __init__(self, model_name: str):
+    def __init__(self, config_path: str):
         self.weights = None
         self.intercept = None
         self.feature_names = None
-        self.load(model_name)
+        self.load(config_path)
 
-    def load(self, model_name: str):
+    def load(self, config_path: str):
         """Load model weights from JSON file."""
-        with resources.open_text("denser_retriever.models", model_name) as f:
+        with open(config_path, "r") as f:
             model_data = json.load(f)
             self.weights = np.array(model_data["weights"])
             self.intercept = model_data["intercept"]

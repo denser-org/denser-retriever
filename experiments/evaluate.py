@@ -2,7 +2,6 @@ import argparse
 import logging
 from typing import Dict, List, Optional, Tuple
 import os
-
 from cohere import Document
 from tqdm import tqdm
 from denser_retriever.retriever import DenserRetriever
@@ -56,8 +55,6 @@ def process_queries(
             for doc, score in retrieval_result:
                 if doc.metadata["pid"] not in results[case_name][qid]:
                     results[case_name][qid][doc.metadata["pid"]] = score
-                if len(results[case_name][qid]) >= top_k:
-                    break
 
             logger.info(f"{case_name} returned {len(retrieval_result)} results")
 
