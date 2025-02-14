@@ -32,7 +32,7 @@
     "class": "MilvusVectorStore",
     "params": {
       "host": "",
-      "alias": "",
+      "alias": "default",
       "port": 19530,
       "user": "",
       "password": "",
@@ -50,6 +50,12 @@
     "params": {
       "model_name": "BAAI/bge-reranker-v2-m3",
       "use_fp16": true
+    }
+  },
+  "fusion_model": {
+    "class": "LogisticRegression",
+    "params": {
+      "config_path": "experiments/models/weights_es+vs+rr_msmarco.json"
     }
   },
   "keyword_top_k": 100,
