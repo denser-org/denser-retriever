@@ -140,6 +140,13 @@ class DenserRetriever:
         if self.vector_store:
             self.vector_store.delete(collection_name, pks)
 
+    def has_collection(self, collection_name: str):
+        if self.keyword_search:
+            return self.keyword_search.has_index(collection_name)
+        if self.vector_store:
+            return self.vector_store.has_collection(collection_name)
+        return False
+
     def drop(self, collection_name: str):
         if self.keyword_search:
             self.keyword_search.drop_index(collection_name)

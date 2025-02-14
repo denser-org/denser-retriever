@@ -1,0 +1,59 @@
+{
+  "keyword_search": {
+    "class": "ElasticSearch",
+    "params": {
+      "hosts": "",
+      "port": 9200,
+      "username": "",
+      "password": "",
+      "scheme": "http",
+      "index_settings": {
+        "analysis": { "analyzer": { "default": { "type": "standard" } } },
+        "similarity": {
+          "custom_bm25": {
+            "type": "BM25",
+            "k1": 1.2,
+            "b": 0.75
+          }
+        }
+      },
+      "index_mappings": {
+        "properties": {
+          "content": {
+            "type": "text",
+            "similarity": "custom_bm25"
+          },
+          "metadata": { "type": "object", "dynamic": true, "properties": {} }
+        }
+      }
+    }
+  },
+  "vector_store": {
+    "class": "MilvusVectorStore",
+    "params": {
+      "host": "",
+      "alias": "",
+      "port": 19530,
+      "user": "",
+      "password": "",
+      "dim": 1024
+    }
+  },
+  "embedding_model": {
+    "class": "BGEM3FlagModelEmbeddings",
+    "params": {
+      "model_name": "BAAI/bge-m3"
+    }
+  },
+  "reranker": {
+    "class": "BGEReranker",
+    "params": {
+      "model_name": "BAAI/bge-reranker-v2-m3",
+      "use_fp16": true
+    }
+  },
+  "keyword_top_k": 100,
+  "vector_top_k": 100,
+  "reranker_top_k": 100,
+  "primary_key_field": "id"
+}
