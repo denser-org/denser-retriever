@@ -94,9 +94,9 @@ class DenserRetriever:
         query: str,
         limit: int,
         collection_name: str = "default",
-        ks_weight: float = 1.1,
+        ks_weight: float = 1.0,
         vs_weight: float = 1.0,
-        rank_offset: int = 20,
+        rank_offset: int = 60,
     ):
         if not query or limit <= 0:
             return []

@@ -58,7 +58,7 @@ def hybridCombine(
     doc_lists: List[List[tuple[Document, float]]],
     weights: List[float],
     max_rank: int,
-    rank_offset: int = 30,
+    rank_offset: int = 60,
     key_field: str = "id",
 ) -> List[tuple[Document, float]]:
     """Combine multiple document lists using a hybrid reranking strategy.

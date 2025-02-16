@@ -16,6 +16,7 @@ def convert_to_documents(
     corpus: Dict[str, Dict[str, str]],
     max_length: int = 2048,
     split_strategy: str = "none",
+    chunk_overlap: int = 0,
 ) -> List[Document]:
     """Convert HuggingFace dataset corpus to list of Documents.
 
@@ -25,10 +26,15 @@ def convert_to_documents(
     Returns:
         List of Document objects
     """
+    logger.info("Converting corpus to Documents parmeters:")
+    logger.info(f"  Max Length: {max_length}")
+    logger.info(f"  Split Strategy: {split_strategy}")
+    logger.info(f"  Chunk Overlap: {chunk_overlap}")
+
     documents = []
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=max_length,
-        chunk_overlap=max_length / 10,
+        chunk_overlap=chunk_overlap,
         length_function=len,
         is_separator_regex=False,
         separators=[
@@ -96,6 +102,9 @@ def main():
         "--split-strategy", help="How to split large documents", default="split"
     )
     parser.add_argument(
+        "--chunk-overlap", type=int, default=768, help="Chunk overlap for splitting"
+    )
+    parser.add_argument(
         "--drop", action="store_true", help="Drop collection before ingesting"
     )
     parser.add_argument("--config", required=True, help="Path to retriever config file")
@@ -107,6 +116,8 @@ def main():
 
     # Initialize retriever from config
     retriever = DenserRetriever.from_config(args.config)
+
+    logger.info(f"Ingesting documents into collection {args.collection}")
 
     if retriever.has_collection(collection_name=args.collection):
         if args.drop:
@@ -132,6 +143,7 @@ def main():
         corpus=corpus,
         max_length=args.max_content_length,
         split_strategy=args.split_strategy,
+        chunk_overlap=args.chunk_overlap,
     )
     logger.info(f"Converted {len(documents)} documents")
 
@@ -152,3 +164,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+# cd experiments
+# poetry run py ./corpus_ingester.py lecardv2_exp_3072 mteb/lecardv2 --config ./configs/lecardv2_hybrid.json --max-content-length 3072 --batch-size 256 --chunk-overlap 512 --drop
