@@ -20,7 +20,7 @@ class Reranker(ABC):
 class CrossEncoderReranker(Reranker):
     def __init__(self, model_name: str, **kwargs):
         super().__init__()
-        self.model = CrossEncoder(
+        self._model = CrossEncoder(
             model_name,
             trust_remote_code=True,
             automodel_args={"torch_dtype": "auto"},
@@ -43,7 +43,7 @@ class CrossEncoderReranker(Reranker):
         if not documents:
             return []
 
-        scores = self.model.predict(
+        scores = self._model.predict(
             [(query, doc.page_content) for doc in documents], convert_to_tensor=False
         )
 

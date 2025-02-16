@@ -1,6 +1,6 @@
 import argparse
 import logging
-from typing import List
+from typing import Dict, List
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 from langchain_core.documents import Document
@@ -12,7 +12,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def convert_to_documents(corpus, max_length: int = 8192) -> List[Document]:
+def convert_to_documents(
+    corpus: Dict[str, Dict[str, str]],
+    max_length: int = 2048,
+    split_strategy: str = "none",
+) -> List[Document]:
     """Convert HuggingFace dataset corpus to list of Documents.
 
     Args:
@@ -24,7 +28,7 @@ def convert_to_documents(corpus, max_length: int = 8192) -> List[Document]:
     documents = []
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=max_length,
-        chunk_overlap=200,
+        chunk_overlap=max_length / 10,
         length_function=len,
         is_separator_regex=False,
         separators=[
@@ -43,26 +47,30 @@ def convert_to_documents(corpus, max_length: int = 8192) -> List[Document]:
     )
     for item in tqdm(corpus, desc="Converting documents"):
         # Check if document needs splitting
-        if len(item["text"]) > max_length:
-            # Split the document and maintain the same pid
+        if len(item["text"]) > max_length and split_strategy == "split":
+            # Split the document and maintain the same source_id
             splits = text_splitter.create_documents(
-                texts=[item["text"]], metadatas=[{"pid": item["id"]}]
+                texts=[item["text"]], metadatas=[{"source_id": item["id"]}]
             )
             documents.extend(splits)
+        elif len(item["text"]) > max_length and split_strategy == "summarize":
+            # TODO: Implement summarization
+            continue
         else:
-            # Create single Document with qw as content and pid as metadata
-            doc = Document(page_content=item["text"], metadata={"pid": item["id"]})
+            # Create single Document with qw as content and source_id as metadata
+            doc = Document(
+                page_content=item["text"][:max_length],
+                metadata={"source_id": item["id"]},
+            )
             documents.append(doc)
 
     return documents
 
 
 @retry(
-    stop=stop_after_attempt(3),  # Retry up to 3 times
-    wait=wait_exponential(
-        multiplier=1, min=4, max=10
-    ),  # Wait between 4-10 seconds, increasing exponentially
-    reraise=True,  # Raise the last exception if all retries fail
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    reraise=True,
 )
 def ingest_batch(
     retriever: DenserRetriever, batch: List[Document], collection_name: str
@@ -73,20 +81,29 @@ def ingest_batch(
 
 def main():
     parser = argparse.ArgumentParser(description="Ingest Lcorpus")
-    parser.add_argument("dataset", help="Dataset name in HuggingFace hub")
-    parser.add_argument("--config", required=True, help="Path to retriever config file")
-    parser.add_argument(
-        "--collection",
-        required=True,
-        help="Collection name for storage",
-    )
+    parser.add_argument("collection", help="Name of the collection to search")
+    parser.add_argument("dataset", help="Dataset name")
     parser.add_argument(
         "--batch-size", type=int, default=1000, help="Batch size for ingestion"
     )
     parser.add_argument(
+        "--max-content-length",
+        type=int,
+        default=2048,
+        help="Max length of page content",
+    )
+    parser.add_argument(
+        "--split-strategy", help="How to split large documents", default="split"
+    )
+    parser.add_argument(
         "--drop", action="store_true", help="Drop collection before ingesting"
     )
+    parser.add_argument("--config", required=True, help="Path to retriever config file")
     args = parser.parse_args()
+
+    # Validate split strategy
+    if args.split_strategy not in ["split", "truncate", "summarize"]:
+        raise ValueError(f"Invalid split strategy: {args.split_strategy}")
 
     # Initialize retriever from config
     retriever = DenserRetriever.from_config(args.config)
@@ -111,14 +128,20 @@ def main():
     corpus = data_loader.load_corpus()
 
     # Convert corpus to documents
-    documents = convert_to_documents(corpus)
+    documents = convert_to_documents(
+        corpus=corpus,
+        max_length=args.max_content_length,
+        split_strategy=args.split_strategy,
+    )
     logger.info(f"Converted {len(documents)} documents")
 
     # Process in batches
     for i in tqdm(range(0, len(documents), args.batch_size), desc="Ingesting batches"):
         batch = documents[i : i + args.batch_size]
         try:
-            ingest_batch(retriever, batch, args.collection)
+            ingest_batch(
+                retriever=retriever, batch=batch, collection_name=args.collection
+            )
         except Exception as e:
             logger.error(
                 f"Failed to ingest batch {i}-{i+args.batch_size} after all retries: {e}"

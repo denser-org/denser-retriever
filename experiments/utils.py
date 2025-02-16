@@ -17,10 +17,11 @@ def evaluate(
         )
         popped = []
         for qid, rels in results.items():
-            for pid in list(rels):
-                if qid == pid:
-                    results[qid].pop(pid)
-                    popped.append(pid)
+            for source_id in list(rels):
+                if qid == source_id:
+                    results[qid].pop(source_id)
+                    popped.append(source_id)
+        print(f"Removed {len(popped)} identical query and document ids.")
 
     ndcg = {}
     _map = {}
@@ -58,8 +59,8 @@ def evaluate(
 
     if metric_file:
         out = open(metric_file, "w")
+        evals = []
         for eval in [ndcg, _map, recall, precision]:
-            json.dump(eval, out, indent=4, ensure_ascii=False)
-            out.write("\n")
-
+            evals.append(eval)
+        json.dump(evals, out, indent=4, ensure_ascii=False)
     return ndcg, _map, recall, precision

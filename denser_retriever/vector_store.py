@@ -155,6 +155,8 @@ class MilvusVectorStore(VectorStore):
         ret = collection.upsert(batch_data)
         collection.flush()
 
+        del batch_data
+
         return ret.primary_keys
 
     def search(

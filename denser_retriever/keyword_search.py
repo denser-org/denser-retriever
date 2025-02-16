@@ -70,6 +70,9 @@ class ElasticSearch(KeywordSearch):
                     "type": "text",
                     "similarity": "custom_bm25",
                 },
+                "title": {
+                    "type": "text",
+                },
                 "metadata": {"type": "object", "dynamic": True, "properties": {}},
             }
         },
@@ -119,9 +122,11 @@ class ElasticSearch(KeywordSearch):
                 doc_dict["metadata"][primary_key_field] = id
 
             action = {
+                "_op_type": "index",
                 "_index": index_name,
                 "_id": doc_dict["metadata"][primary_key_field],
                 "_source": {
+                    "title": doc_dict["metadata"].get("title", ""),
                     "content": doc.page_content,
                     "metadata": doc_dict,
                 },
@@ -145,8 +150,23 @@ class ElasticSearch(KeywordSearch):
 
         query_dict = {
             "query": {
-                "match": {
-                    "content": query,
+                "bool": {
+                    "should": [
+                        {
+                            "match": {
+                                "title": {
+                                    "query": query,
+                                    "boost": 2.0,
+                                }
+                            }
+                        },
+                        {
+                            "match": {
+                                "content": query,
+                            }
+                        },
+                    ],
+                    "minimum_should_match": 1,
                 }
             },
             "_source": True,

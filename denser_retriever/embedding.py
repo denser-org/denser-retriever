@@ -29,7 +29,7 @@ class EmbeddingModel(ABC):
 
 
 class SentenceTransformerEmbeddings(EmbeddingModel):
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, batch_size: int = 256):
         try:
             import sentence_transformers
         except ImportError as exc:
@@ -40,16 +40,24 @@ class SentenceTransformerEmbeddings(EmbeddingModel):
         self._client = sentence_transformers.SentenceTransformer(
             model_name, trust_remote_code=True
         )
+        self._batch_size = batch_size
 
     def embed_documents(self, texts: List[str]) -> list:
-        return self._client.encode(texts)
+        return self._client.encode(sentences=texts, batch_size=self._batch_size)
 
     def embed_query(self, text: str) -> list:
-        return self._client.encode([text])
+        return self._client.encode(sentences=[text], batch_size=self._batch_size)
 
 
 class FlagICLModelEmbeddings(EmbeddingModel):
-    def __init__(self, model_name: str):
+    def __init__(
+        self,
+        model_name: str,
+        query_max_length: int = 512,
+        passage_max_length: int = 512,
+        batch_size: int = 256,
+        use_fp16: bool = True,
+    ):
         try:
             from FlagEmbedding import FlagICLModel
         except ImportError as exc:
@@ -58,9 +66,12 @@ class FlagICLModelEmbeddings(EmbeddingModel):
         self._client = FlagICLModel(
             model_name,
             query_instruction_for_retrieval="Represent this sentence for searching relevant passages:",
-            examples_for_task=None,  # set `examples_for_task=None` to use model without examples
-            use_fp16=True,
-        )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
+            examples_for_task=None,
+            batch_size=batch_size,
+            query_max_length=query_max_length,
+            passage_max_length=passage_max_length,
+            use_fp16=use_fp16,
+        )
 
     def embed_documents(self, texts: List[str]) -> list:
         return self._client.encode_corpus(texts)
@@ -70,7 +81,14 @@ class FlagICLModelEmbeddings(EmbeddingModel):
 
 
 class BGEM3FlagModelEmbeddings(EmbeddingModel):
-    def __init__(self, model_name: str):
+    def __init__(
+        self,
+        model_name: str,
+        query_max_length: int = 512,
+        passage_max_length: int = 512,
+        batch_size: int = 256,
+        use_fp16: bool = True,
+    ):
         try:
             from FlagEmbedding import BGEM3FlagModel
         except ImportError as exc:
@@ -80,8 +98,11 @@ class BGEM3FlagModelEmbeddings(EmbeddingModel):
 
         self._client = BGEM3FlagModel(
             model_name,
-            use_fp16=True,
-        )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
+            use_fp16=use_fp16,
+            batch_size=batch_size,
+            query_max_length=query_max_length,
+            passage_max_length=passage_max_length,
+        )
 
     def embed_documents(self, texts: List[str]) -> list:
         return self._client.encode(texts)["dense_vecs"].tolist()

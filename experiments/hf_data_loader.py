@@ -109,7 +109,7 @@ class HFDataLoader:
         if not len(self.corpus):
             logger.info("Loading Corpus...")
             self._load_corpus()
-            logger.info("Loaded %d %s Documents.", len(self.corpus))
+            logger.info("Loaded %d Documents.", len(self.corpus))
             logger.info("Doc Example: %s", self.corpus[0])
 
         return self.corpus

@@ -16,18 +16,18 @@ class FusionModel(ABC):
 
 class LogisticRegression(FusionModel):
     def __init__(self, config_path: str):
-        self.weights = None
-        self.intercept = None
-        self.feature_names = None
+        self._weights = None
+        self._intercept = None
+        self._feature_names = None
         self.load(config_path)
 
     def load(self, config_path: str):
         """Load model weights from JSON file."""
         with open(config_path, "r") as f:
             model_data = json.load(f)
-            self.weights = np.array(model_data["weights"])
-            self.intercept = model_data["intercept"]
-            self.feature_names = model_data["features"]
+            self._weights = np.array(model_data["weights"])
+            self._intercept = model_data["intercept"]
+            self._feature_names = model_data["features"]
 
     def predict(self, features: list[str]) -> ndarray:
         """Predict probabilities using logistic regression.
@@ -39,9 +39,9 @@ class LogisticRegression(FusionModel):
             Array of prediction probabilities
         """
         # Convert feature strings to dense array
-        assert self.weights is not None
+        assert self._weights is not None
 
-        feature_values = np.zeros(len(self.weights))
+        feature_values = np.zeros(len(self._weights))
 
         for feature in features:
             if ":" in feature:
@@ -49,7 +49,7 @@ class LogisticRegression(FusionModel):
                 feature_values[int(idx) - 1] = float(value)
 
         # Apply logistic regression
-        score = np.dot(feature_values, self.weights) + self.intercept
+        score = np.dot(feature_values, self._weights) + self._intercept
         probability = 1 / (1 + np.exp(-score))
 
         return probability
@@ -61,6 +61,6 @@ class LogisticRegression(FusionModel):
             Dictionary mapping feature names to their importance (absolute weight values)
         """
         assert (
-            self.feature_names is not None and self.weights is not None
+            self._feature_names is not None and self._weights is not None
         ), "Model not initialized"
-        return dict(zip(self.feature_names, np.abs(self.weights)))
+        return dict(zip(self._feature_names, np.abs(self._weights)))

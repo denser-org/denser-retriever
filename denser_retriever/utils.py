@@ -9,7 +9,7 @@ def sigmoid(x):
 
 
 def docs_to_dict(
-    doc: List[Tuple[Document, float]], primary_key_field: str
+    doc: List[Tuple[Document, float]], key_field: str
 ) -> Tuple[Dict[str, Document], Dict[str, float], Dict[str, int]]:
     """Convert a list of documents and scores to dictionaries.
 
@@ -22,7 +22,7 @@ def docs_to_dict(
     doc_dict, score_dict, rank_dict = {}, {}, {}
 
     for i, (document, score) in enumerate(doc):
-        uid_str = document.metadata.get(primary_key_field)
+        uid_str = document.metadata.get(key_field)
         # store the document, score and rank
         doc_dict[uid_str] = document
         score_dict[uid_str] = score
@@ -32,7 +32,7 @@ def docs_to_dict(
 
 
 def remove_duplicates(
-    docs: List[tuple[Document, float]], primary_key_field: str
+    docs: List[tuple[Document, float]], key_field: str
 ) -> List[tuple[Document, float]]:
     """Deduplicate documents based on their IDs.
 
@@ -46,7 +46,7 @@ def remove_duplicates(
     ret = []
 
     for doc, score in docs:
-        id = doc.metadata.get(primary_key_field)
+        id = doc.metadata.get(key_field)
         if id not in seen_ids:
             seen_ids.add(id)
             ret.append((doc, score))
@@ -55,48 +55,66 @@ def remove_duplicates(
 
 
 def hybridCombine(
-    keyword_docs: List[tuple[Document, float]],
-    vector_docs: List[tuple[Document, float]],
+    doc_lists: List[List[tuple[Document, float]]],
+    weights: List[float],
     max_rank: int,
-    ks_weight: float = 1.0,
-    vs_weight: float = 1.0,
-    rank_offset: int = 60,
-    primary_key_field: str = "id",
+    rank_offset: int = 30,
+    key_field: str = "id",
 ) -> List[tuple[Document, float]]:
-    """Combine keyword and vector retrieval using a hybrid reranking strategy.
+    """Combine multiple document lists using a hybrid reranking strategy.
 
     Args:
-        keyword_docs: List of (document, score) tuples from keyword search
-        vector_docs: List of (document, score) tuples from vector search
+        doc_lists: List of document lists, where each list contains (document, score) tuples
+        weights: List of weights corresponding to each document list
         max_rank: Maximum rank to consider
-        ks_weight: Weight for keyword search scores (default: 1.0)
-        vs_weight: Weight for vector search scores (default: 1.0)
-        rank_offset: Offset added to rank to smooth scores (default: 60)
+        rank_offset: Offset added to rank to smooth scores
+        key_field: Key field to use for document identification
 
     Returns:
         List of reranked (document, score) tuples
     """
+    if len(doc_lists) != len(weights):
+        raise ValueError("Number of document lists must match number of weights")
+
+    if not doc_lists:
+        return []
+
+    # If only one list is provided, return it directly
+    if len(doc_lists) == 1:
+        return doc_lists[0]
+
+    # Check if any list is non-empty
+    if not any(doc_lists):
+        return []
+
     all_docs = {}
     hybrid_scores = {}
 
-    _, _, ks_rank_dict = docs_to_dict(keyword_docs, primary_key_field)
-    _, _, vs_rank_dict = docs_to_dict(vector_docs, primary_key_field)
+    # Convert all doc lists to rank dictionaries
+    rank_dicts = []
+    max_lengths = []  # Store the length of each input list
+    for docs in doc_lists:
+        _, _, rank_dict = docs_to_dict(docs, key_field)
+        rank_dicts.append(rank_dict)
+        max_lengths.append(len(docs))  # Record the length of each list
 
-    for doc, _ in keyword_docs + vector_docs:
-        id = doc.metadata.get(primary_key_field)
-        if id not in all_docs:
-            all_docs[id] = doc
+    # Combine all documents and calculate hybrid scores
+    for i, doc_list in enumerate(doc_lists):
+        for doc, _ in doc_list:
+            id = doc.metadata.get(key_field)
+            if id not in all_docs:
+                all_docs[id] = doc
+                score = 0.0
 
-            ks_rank = ks_rank_dict.get(id, max_rank + 1)
-            vs_rank = vs_rank_dict.get(id, max_rank + 1)
+                # Calculate score contribution from each list
+                for j, rank_dict in enumerate(rank_dicts):
+                    rank = rank_dict.get(
+                        id, max_lengths[j] + 1
+                    )  # Use actual list length + 1 for missing docs
+                    if rank <= max_rank:
+                        score += weights[j] / (rank + rank_offset)
 
-            score = 0.0
-            if ks_rank <= max_rank:
-                score += ks_weight / (ks_rank + rank_offset)
-            if vs_rank <= max_rank:
-                score += vs_weight / (vs_rank + rank_offset)
-
-            hybrid_scores[id] = score
+                hybrid_scores[id] = score
 
     return sorted(
         ((doc, hybrid_scores[pid]) for pid, doc in all_docs.items()),
