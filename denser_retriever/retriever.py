@@ -59,35 +59,47 @@ class DenserRetriever:
         self._primary_key_field = primary_key_field
         self._max_vector_query_length = max_vector_query_length
 
-    def ingest(self, docs: List[Document], collection_name: str = "default"):
+    def ingest(
+        self,
+        docs: List[Document],
+        collection_name: str = "default",
+        batch_size: int = 256,
+    ):
         if not docs:
             return []
 
-        pks = [str(uuid.uuid4()) for _ in range(len(docs))]
+        total_pks = []
 
-        if self._keyword_search:
-            pks = self._keyword_search.indexing(
-                index_name=collection_name,
-                primary_keys=pks,
-                primary_key_field=self._primary_key_field,
-                docs=docs,
-            )
+        # Process documents in batches
+        for i in range(0, len(docs), batch_size):
+            batch_docs = docs[i : i + batch_size]
+            batch_pks = [str(uuid.uuid4()) for _ in range(len(batch_docs))]
 
-        if self._vector_store and self._embedding_model:
-            embeddings = self._embedding_model.embed_documents(
-                [doc.page_content for doc in docs]
-            )
+            if self._keyword_search:
+                batch_pks = self._keyword_search.indexing(
+                    index_name=collection_name,
+                    primary_keys=batch_pks,
+                    primary_key_field=self._primary_key_field,
+                    docs=batch_docs,
+                )
 
-            pks = self._vector_store.insert(
-                collection_name=collection_name,
-                primary_keys=pks,
-                primary_key_field=self._primary_key_field,
-                docs=docs,
-                embeddings=embeddings,
-            )
-            del embeddings
+            if self._vector_store and self._embedding_model:
+                embeddings = self._embedding_model.embed_documents(
+                    [doc.page_content for doc in batch_docs]
+                )
 
-        return pks
+                batch_pks = self._vector_store.insert(
+                    collection_name=collection_name,
+                    primary_keys=batch_pks,
+                    primary_key_field=self._primary_key_field,
+                    docs=batch_docs,
+                    embeddings=embeddings,
+                )
+                del embeddings
+
+            total_pks.extend(batch_pks)
+
+        return total_pks
 
     def retrieve(
         self,
