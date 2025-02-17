@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import List
 import uuid
 from denser_retriever.constants import (
@@ -19,6 +20,8 @@ from denser_retriever.utils import (
 )
 from denser_retriever.vector_store import VectorStore
 from langchain_core.documents import Document
+
+logger = logging.getLogger(__name__)
 
 
 class DenserRetriever:

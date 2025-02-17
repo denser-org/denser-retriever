@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
+import logging
 from typing import List
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
 from langchain_core.documents import Document
 from denser_retriever.utils import sigmoid
+
+logger = logging.getLogger(__name__)
 
 
 class KeywordSearch(ABC):
@@ -83,6 +86,11 @@ class ElasticSearch(KeywordSearch):
         )
         self.index_settings = index_settings
         self.index_mappings = index_mappings
+        logger.info(
+            f"Connected to Elasticsearch: {hosts}:{port}, scheme: {scheme}"
+        )
+        logger.info(f"Elasticsearch index settings: {index_settings}")
+        logger.info(f"Elasticsearch index mappings: {index_mappings}")
 
     def has_index(self, index_name: str) -> bool:
         return self._client.indices.exists(index=index_name)

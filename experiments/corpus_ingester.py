@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 def convert_to_documents(
     corpus: Dict[str, Dict[str, str]],
-    max_length: int = 2048,
-    split_strategy: str = "none",
+    max_content_length: int = 0,
+    split_strategy: str = "split",
     chunk_overlap: int = 0,
 ) -> List[Document]:
     """Convert HuggingFace dataset corpus to list of Documents.
@@ -27,46 +27,57 @@ def convert_to_documents(
         List of Document objects
     """
     logger.info("Converting corpus to Documents parmeters:")
-    logger.info(f"  Max Length: {max_length}")
+    logger.info(f"  Max Length: {max_content_length}")
     logger.info(f"  Split Strategy: {split_strategy}")
     logger.info(f"  Chunk Overlap: {chunk_overlap}")
 
     documents = []
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=max_length,
-        chunk_overlap=chunk_overlap,
-        length_function=len,
-        is_separator_regex=False,
-        separators=[
-            "\n\n",
-            "\n",
-            " ",
-            ".",
-            ",",
-            "\u200b",  # Zero-width space
-            "\uff0c",  # Fullwidth comma
-            "\u3001",  # Ideographic comma
-            "\uff0e",  # Fullwidth full stop
-            "\u3002",  # Ideographic full stop
-            "",
-        ],
-    )
+    text_splitter = None
+
+    if max_content_length > 0:
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=max_content_length,
+            chunk_overlap=chunk_overlap,
+            length_function=len,
+            is_separator_regex=False,
+            separators=[
+                "\n\n",
+                "\n",
+                " ",
+                ".",
+                ",",
+                "\u200b",  # Zero-width space
+                "\uff0c",  # Fullwidth comma
+                "\u3001",  # Ideographic comma
+                "\uff0e",  # Fullwidth full stop
+                "\u3002",  # Ideographic full stop
+                "",
+            ],
+        )
+
     for item in tqdm(corpus, desc="Converting documents"):
         # Check if document needs splitting
-        if len(item["text"]) > max_length and split_strategy == "split":
-            # Split the document and maintain the same source_id
-            splits = text_splitter.create_documents(
-                texts=[item["text"]], metadatas=[{"source_id": item["id"]}]
-            )
-            documents.extend(splits)
-        elif len(item["text"]) > max_length and split_strategy == "summarize":
-            # TODO: Implement summarization
-            continue
+        if max_content_length > 0 and len(item["text"]) > max_content_length:
+            if split_strategy == "split":
+                # Split the document and maintain the same source_id
+                splits = text_splitter.create_documents(
+                    texts=[item["text"]], metadatas=[{"source_id": item["id"]}]
+                )
+                documents.extend(splits)
+            elif split_strategy == "truncate":
+                # Truncate the document and maintain the same source_id
+                doc = Document(
+                    page_content=item["text"][:max_content_length],
+                    metadata={"source_id": item["id"]},
+                )
+                documents.append(doc)
+            elif split_strategy == "summarize":
+                # TODO: Implement summarization
+                continue
         else:
-            # Create single Document with qw as content and source_id as metadata
+            # Create Document with text as content and id as source_id in metadata
             doc = Document(
-                page_content=item["text"][:max_length],
-                metadata={"source_id": item["id"]},
+                page_content=item["text"], metadata={"source_id": item["id"]}
             )
             documents.append(doc)
 
@@ -78,7 +89,7 @@ def convert_to_documents(
     wait=wait_exponential(multiplier=1, min=4, max=10),
     reraise=True,
 )
-def ingest_batch(
+def ingest(
     retriever: DenserRetriever, batch: List[Document], collection_name: str
 ):
     """Ingest a batch of documents with retry mechanism."""
@@ -90,19 +101,19 @@ def main():
     parser.add_argument("collection", help="Name of the collection to search")
     parser.add_argument("dataset", help="Dataset name")
     parser.add_argument(
-        "--batch-size", type=int, default=1000, help="Batch size for ingestion"
+        "--batch-size", type=int, default=512, help="Batch size for ingestion"
     )
     parser.add_argument(
         "--max-content-length",
         type=int,
-        default=2048,
+        default=0,
         help="Max length of page content",
     )
     parser.add_argument(
         "--split-strategy", help="How to split large documents", default="split"
     )
     parser.add_argument(
-        "--chunk-overlap", type=int, default=768, help="Chunk overlap for splitting"
+        "--chunk-overlap", type=int, default=256, help="Chunk overlap for splitting"
     )
     parser.add_argument(
         "--drop", action="store_true", help="Drop collection before ingesting"
@@ -141,7 +152,7 @@ def main():
     # Convert corpus to documents
     documents = convert_to_documents(
         corpus=corpus,
-        max_length=args.max_content_length,
+        max_content_length=args.max_content_length,
         split_strategy=args.split_strategy,
         chunk_overlap=args.chunk_overlap,
     )
@@ -151,7 +162,7 @@ def main():
     for i in tqdm(range(0, len(documents), args.batch_size), desc="Ingesting batches"):
         batch = documents[i : i + args.batch_size]
         try:
-            ingest_batch(
+            ingest(
                 retriever=retriever, batch=batch, collection_name=args.collection
             )
         except Exception as e:
@@ -164,5 +175,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# cd experiments
-# poetry run py ./corpus_ingester.py lecardv2_exp_3072 mteb/lecardv2 --config ./configs/lecardv2_hybrid.json --max-content-length 3072 --batch-size 256 --chunk-overlap 512 --drop

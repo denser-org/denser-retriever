@@ -4,6 +4,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 import os
 from cohere import Document
+from tenacity import retry, stop_after_attempt, wait_exponential
 from tqdm import tqdm
 from denser_retriever.retriever import DenserRetriever
 from experiments.hf_data_loader import HFDataLoader
@@ -12,6 +13,15 @@ from experiments.utils import evaluate
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    reraise=True,
+)
+def retrieve(retriever: DenserRetriever, query: str, limit: int, collection_name: str):
+    return retriever.retrieve(query=query, limit=limit, collection_name=collection_name)
 
 
 def process_queries(
@@ -51,14 +61,17 @@ def process_queries(
         qid = query["id"]
 
         for case_name in retrievers.keys():
-            retirever = retrievers[case_name]
 
             logger.info(
                 f"Retrieving for case: {case_name}, query length: {len(query_str)}"
             )
+
             # Call retrieval method
-            retrieval_result = retirever.retrieve(
-                query=query_str, limit=top_k, collection_name=collection_name
+            retrieval_result = retrieve(
+                retriever=retrievers[case_name],
+                query=query_str,
+                limit=top_k,
+                collection_name=collection_name,
             )
 
             # Store results
@@ -86,7 +99,7 @@ def evaluate_cases(
     all_metrics = {}
 
     for case_name, qid_to_source_id_scores in results.items():
-        print(f"\n=== {case_name.upper()} Results ===")
+        logger.info(f"\n=== {case_name.upper()} Results ===")
 
         # Save predictions if output path provided
         if output_dir:
@@ -112,7 +125,7 @@ def evaluate_cases(
 
         # Print metrics
         for metric_name, value in metrics[0].items():
-            print(f"{metric_name}: {value:.4f}")
+            logger.info(f"{metric_name}: {value:.4f}")
 
     return all_metrics
 
@@ -211,16 +224,16 @@ def main():
     )
 
     # Print comprehensive summary
-    print("\n=== Evaluation Summary ===")
-    print("-" * 80)
+    logger.info("\n=== Evaluation Summary ===")
+    logger.info("-" * 80)
 
     for case_name in all_metrics.keys():
-        print(f"Case: {case_name}")
-        print("-" * 40)
+        logger.info(f"Case: {case_name}")
+        logger.info("-" * 40)
 
         # Performance metrics
         metrics = all_metrics[case_name]
-        print(f"NDCG@10: {metrics['NDCG@10']:.4f}")
+        logger.info(f"NDCG@10: {metrics['NDCG@10']:.4f}")
 
 
 if __name__ == "__main__":

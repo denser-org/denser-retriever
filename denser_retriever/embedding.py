@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
+import logging
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingModel(ABC):
@@ -41,6 +44,9 @@ class SentenceTransformerEmbeddings(EmbeddingModel):
             model_name, trust_remote_code=True
         )
         self._batch_size = batch_size
+        logger.info(
+            f"Loaded SentenceTransformer model: {model_name}, max_seq_length: {self._client.max_seq_length}, batch_size: {batch_size}"
+        )
 
     def embed_documents(self, texts: List[str]) -> list:
         return self._client.encode(sentences=texts, batch_size=self._batch_size)
@@ -72,6 +78,9 @@ class FlagICLModelEmbeddings(EmbeddingModel):
             passage_max_length=passage_max_length,
             use_fp16=use_fp16,
         )
+        logger.info(
+            f"Loaded FlagICLModel model: {model_name}, query_max_length: {query_max_length}, passage_max_length: {passage_max_length}, batch_size: {batch_size}"
+        )
 
     def embed_documents(self, texts: List[str]) -> list:
         return self._client.encode_corpus(texts)
@@ -102,6 +111,9 @@ class BGEM3FlagModelEmbeddings(EmbeddingModel):
             batch_size=batch_size,
             query_max_length=query_max_length,
             passage_max_length=passage_max_length,
+        )
+        logger.info(
+            f"Loaded BGEM3FlagModel model: {model_name}, query_max_length: {query_max_length}, passage_max_length: {passage_max_length}, batch_size: {batch_size}"
         )
 
     def embed_documents(self, texts: List[str]) -> list:
