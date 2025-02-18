@@ -123,10 +123,6 @@ def evaluate_cases(
         # Store metrics
         all_metrics[case_name] = metrics[0]
 
-        # Print metrics
-        for metric_name, value in metrics[0].items():
-            logger.info(f"{metric_name}: {value:.4f}")
-
     return all_metrics
 
 
@@ -224,8 +220,8 @@ def main():
     )
 
     # Print comprehensive summary
-    logger.info("\n=== Evaluation Summary ===")
-    logger.info("-" * 80)
+    logger.info("=== Evaluation Summary ===")
+    logger.info("-" * 40)
 
     for case_name in all_metrics.keys():
         logger.info(f"Case: {case_name}")
@@ -234,6 +230,7 @@ def main():
         # Performance metrics
         metrics = all_metrics[case_name]
         logger.info(f"NDCG@10: {metrics['NDCG@10']:.4f}")
+        logger.info("-" * 40)
 
 
 if __name__ == "__main__":
