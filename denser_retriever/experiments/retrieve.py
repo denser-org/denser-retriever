@@ -5,6 +5,7 @@ import logging
 from denser_retriever import DenserRetriever
 from denser_retriever.core.keyword import ESIndexData
 from denser_retriever.core.vectordb.milvus import MilvusIndexData
+from denser_retriever.core.shared import SharedComponents
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ def main():
     # Required arguments
     parser.add_argument("index_name", help="Name of the index to search")
     parser.add_argument("query", help="Search query")
+    parser.add_argument("method", help="Method to use for retrieval (vector, hybrid, reranker, fusion)")
 
     # Optional config file
     parser.add_argument(
@@ -61,14 +63,15 @@ def main():
         embedding_size=int(config["embedding"]["size"]),  # Match embedding model size
         drop_old=False
     )
+    shared_components = SharedComponents.initialize_from_config(config_path)
     retriever = DenserRetriever(
-        config_path=config_path,
+        shared=shared_components,
         es_data=es_data,
         milvus_data=milvus_data
     )
 
     # Get the specified retrieval method
-    retrieve_method = get_retrieval_method(retriever, config["combine_config"]["method"])
+    retrieve_method = get_retrieval_method(retriever, args.method)
 
     # Perform retrieval using the selected method
     result = retrieve_method(
@@ -82,8 +85,8 @@ def main():
     print(
         f"\nTop {len(result.documents)} results for query: {args.query}"
     )
-    method = config["combine_config"]["method"]
-    print(f"Using method: {method}")
+
+    print(f"Using method: {args.method}")
     print(f"Usage: {result.token_metrics}")
     print("-" * 80)
     for i, (doc, score) in enumerate(result.documents, 1):

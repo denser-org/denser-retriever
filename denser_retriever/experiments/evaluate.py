@@ -9,6 +9,7 @@ from denser_retriever.experiments.hf_data_loader import HFDataLoader
 from denser_retriever.core.utils import evaluate
 from denser_retriever.core.keyword import ESIndexData
 from denser_retriever.core.vectordb.milvus import MilvusIndexData
+from denser_retriever.core.shared import SharedComponents
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -201,8 +202,9 @@ def main():
         embedding_size=int(config["embedding"]["size"]),  # Match embedding model size
         drop_old=False
     )
+    shared_components = SharedComponents.initialize_from_config(config_path)
     retriever = DenserRetriever(
-        config_path=config_path,
+        shared=shared_components,
         es_data=es_data,
         milvus_data=milvus_data
     )

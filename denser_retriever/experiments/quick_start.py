@@ -2,6 +2,7 @@ from langchain_core.documents import Document
 from denser_retriever.core.retriever import DenserRetriever
 from denser_retriever.core.keyword import ESIndexData
 from denser_retriever.core.vectordb.milvus import MilvusIndexData
+from denser_retriever.core.shared import SharedComponents
 
 # Create sample documents
 texts = [
@@ -24,8 +25,10 @@ milvus_data = MilvusIndexData(
     embedding_size=768,  # Match embedding model size
     drop_old=True
 )
+shared_components = SharedComponents.initialize_from_config("denser_retriever/configs/retrieve_msmarco.json")
+
 retriever = DenserRetriever(
-    config_path="denser_retriever/configs/fusion_msmarco.json",
+    shared=shared_components,
     es_data=es_data,
     milvus_data=milvus_data
 )
@@ -33,7 +36,7 @@ retriever = DenserRetriever(
 # Ingest documents
 retriever.ingest(texts)
 
-result = retriever.retrieve(query="Explain machine learning", k=5, usage=True)
+result = retriever.retrieve(query="Explain machine learning", method="fusion", k=5, usage=True)
 print(result.to_json())
 
 # Cleanup

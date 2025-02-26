@@ -3,6 +3,7 @@ from denser_retriever.core.retriever import DenserRetriever
 from denser_retriever.core.keyword import ESIndexData
 from denser_retriever.core.vectordb.milvus import MilvusIndexData
 from denser_retriever.core.filter import FieldMapper
+from denser_retriever.core.shared import SharedComponents
 
 
 class TestRetriever:
@@ -24,8 +25,9 @@ class TestRetriever:
         )
 
         # Create retriever with config and index data
+        shared_components = SharedComponents.initialize_from_config("denser_retriever/configs/retrieve_msmarco.json")
         self.retriever = DenserRetriever(
-            config_path="denser_retriever/configs/fusion_msmarco.json",
+            shared=shared_components,
             es_data=es_data,
             milvus_data=milvus_data
         )
@@ -78,7 +80,7 @@ class TestRetriever:
 
     def test_retrieve(self):
         doc_ids, _ = self.retriever.ingest(self.test_docs)
-        results = self.retriever.retrieve("content1", 2)
+        results = self.retriever.retrieve("content1", "fusion", 2)
         assert len(results.documents) == 2
         assert results.documents[0][0].page_content == "content1"
         assert abs(results.documents[0][1] - 0.9104) < 0.001

@@ -104,7 +104,7 @@ class SharedComponents:
                 instance.reranker = HFReranker(model_name=reranker_model)
 
         # Initialize LR model
-        lr_config = config.get('combine_config', {}).get('lr_config', {})
+        lr_config = config.get('lr_config', {})
         if lr_config:
             instance.lr_model = LogisticRegression(lr_config.get('lr_model'))
             instance.lr_features = lr_config.get('lr_features')

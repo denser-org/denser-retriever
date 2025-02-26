@@ -4,6 +4,10 @@
   "max_query_len": 2000,
   "max_doc_size": 0,
   "max_doc_len": 8000,
+  "keyword_top_k":100,
+  "vector_top_k":100,
+  "reranker_top_k":100,
+  "aggregation": false,
   "es": {
     "url": "${ES_URL:http://localhost:9200}",
     "username": "${ES_USERNAME}",
@@ -20,12 +24,5 @@
     "model": "Snowflake/snowflake-arctic-embed-m",
     "size": 768,
     "one_model": false
-  },
-  "combine_config": {
-    "method": "fusion",
-    "keyword_top_k":100,
-    "vector_top_k":100,
-    "reranker_top_k":100
-  },
-  "aggregation": false
+  }
 }

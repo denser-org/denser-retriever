@@ -17,15 +17,9 @@
     "size": 768,
     "one_model": false
   },
-  "combine_config": {
-    "method": "fusion",
-    "keyword_top_k": 100,
-    "vector_top_k": 100,
-    "reranker_top_k": 100,
-    "lr_config": {
-      "lr_features": "es+vs+rr",
-      "lr_model": "denser_retriever/models/weights_es+vs+rr_scifact.json"
-    }
+  "lr_config": {
+    "lr_features": "es+vs+rr",
+    "lr_model": "denser_retriever/models/weights_es+vs+rr_msmarco.json"
   },
   "aggregation": false
 }

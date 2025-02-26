@@ -7,6 +7,7 @@ from langchain_core.documents import Document
 from denser_retriever.core.retriever import DenserRetriever
 from denser_retriever.core.keyword import ESIndexData
 from denser_retriever.core.vectordb.milvus import MilvusIndexData
+from denser_retriever.core.shared import SharedComponents
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,10 @@ milvus_data = MilvusIndexData(
     embedding_size=768,  # Match embedding model size
     drop_old=True
 )
+shared_components = SharedComponents.initialize_from_config("denser_retriever/configs/retrieve_msmarco.json")
+
 retriever = DenserRetriever(
-    config_path="denser_retriever/configs/fusion_msmarco.json",
+    shared=shared_components,
     es_data=es_data,
     milvus_data=milvus_data
 )
@@ -64,7 +67,7 @@ def denser_chat():
             st.markdown(query)
 
         start_time = time.time()
-        retrieval_result = retriever.retrieve(query=query, k=5, usage=True)
+        retrieval_result = retriever.retrieve(query=query, method="fusion", k=5, usage=True)
         retrieve_time_sec = time.time() - start_time
         st.write(f"Retrieve time: {retrieve_time_sec:.3f} sec.")
 

@@ -23,6 +23,7 @@ from denser_retriever.experiments.utils import prepare_features, save_HF_corpus_
 from denser_retriever.core.utils import config_to_features, load_queries
 from denser_retriever.core.keyword import ESIndexData
 from denser_retriever.core.vectordb.milvus import MilvusIndexData
+from denser_retriever.core.shared import SharedComponents
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,9 +55,9 @@ class Experiment:
         self.max_query_len = config["max_query_len"]
         self.max_doc_size = config["max_doc_size"]
         self.max_doc_len = config["max_doc_len"]
-        self.es_top_k = config["combine_config"]["keyword_top_k"]
-        self.vector_top_k = config["combine_config"]["vector_top_k"]
-        self.reranker_top_k = config["combine_config"]["reranker_top_k"]
+        self.es_top_k = config["keyword_top_k"]
+        self.vector_top_k = config["vector_top_k"]
+        self.reranker_top_k = config["reranker_top_k"]
 
         # Initialize retriever with config
         index_name = data_name.replace("-", "_")
@@ -70,8 +71,9 @@ class Experiment:
             embedding_size=int(config["embedding"]["size"]),
             drop_old=drop_old
         )
+        shared_components = SharedComponents.initialize_from_config(config_path)
         self.retriever = DenserRetriever(
-            config_path=config_path,
+            shared=shared_components,
             es_data=es_data,
             milvus_data=milvus_data
         )

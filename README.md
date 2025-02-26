@@ -43,13 +43,14 @@ We need to start the elasticsearch and Milvus services before running the experi
 docker compose up -d
 ```
 
-After starting the services, here is the code to build a retriever and run a query. The retriever building and query are governed by the configuration file `denser_retriever/configs/fusion_msmarco.json`, which specifies the embedding model, reranker model and top-k arguments in retrieval.
+After starting the services, here is the code to build a retriever and run a query. The retriever building and query are governed by the configuration file `denser_retriever/configs/retrieve_msmarco.json`, which specifies the embedding model, reranker model and top-k arguments in retrieval.
 
 ```python
 from langchain_core.documents import Document
 from denser_retriever.core.retriever import DenserRetriever
 from denser_retriever.core.keyword import ESIndexData
 from denser_retriever.core.vectordb.milvus import MilvusIndexData
+from denser_retriever.core.shared import SharedComponents
 
 # Create sample documents
 texts = [
@@ -72,8 +73,10 @@ milvus_data = MilvusIndexData(
     embedding_size=768,  # Match embedding model size
     drop_old=True
 )
+shared_components = SharedComponents.initialize_from_config("denser_retriever/configs/retrieve_msmarco.json")
+
 retriever = DenserRetriever(
-    config_path="denser_retriever/configs/fusion_msmarco.json",
+    shared=shared_components,
     es_data=es_data,
     milvus_data=milvus_data
 )
@@ -81,7 +84,7 @@ retriever = DenserRetriever(
 # Ingest documents
 retriever.ingest(texts)
 
-result = retriever.retrieve(query="Explain machine learning", k=5, usage=True)
+result = retriever.retrieve(query="Explain machine learning", method="fusion", k=5, usage=True)
 print(result.to_json())
 
 # Cleanup
@@ -132,7 +135,8 @@ The retriever index is generated in the ingestion section above. We can change t
 ```bash
 python -m denser_retriever.experiments.retrieve scifact \
 "0-dimensional biomaterials show inductive properties." \
---config denser_retriever/configs/fusion_scifact.json
+"fusion" \
+--config denser_retriever/configs/retrieve_scifact.json
 ```
 The above command leads to the following results:
 
@@ -230,7 +234,7 @@ of top-k passages to retrieve, and the sixth argument is the number of queries t
 python -m denser_retriever.experiments.evaluate \
     scifact \
     mteb/scifact \
-    --config denser_retriever/configs/fusion_scifact.json \
+    --config denser_retriever/configs/retrieve_scifact.json \
     --output-dir exps/exp_scifact/pred \
     --top-k 100 \
     --num-queries 0
@@ -287,7 +291,7 @@ python -m denser_retriever.experiments.evaluate \
     msmarco \
     mteb/msmarco \
     --split dev \
-    --config denser_retriever/configs/fusion_msmarco.json \
+    --config denser_retriever/configs/retrieve_msmarco.json \
     --output-dir exps/exp_msmarco/pred \
     --top-k 100 \
     --num-queries 0
@@ -315,14 +319,14 @@ LeCaRDv2 dataset involves identifying and retrieving the case document that best
 
 ### Evaluation
 
-LeCaRDv2 dataset only has 159 test queries and does not have a training dataset. While we cannot train a Logistic Regression model on this data, we use the model trained on MsMarco dataset to evaluate. The embedding model of `BAAI/bge-m3` and reranker model `BAAI/bge-reranker-v2-m3` are used in the evaluation. All models are specified in the `fusion_lecardv2.json`.
+LeCaRDv2 dataset only has 159 test queries and does not have a training dataset. While we cannot train a Logistic Regression model on this data, we use the model trained on MsMarco dataset to evaluate. The embedding model of `BAAI/bge-m3` and reranker model `BAAI/bge-reranker-v2-m3` are used in the evaluation. All models are specified in the `retrieve_lecardv2.json`.
 
 ```bash
 python -m denser_retriever.experiments.evaluate \
     lecardv2 \
     mteb/lecardv2 \
     --split test \
-    --config denser_retriever/configs/fusion_lecardv2.json \
+    --config denser_retriever/configs/retrieve_lecardv2.json \
     --output-dir exps/exp_lecardv2/pred \
     --top-k 100
 ```
