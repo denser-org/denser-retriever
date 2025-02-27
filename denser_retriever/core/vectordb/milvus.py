@@ -198,7 +198,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
             index_data: MilvusIndexData,
             documents: List[Document],
             embedding_model: DenserEmbeddings,
-            batch_size: int = 1000,
+            batch_size: int = 200,
             progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
             **kwargs: Any,
     ) -> List[str]:
@@ -256,6 +256,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
                     index_data.collection.flush()
                 except Exception as e:
                     logger.error(f'Milvus index insert error at record {doc.metadata["pid"]} - {e}')
+                logger.info(f"Processed {len(batch)} documents, {docs_processed}/{total_docs} total.")
 
                 batch = []
                 pid_list, sources, titles, texts = [], [], [], []
@@ -275,6 +276,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
                     "pids": pid_list,
                     "batch": batch,
                 })
+        logger.info(f"Processed {len(batch)} documents, {docs_processed}/{total_docs} total.")
 
         index_data.collection.load()
 
