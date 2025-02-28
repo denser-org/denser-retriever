@@ -208,7 +208,10 @@ class DenserRetriever:
                 query, [doc for doc, _ in vs_docs]
             )
             metrics = TokenMetrics(
-                vector_tokens=embedding_tokens, total_tokens=embedding_tokens
+                keyword_queries=0,
+                vector_tokens=embedding_tokens,
+                rerank_tokens=0,
+                total_tokens=embedding_tokens
             )
 
         return RetrievalResult(vs_docs, None, metrics)
@@ -246,11 +249,11 @@ class DenserRetriever:
             vector_tokens = ResourceTracker.calculate_vector_search_token_count(
                 query, [doc for doc, _ in vs_docs]
             )
-            keyword_tokens = len(query.split())
             metrics = TokenMetrics(
+                keyword_queries = 1,
                 vector_tokens=vector_tokens,
-                keyword_tokens=keyword_tokens,
-                total_tokens=vector_tokens + keyword_tokens,
+                rerank_tokens=0,
+                total_tokens=vector_tokens
             )
 
         _, _, ks_rank_dict = docs_to_dict(ks_docs)
@@ -308,7 +311,10 @@ class DenserRetriever:
                     query, docs_to_rerank
                 )
                 metrics = TokenMetrics(
-                    rerank_tokens=rerank_tokens, total_tokens=rerank_tokens
+                    keyword_queries=1,
+                    vector_tokens=0,
+                    rerank_tokens=rerank_tokens,
+                    total_tokens=rerank_tokens
                 )
             return RetrievalResult(
                 documents=reranked_docs[:k],
@@ -344,9 +350,10 @@ class DenserRetriever:
                 else 0
             )
             metrics = TokenMetrics(
+                keyword_queries=1,
                 vector_tokens=vector_tokens,
                 rerank_tokens=rerank_tokens,
-                total_tokens=vector_tokens + rerank_tokens,
+                total_tokens=vector_tokens + rerank_tokens
             )
 
         scores = []

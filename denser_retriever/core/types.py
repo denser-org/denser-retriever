@@ -8,14 +8,14 @@ class TokenMetrics:
     """Token usage metrics for retrieval operations.
 
     Attributes:
+        keyword_queries: Number of keyword search queries
         vector_tokens: Number of tokens used for vector search
-        keyword_tokens: Number of tokens used for keyword search
         rerank_tokens: Number of tokens used for reranking
         total_tokens: Total number of tokens used
     """
 
+    keyword_queries: int = 0
     vector_tokens: int = 0
-    keyword_tokens: int = 0
     rerank_tokens: int = 0
     total_tokens: int = 0
 
@@ -69,8 +69,8 @@ class RetrievalResult:
 
         if self.token_metrics:
             json_output["token_metrics"] = {
+                "keyword_queries": self.token_metrics.keyword_queries,
                 "vector_tokens": self.token_metrics.vector_tokens,
-                "keyword_tokens": self.token_metrics.keyword_tokens,
                 "rerank_tokens": self.token_metrics.rerank_tokens,
                 "total_tokens": self.token_metrics.total_tokens,
             }
