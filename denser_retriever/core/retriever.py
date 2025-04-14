@@ -40,8 +40,7 @@ class DenserRetriever:
 
     def _ingest_elasticsearch(
             self,
-            docs: List[Document],
-            progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+            docs: List[Document]
     ) -> int:
         """Process Elasticsearch ingestion and return number of documents processed."""
         if not self.keyword_search:
@@ -49,14 +48,13 @@ class DenserRetriever:
 
         num_docs = len(docs)
         logger.info(f"Adding {num_docs} documents to keyword search")
-        self.keyword_search.add_documents(self.es_data, docs, progress_callback=progress_callback)
+        self.keyword_search.add_documents(self.es_data, docs)
         return num_docs
 
     def _ingest_vector_db(
             self,
             docs: List[Document],
-            texts: List[str],
-            progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+            texts: List[str]
     ) -> Tuple[int, int]:
         """Process Vector DB ingestion and return docs processed and tokens used."""
         if not self.vector_db:
@@ -69,89 +67,23 @@ class DenserRetriever:
             self.vector_db.add_documents(
                 self.milvus_data,
                 docs,
-                self.embeddings,
-                progress_callback=progress_callback
+                self.embeddings
             )
-
         return num_docs, token_count
 
     def ingest(
             self,
             docs: List[Document],
-            overwrite_pid: bool = True,
-            progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+            overwrite_pid: bool = True
     ) -> Tuple[List[str], Dict[str, float]]:
         if overwrite_pid:
             for doc in docs:
                 doc.metadata["pid"] = uuid.uuid4().hex
 
         texts = [doc.page_content for doc in docs]
-        total_docs = len(docs)
-
-        if progress_callback:
-            progress_callback({
-                "total_docs": total_docs,
-                "es_progress": 0,
-                "vector_progress": 0,
-                "es_docs_processed": 0,
-                "vector_docs_processed": 0,
-                "status": "starting"
-            })
-
-        es_docs_processed = 0
-        try:
-            es_docs_processed = self._ingest_elasticsearch(docs, progress_callback)
-            if progress_callback:
-                progress_callback({
-                    "total_docs": total_docs,
-                    "es_progress": (es_docs_processed / total_docs) * 100,
-                    "es_docs_processed": es_docs_processed,
-                    "status": "elasticsearch_ingestion_complete"
-                })
-        except Exception as e:
-            logger.error(f"Elasticsearch ingestion error: {e}")
-            if progress_callback:
-                progress_callback({
-                    "total_docs": total_docs,
-                    "es_progress": 0,
-                    "es_docs_processed": 0,
-                    "status": "elasticsearch_ingestion_failed",
-                    "error": str(e)
-                })
-
-        vector_docs_processed, token_count = 0, 0
-        try:
-            vector_docs_processed, token_count = self._ingest_vector_db(docs, texts, progress_callback)
-            if progress_callback:
-                progress_callback({
-                    "total_docs": total_docs,
-                    "vector_progress": (vector_docs_processed / total_docs) * 100,
-                    "vector_docs_processed": vector_docs_processed,
-                    "status": "vector_db_ingestion_complete"
-                })
-        except Exception as e:
-            logger.error(f"Vector DB ingestion error: {e}")
-            if progress_callback:
-                progress_callback({
-                    "total_docs": total_docs,
-                    "vector_progress": 0,
-                    "vector_docs_processed": 0,
-                    "status": "vector_db_ingestion_failed",
-                    "error": str(e)
-                })
-
+        es_docs_processed = self._ingest_elasticsearch(docs)
+        vector_docs_processed, token_count = self._ingest_vector_db(docs, texts)
         max_docs_processed = max(es_docs_processed, vector_docs_processed)
-
-        if progress_callback:
-            progress_callback({
-                "total_docs": total_docs,
-                "es_progress": (es_docs_processed / total_docs) * 100,
-                "vector_progress": (vector_docs_processed / total_docs) * 100,
-                "es_docs_processed": es_docs_processed,
-                "vector_docs_processed": vector_docs_processed,
-                "status": "ingestion_complete"
-            })
-
         metrics = {
             "es_docs": es_docs_processed,
             "vector_docs": vector_docs_processed,

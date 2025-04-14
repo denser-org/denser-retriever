@@ -199,7 +199,6 @@ class MilvusDenserVectorDB(DenserVectorDB):
             documents: List[Document],
             embedding_model: DenserEmbeddings,
             batch_size: int = 200,
-            progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
             **kwargs: Any,
     ) -> List[str]:
         if not index_data.collection:
@@ -238,16 +237,7 @@ class MilvusDenserVectorDB(DenserVectorDB):
 
             docs_processed += 1
 
-            if progress_callback and (len(batch) == batch_size or i == len(documents) - 1):
-                progress_callback({
-                    "total_docs": total_docs,
-                    "es_progress": 100,  # ES is already complete at this point
-                    "vector_progress": (docs_processed / total_docs) * 100,
-                    "es_docs_processed": total_docs,
-                    "vector_docs_processed": docs_processed,
-                    "status": "vector_db_ingesting"
-                })
-
+            if (len(batch) == batch_size or i == len(documents) - 1):
                 embeddings = embedding_model.embed_documents(batch)
                 record = [pid_list, sources, titles, texts, np.array(embeddings)] + fields_list
 
@@ -279,17 +269,6 @@ class MilvusDenserVectorDB(DenserVectorDB):
         logger.info(f"Processed {len(batch)} documents, {docs_processed}/{total_docs} total.")
 
         index_data.collection.load()
-
-        if progress_callback:
-            progress_callback({
-                "total_docs": total_docs,
-                "es_progress": 100,
-                "vector_progress": 100,
-                "es_docs_processed": total_docs,
-                "vector_docs_processed": total_docs,
-                "status": "vector_db_complete"
-            })
-
         return list(seen_pids)
 
     def retrieve(
