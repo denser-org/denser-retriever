@@ -17,7 +17,7 @@ def test_rerank() -> None:
         "bbb3",
     ]
     docs = list(map(lambda text: Document(page_content=text), texts))
-    reranker = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    reranker = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2", top_k=10)
     actual_docs = reranker.rerank(docs, "bbb2")
     actual = list(map(lambda doc: doc[0].page_content, actual_docs))[0:3]
     expected_returned = ["bbb2", "bbb1", "bbb3"]
@@ -29,6 +29,6 @@ def test_rerank() -> None:
 
 def test_rerank_empty() -> None:
     docs: List[Document] = []
-    reranker = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    reranker = HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2", top_k=10)
     actual_docs = reranker.rerank(docs, "query")
     assert len(actual_docs) == 0
