@@ -5,7 +5,8 @@ from denser_retriever.gradient_boost import XGradientBoost
 from denser_retriever.keyword import ElasticKeywordSearch, create_elasticsearch_client
 from denser_retriever.retriever import DenserRetriever
 from denser_retriever.vectordb.milvus import MilvusDenserVectorDB
-from experiments.utils import embeddings, reranker
+from denser_retriever.embeddings import SentenceTransformerEmbeddings
+from denser_retriever.reranker import HFReranker
 
 docs = TextLoader("tests/test_data/state_of_the_union.txt").load()
 
@@ -20,11 +21,13 @@ retriever = DenserRetriever(
         connection_args={"uri": "http://localhost:19530"},
     ),
     keyword_search=ElasticKeywordSearch(
-        es_connection=create_elasticsearch_client(url="http://localhost:9200"),
+        es_connection=create_elasticsearch_client(url="http://localhost:9200"), drop_old=False
     ),
-    reranker=reranker,
+    reranker=HFReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2", top_k=10),
     gradient_boost=XGradientBoost("experiments/models/msmarco_xgb_es+vs+rr_n.json"),
-    embeddings=embeddings,
+    embeddings=SentenceTransformerEmbeddings(
+        "sentence-transformers/all-MiniLM-L6-v2", 384, True
+    ),
     combine_mode="model",
     xgb_model_features="es+vs+rr_n",
 )

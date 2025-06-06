@@ -9,7 +9,7 @@ title: Build an Index and Query
 In index and query use case, users provide a collection of documents such as text files or webpages to build a retriever. Users can then ask questions to obtain relevant results from the provided documents. The code for this use case is at [index_and_query_from_docs.py](https://github.com/denser-org/denser-retriever/blob/main/experiments/index_and_query_from_docs.py). To run this use case, go to denser-retriever repo and run the following command
 
 ```bash
-poetry run python experiments/index_and_query_from_docs.py
+poetry run python experiments/index_and_query_local_file.py
 ```
 If the run is successful, we would expect to see something similar to the following.
 
@@ -207,7 +207,7 @@ Building a retriever from a webpage is similar to the above, except for the pass
 To run this use case, go to denser-retriever repo and run:
 
 ```bash
-poetry run python experiments/index_and_query_from_webpage.py
+poetry run python experiments/index_and_query_from_website.py
 ```
 
 If successful, we expect to see somthing similar to the following.

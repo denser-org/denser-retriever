@@ -7,11 +7,18 @@ import cohere
 from sentence_transformers import CrossEncoder
 from langchain_core.documents import Document
 
+# Set up logger for this module
 logger = logging.getLogger(__name__)
 
 class DenserReranker(ABC):
+    """
+    Abstract base class for rerankers.
+    Subclasses should implement the rerank method.
+    """
     def __init__(self, top_k: int = 50, weight: float = 0.5):
+        # Number of top documents to keep after reranking
         self.top_k = top_k
+        # Weight parameter for combining scores (if needed)
         self.weight = weight
 
     @abstractmethod
@@ -20,13 +27,18 @@ class DenserReranker(ABC):
         documents: Sequence[Document],
         query: str,
     ) -> List[Tuple[Document, float]]:
+        """
+        Abstract method to rerank documents given a query.
+        Should return a list of (Document, score) tuples.
+        """
         pass
 
 
 class HFReranker(DenserReranker):
-    """Rerank documents using a HuggingFaceCrossEncoder model."""
+    """Rerank documents using a HuggingFace CrossEncoder model."""
 
     def __init__(self, model_name: str, top_k: int, **kwargs):
+        # Initialize parent class and CrossEncoder model
         super().__init__(top_k=top_k)
         self.model = CrossEncoder(model_name, **kwargs)
 
@@ -48,13 +60,16 @@ class HFReranker(DenserReranker):
         if not documents:
             return []
         start_time = time.time()
+        # Predict relevance scores for each document-query pair
         scores = self.model.predict([(query, doc.page_content) for doc in documents], convert_to_tensor=True)
+        # Pair each document with its score
         docs_with_scores = list(zip(documents, scores))
+        # Sort documents by score in descending order
         result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
         rerank_time_sec = time.time() - start_time
         logger.info(f"Rerank time: {rerank_time_sec:.3f} sec.")
         logger.info(f"Reranked {len(result)} documents.")
-        return result
+        return result  # Returns all reranked documents; consider slicing with self.top_k
 
 
 class CohereReranker(DenserReranker):
@@ -69,6 +84,7 @@ class CohereReranker(DenserReranker):
             model_name: The name of the Cohere model to use for reranking.
         """
         super().__init__()
+        # Set up Cohere client and model name
         self.client = cohere.Client(api_key)
         self.model_name = model_name
 
@@ -92,8 +108,9 @@ class CohereReranker(DenserReranker):
 
         start_time = time.time()
 
-        # Prepare documents for reranking
+        # Prepare document texts for reranking
         texts = [doc.page_content for doc in documents]
+        # Call Cohere's rerank API
         response = self.client.rerank(
             model=self.model_name,
             query=query,
@@ -108,4 +125,4 @@ class CohereReranker(DenserReranker):
         rerank_time_sec = time.time() - start_time
         logger.info(f"Cohere Rerank time: {rerank_time_sec:.3f} sec.")
         logger.info(f"Reranked {len(result)} documents.")
-        return result
+        return result  # Returns all reranked documents; consider slicing with self.top_k
