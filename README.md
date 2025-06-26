@@ -59,7 +59,7 @@ poetry add denser-retriever
 ## 📃 Documentation
 
 The official documentation is hosted on [retriever.denser.ai](https://retriever.denser.ai).
-Click [here](https://retriever.denser.ai/docs/quick-start) to get started.
+Click [here](https://retriever-docs.denser.ai/docs/core/quick-start) to get started.
 
 ## 👨🏼‍💻 Development
 
