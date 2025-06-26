@@ -4,6 +4,7 @@ import uuid
 import time
 
 from langchain_core.documents import Document
+from pydantic import BaseModel
 
 from denser_retriever.embeddings import DenserEmbeddings
 from denser_retriever.gradient_boost import DenserGradientBoost
@@ -31,6 +32,17 @@ config_to_features = {
 }
 
 
+class RetrievalConfig(BaseModel):
+    top_k: int = 100
+    weight: float = 0.5
+
+
+class RetrievalParams(BaseModel):
+    vector_db: RetrievalConfig = RetrievalConfig()
+    keyword: RetrievalConfig = RetrievalConfig()
+    reranker: RetrievalConfig = RetrievalConfig(top_k=50)
+
+
 class DenserRetriever:
     def __init__(
         self,
@@ -42,7 +54,7 @@ class DenserRetriever:
         gradient_boost: Optional[DenserGradientBoost],
         combine_mode: str = "linear",
         xgb_model_features: str = "es+vs+rr_n",
-        search_fields: List[str] = []
+        search_fields: List[str] = [],
     ):
         # config parameters
         self.index_name = index_name
@@ -80,46 +92,62 @@ class DenserRetriever:
         return [doc.metadata["pid"] for doc in docs]
 
     def retrieve(
-        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, **kwargs: Any
+        self,
+        query: str,
+        k: int = 100,
+        filter: Dict[str, Any] = {},
+        retrieval_params: RetrievalParams = RetrievalParams(),
+        **kwargs: Any,
     ):
         logger.info(f"Retrieve query: {query} top_k: {k}")
         if self.combine_mode in ["linear", "rank"]:
-            return self._retrieve_by_linear_or_rank(query, k, filter, **kwargs)
+            return self._retrieve_by_linear_or_rank(
+                query, k, filter, retrieval_params, **kwargs
+            )
         else:
-            return self._retrieve_by_model(query, k, filter, **kwargs)
+            return self._retrieve_by_model(query, k, filter, retrieval_params, **kwargs)
 
     def _retrieve_by_linear_or_rank(
-        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, **kwargs: Any
+        self,
+        query: str,
+        k: int = 100,
+        filter: Dict[str, Any] = {},
+        retrieval_params: RetrievalParams = RetrievalParams(),
+        **kwargs: Any,
     ):
         passages = []
 
         if self.keyword_search:
             es_docs = self.keyword_search.retrieve(
-                query, self.keyword_search.top_k, filter=filter, **kwargs
+                query, retrieval_params.keyword.top_k, filter=filter, **kwargs
             )
-            es_passages = scale_results(es_docs, self.keyword_search.weight)
+            es_passages = scale_results(es_docs, retrieval_params.keyword.weight)
             logger.info(f"Keyword search: {len(es_passages)}")
             passages.extend(es_passages)
 
         if self.vector_db:
             vector_docs = self.vector_db.similarity_search_with_score(
-                query, self.vector_db.top_k, filter, **kwargs
+                query, retrieval_params.vector_db.top_k, filter, **kwargs
             )
             logger.info(f"Vector search: {len(vector_docs)}")
             passages = merge_results(
-                passages, vector_docs, 1.0, self.vector_db.weight, self.combine_mode
+                passages,
+                vector_docs,
+                1.0,
+                retrieval_params.vector_db.weight,
+                self.combine_mode,
             )
 
         if self.reranker:
             start_time = time.time()
-            docs = [doc for doc, _ in passages[: self.reranker.top_k]]
+            docs = [doc for doc, _ in passages[: retrieval_params.reranker.top_k]]
             reranked_docs = self.reranker.rerank(docs, query)
 
             passages = merge_results(
                 passages,
                 reranked_docs,
                 1.0,
-                self.reranker.weight,
+                retrieval_params.reranker.weight,
                 self.combine_mode,
             )
             rerank_time_sec = time.time() - start_time
@@ -128,9 +156,16 @@ class DenserRetriever:
         return passages[:k]
 
     def _retrieve_by_model(
-        self, query: str, k: int = 100, filter: Dict[str, Any] = {}, **kwargs: Any
+        self,
+        query: str,
+        k: int = 100,
+        filter: Dict[str, Any] = {},
+        retrieval_params: RetrievalParams = RetrievalParams(),
+        **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
-        docs, doc_features = self._retrieve_with_features(query, filter, **kwargs)
+        docs, doc_features = self._retrieve_with_features(
+            query, filter, retrieval_params, **kwargs
+        )
 
         if not self.gradient_boost:
             raise ValueError("Gradient Boost model not provided")
@@ -147,17 +182,21 @@ class DenserRetriever:
         return reranked_docs[:k]
 
     def _retrieve_with_features(
-        self, query: str, filter: Dict[str, Any] = {}, **kwargs: Any
+        self,
+        query: str,
+        filter: Dict[str, Any] = {},
+        retrieval_params: RetrievalParams = RetrievalParams(),
+        **kwargs: Any,
     ) -> Tuple[List[Document], List[List[str]]]:
         ks_docs = []
         if self.keyword_search:
             ks_docs = self.keyword_search.retrieve(
-                query, self.keyword_search.top_k, filter=filter, **kwargs
+                query, retrieval_params.keyword.top_k, filter=filter, **kwargs
             )
         vs_docs = []
         if self.vector_db:
             vs_docs = self.vector_db.similarity_search_with_score(
-                query, k=self.vector_db.top_k, filter=filter, **kwargs
+                query, retrieval_params.vector_db.top_k, filter=filter, **kwargs
             )
 
         combined = []
@@ -248,7 +287,12 @@ class DenserRetriever:
 
         return docs, non_zero_normalized_features
 
-    def delete(self, ids: Optional[List[str]] = None, source_id: Optional[str] = None, **kwargs: str):
+    def delete(
+        self,
+        ids: Optional[List[str]] = None,
+        source_id: Optional[str] = None,
+        **kwargs: str,
+    ):
         """Clear the retriever."""
         if self.vector_db:
             self.vector_db.delete(ids=ids, source_id=source_id, **kwargs)
